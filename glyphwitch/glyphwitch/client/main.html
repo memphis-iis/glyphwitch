@@ -1,0 +1,55 @@
+<head>
+  <title>glyphwitch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+  <h1>Welcome to Glyphwitch!</h1>
+
+  {{> hello}}
+  {{> newGlyph}}
+  {{> allGlyphs}}
+  {{> footer}}
+</body>
+
+<template name="hello">
+  <h2>Menu</h2>
+  {{> menu}}
+  <h2>Stats</h2>
+  {{stats}}
+</template>
+
+
+<template name="newGlyph">
+  <h2>New Glyph</h2>
+  <table>
+    <canvas id="glyphCanvas" width="200" height="200"></canvas>
+  </table>
+  <button id="clearCanvas">Clear</button>
+  <button id="saveGlyph">Save</button>
+</template>
+
+<template name="menu">
+  <ul>
+    <li><a href="/newDocument">New Document</a></li>
+    <li><a href="/documents">List Documents</a></li>
+    <li><a href="/about">New Glyph</a></li>
+    <li><a href="/about">Search Glyphs</a></li>
+    <li><a href="/about">New Phoneme</a></li>
+  </ul>
+</template>
+
+<template name="allGlyphs">
+  <h2>All Glyphs</h2>
+  <ul>
+    {{#each allGlyphs}}
+      <img src="{{this}}" alt="glyph" width="100" height="100">
+    {{/each}}
+  </ul>
+</template>
+
+<template name="footer">
+  <footer>
+    <p>Glyphwitch is a project by the University of Memphis' Institute for Intelligent Systems.</p>
+  </footer>
+</template>
