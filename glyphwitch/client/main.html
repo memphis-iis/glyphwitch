@@ -1,0 +1,113 @@
+<head>
+  <title>glyphwitch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Add Bootstrap CSS here -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+
+<body>
+  <h1>Welcome to Glyphwitch!</h1>
+
+  {{> hello}}
+  {{> uploadDocument}}
+  {{> selectDocument}}
+  {{> newGlyph}}
+  {{> allGlyphs}}
+  {{> footer}}
+</body>
+
+<template name="hello">
+  <h2>Menu</h2>
+  {{> menu}}
+  <h2>Stats</h2>
+  {{stats}}
+</template>
+
+
+<template name="newGlyph">
+  <h2>New Glyph</h2>
+  <table>
+    <canvas id="glyphCanvas" width="200" height="200"></canvas>
+  </table>
+  <button id="clearCanvas" class="btn btn-danger">Clear</button>
+  <button id="saveGlyph" class="btn btn-success">Save</button>
+</template>
+
+<template name="menu">
+  <ul>
+    <li><a href="/newDocument">New Document</a></li>
+    <li><a href="/documents">List Documents</a></li>
+    <li><a href="/about">New Glyph</a></li>
+    <li><a href="/about">Search Glyphs</a></li>
+    <li><a href="/about">New Phoneme</a></li>
+  </ul>
+</template>
+
+<template name="uploadDocument">
+  <h2>Upload Document</h2>
+  <form id="uploadDocumentForm">
+    <div class="form-group">
+      <label for="title">Title</label>
+      <input type="text" class="form-control" id="title" name="title">
+    </div>
+    <div class="form-group">
+      <label for="author">Author</label>
+      <input type="text" class="form-control" id="author" name="author">
+    </div>
+    <div class="form-group">
+      <label for="document">Choose Document</label>
+      <input type="file" class="form-control-file" id="fileInput" name="document">
+    </div>
+    <button type="submit" class="btn btn-primary" id="submitDocument">Upload</button>
+  </form>
+</template>
+
+<template name="selectDocument">
+  <h2>Select Document</h2>
+  <form id="viewDocumentForm">
+    <div class="form-group">
+      <label for="document">Choose Document</label>
+      <select class="form-control" id="documentSelect" name="document">
+        {{#each documents}}
+          <option value="{{this._id}}">{{this.title}}</option>
+        {{/each}}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary" id="submitDocument">View</button>
+  </form>
+  <h2>View Document</h2>
+  <h3>{{currentDocument.title}}</h3>
+  <p>{{currentDocument.author}}</p>
+  <p>{{currentDocument.document}}</p>
+  <!-- links for each page -->
+  <ul>
+    {{#each currentDocument.pages}}
+      <li><a href="/viewpage/{{currentDocument._id}}/{{@index}}">{{@index}}</a></li>
+    {{/each}}
+  </ul>
+</template>
+
+<template name="allGlyphs">
+  <h2>All Glyphs</h2>
+  
+    <div class="row">
+      {{#each allGlyphs}}
+        <div class="col-md-2">
+          <div class="card">
+            <img src="{{this.image_link}}" alt="glyph" class="card-img-top" width="100px">
+            <div class="card-overlay">
+              <button class="btn btn-info" id="displayInfo" data-id="{{this._id}}">Info</button>
+              <button class="btn btn-danger" id="deleteGlyph" data-id="{{this._id}}">Delete</button>
+            </div>
+          </div>
+        </div>
+      {{/each}}
+    </div>
+  
+</template>
+
+<template name="footer">
+  <footer>
+    <p>Glyphwitch is a project by the University of Memphis' Institute for Intelligent Systems.</p>
+  </footer>
+</template>
