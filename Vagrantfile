@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-mofacts_gid=1002
+glypwitch_gid=1002
 
 # All Vagrant configuration is done below. The "2" in Vagrant.configure
 # configures the configuration version (we support older styles for
@@ -9,11 +9,12 @@ mofacts_gid=1002
 # you're doing.
 Vagrant.configure(2) do |config|
   config.vm.provision :shell, :inline => "sudo rm /etc/localtime && sudo ln -s /usr/share/zoneinfo/America/Chicago /etc/localtime", run: "always"
-  config.vm.box = "ubuntu/focal64"
+  config.vm.box = "ubuntu/bionic64"
   config.vm.network "forwarded_port", guest: 27017, host: 30017, host_ip: "127.0.0.1"
   config.vm.network "forwarded_port", guest: 5432, host: 65432
   config.vm.network "forwarded_port", guest: 3000, host: 3000, host_ip: "0.0.0.0"
-  config.vm.synced_folder "glyphwitch/", "/vagrant/glyphwitch", owner: "vagrant", group: mofacts_gid, mount_options: ["dmode=775,fmode=775"]
+  # shared folder,
+  config.vm.synced_folder ".", "/vagrant", type: "virtualbox"
   config.vm.provider "virtualbox" do |vb|
     vb.gui = false
     vb.memory = "6144"

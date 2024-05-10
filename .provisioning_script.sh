@@ -1,8 +1,5 @@
 #!/bin/bash
 
-#Make sure we can find the custom meteor packages
-echo "export METEOR_PACKAGE_DIRS=/home/vagrant/glyphwitch/custom_packages" >> ~/.profile
-echo "dos2unix glyphwitch/glyphwitch/run_meteor" >> ~/.profile
 
 # Make a symbolic link to the sync'ed directory for more "natural" work
 ln -s /vagrant "$HOME/glyphwitch"
@@ -28,7 +25,6 @@ sudo apt-get install -y mongodb-org
 
 sudo systemctl enable mongod
 
-sudo apt-get install dos2unix
 
 # Change mongo to listen on all addresses (which is fine since we're walled off)
 PDIR="$HOME/.provision"
@@ -52,48 +48,26 @@ sudo systemctl restart mongod
 
 
 # Install nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
 
 # Load nvm
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-# Install node v14
-nvm install v14
+# Install node
+nvm install 14
 
-#use node v14
-nvm use v14
+#use node 14
+nvm use 14
 
-# Install Meteor
-curl https://install.meteor.com/ | sh
+# Install meteor
+curl https://install.meteor.com/?release=2.15 | sh
 
-dos2unix run_meteor
+# In case we're running on a Windows host, we force the use of mounting instead
+# of symlinks for meteor packages
+cd "$HOME/glyphwitch/glyphwitch"
 
-sudo umount .meteor/local -f
-rm .meteor/local -rf
-mkdir -p .meteor/local
 
-sudo umount packages -f
-rm packages -rf
-mkdir -p packages
-
-mkdir -p "$HOME/.meteor/local"
-sudo mount --bind "$HOME/.meteor/local" .meteor/local
-
-mkdir -p "$HOME/.meteor/packages"
-sudo mount --bind "$HOME/.meteor/packages" packages
-
-#meteor update
-meteor npm install --save babel-runtime --no-bin-links
-
-#Install gradle
-sudo apt-get install -y gradle
-
-#install cmake
-sudo apt-get install -y cmake
-
-# Set up dynamic config
-bash /vagrant/scripts/server/setDynamicConfig.sh
 
 # Remove Ubuntu's landscape stuff and clear login messages
 sudo apt-get purge -y landscape-client landscape-common
