@@ -1,36 +1,226 @@
 <head>
   <title>glyphwitch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Add Bootstrap CSS here -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <!-- Add Bootstrap 5.2 CSS here -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js" integrity="sha384-cuYeSxntonz0PPNlHhBs68uyIAVpIIOZZ5JqeqvYYIcEL727kskC66kF92t6Xl2V" crossorigin="anonymous"></script>
+  <!-- add boostrap tabs -->
+
 </head>
 
 <body>
-  <h1>Welcome to Glyphwitch!</h1>
-
-  {{> hello}}
-  {{> uploadDocument}}
-  {{> selectDocument}}
-  {{> newGlyph}}
-  {{> allGlyphs}}
-  {{> footer}}
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
 </body>
 
-<template name="hello">
-  <h2>Menu</h2>
-  {{> menu}}
-  <h2>Stats</h2>
-  {{stats}}
+<template name="defaultLayout">
+  {{> header}}
+  <div class="container">
+    {{> yield}}
+  </div>
+  {{> footer}}
 </template>
 
+<!-- header with topnav bar bootstrap 5.2. Needs Home and right side login/signup/logout -->
+<template name="header">
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">Glyphwitch</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">Home</ul>
+      </div>
+      <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+        <ul class="navbar-nav">
+          {{#if currentUser}}
+            <li class="nav-item">
+              <a href="/logout" class="nav-link">Logout {{currentUser.username}}</a>
+            </li>
+          {{else}}
+            <li class="nav-item">
+              <a class="nav-link" href="/login">Login/Signup</a>
+            </li>
+          {{/if}}
+        </ul>
+      </div>
+    </div>  
+  </nav>
+</template>
+
+<!--home -->
+<template name="home">
+  
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-6">
+        {{> login}}
+      </div>
+    </div>
+  </div>
+
+</template>
+
+<!-- login/signup template -->
+<template name="login">
+  <p>Welcome to Glyphwitch, a tool for examining documents and comparing glyphs.</p>
+  <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-home" type="button" role="tab" aria-controls="pills-home" aria-selected="true">Login</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="pills-profile-tab" data-bs-toggle="pill" data-bs-target="#pills-profile" type="button" role="tab" aria-controls="pills-profile" aria-selected="false">Signup</button>
+  </li>
+</ul>
+<div class="tab-content" id="pills-tabContent">
+  <div class="tab-pane fade show active" id="pills-home" role="tabpanel" aria-labelledby="pills-home-tab" tabindex="0">
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" class="form-control" id="email1" name="email">
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" class="form-control" id="password1" name="password">
+    </div>
+    <br>
+    <button class="btn btn-primary" id="login-btn">Login</button>
+  </div>
+  <div class="tab-pane fade" id="pills-profile" role="tabpanel" aria-labelledby="pills-profile-tab" tabindex="0">
+     <!-- alert box describing requirements for email and password -->
+     <div class="alert alert-warning" role="alert">
+      Email and password are required.<br>
+      <ul>
+        <li>Email must be a valid email address.</li>
+        <li>Password must be at least 6 characters long.</li>
+        <li>Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.</li>
+      </ul>
+    </div>   
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" class="form-control" id="email2" name="email">
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" class="form-control" id="password2" name="password">
+    </div>
+    <br>
+    <button class="btn btn-primary" id="signup">Signup</button>
+  </div>
+</div>
+</template>
+
+<!-- change email and password form for first admin login, for changing password, and for changing email -->
+<template name="changeEmailPassword">
+  <h2>{{currentUser.username}}, please change your Email and Password</h2>
+  <p>For security, please change your email and password.</p>
+  <form id="changeEmailPasswordForm">
+    <div class="form-group">
+      <label for="email">Current Email</label>
+      <input type="email" class="form-control" id="currentEmail" name="currentEmail" value="{{currentUser.email}}" readonly disabled>
+    </div>
+    <div class="form-group">
+      <label for="newEmail">New Email</label>
+      <input type="email" class="form-control" id="newEmail" name="newEmail">
+    </div>
+    <div class="form-group">
+      <label for="newPassword">New Password</label>
+      <input type="password" class="form-control" id="newPassword" name="newPassword">
+    </div>
+    <button type="submit" class="btn btn-primary" id="changeEmailPassword">Change</button>
+  </form>
+</template>
+
+<!-- dashboard -->
+<template name="dashboard">
+  <h2>Dashboard</h2>
+  <p>Welcome to the dashboard, {{currentUser.username}}.</p>
+  <p>Here you can upload documents, view documents, and create and search glyphs.</p>
+  <!-- bootstrap tabs for each section -->
+  <ul class="nav nav-tabs" id="myTab" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="true">Upload Document</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="view-tab" data-bs-toggle="tab" data-bs-target="#view" type="button" role="tab" aria-controls="view" aria-selected="false">View Document</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="glyph-tab" data-bs-toggle="tab" data-bs-target="#newglyph" type="button" role="tab" aria-controls="newglyph" aria-selected="false">New Glyph</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="glyph-tab" data-bs-toggle="tab" data-bs-target="#search" type="button" role="tab" aria-controls="search" aria-selected="false">Search Glyph</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="glyph-tab" data-bs-toggle="tab" data-bs-target="#glyph" type="button" role="tab" aria-controls="glyph" aria-selected="false">All Glyphs</button>
+    </li>
+    {{#if isAdmin}}
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin" type="button" role="tab" aria-controls="admin" aria-selected="false">Admin</button>
+    </li>
+    {{/if}}
+  </ul>
+  <div class="vh-5"></div>
+  <div class="tab-content" id="myTabContent">
+    <div class="tab-pane fade show active" id="upload" role="tabpanel" aria-labelledby="upload-tab">
+      {{> uploadDocument}}
+    </div>
+    <div class="tab-pane fade" id="view" role="tabpanel" aria-labelledby="view-tab">
+      {{> selectDocument}}
+    </div>
+    <div class="tab-pane fade" id="newglyph" role="tabpanel" aria-labelledby="newglyph-tab">
+      {{> newGlyph}}
+    </div>
+    <div class="tab-pane fade" id="search" role="tabpanel" aria-labelledby="search-tab">
+      {{> searchGlyphs}}
+    </div>
+    <div class="tab-pane fade" id="glyph" role="tabpanel" aria-labelledby="glyph-tab">
+      {{> allGlyphs}}
+    </div>
+    {{#if isAdmin}}
+    <div class="tab-pane fade" id="admin" role="tabpanel" aria-labelledby="admin-tab">
+      {{> admin}}
+    </div>
+    {{/if}}
+  </div>
+</template>
 
 <template name="newGlyph">
   <h2>New Glyph</h2>
   <table>
-    <canvas id="glyphCanvas" width="200" height="200"></canvas>
+    <canvas id="glyphCanvas" width="200" height="200" style="border: 1px solid black;"></canvas>
   </table>
   <button id="clearCanvas" class="btn btn-danger">Clear</button>
   <button id="saveGlyph" class="btn btn-success">Save</button>
+</template>
+
+<!-- input glyph for search -->
+<template name="searchGlyphs">
+  <h2>Search Glyph</h2>
+  <p>Draw a glyph in the canvas below to search for similar glyphs using Structural Similarity Index (SSIM) distance.</p>
+  <table>
+    <canvas id="searchCanvas" width="200" height="200" style="border: 1px solid black;"></canvas>
+  </table>
+  <button id="clearSearchCanvas" class="btn btn-danger">Clear</button>
+  <button id="searchGlyph" class="btn btn-success">Search</button>
+  <h2>Results</h2>
+  <div class="row">
+    {{#if glyphs}}
+    {{#each glyphs}}
+      <div class="col-md-2">
+        <div class="card">
+          {{this.glyph._id}}
+          <img src="{{this.glyph.image_link}}" alt="glyph" class="card-img-top" width="100px">
+          <div class="card-overlay">
+            <button class="btn btn-info" id="displayInfo" data-id="{{this.glyph._id}}">Info</button>
+            <p>SSIM Distance (0-1): {{this.distance}}</p>
+          </div>
+        </div>
+      </div>
+    {{/each}}
+  {{else}}
+    <p>No glyphs found.</p>
+  {{/if}}
+  </div>
 </template>
 
 <template name="menu">
@@ -63,7 +253,7 @@
 </template>
 
 <template name="selectDocument">
-  <h2>Select Document</h2>
+  <h3>Select Document</h3>
   <form id="viewDocumentForm">
     <div class="form-group">
       <label for="document">Choose Document</label>
@@ -73,10 +263,9 @@
         {{/each}}
       </select>
     </div>
-    <button type="submit" class="btn btn-primary" id="submitDocument">View</button>
   </form>
-  <h2>View Document</h2>
-  <h3>{{currentDocument.title}}</h3>
+  <h3>View Document</h3>
+  <h4>{{currentDocument.title}}</h4>
   <p>{{currentDocument.author}}</p>
   <p>{{currentDocument.document}}</p>
   <!-- links for each page -->
@@ -88,26 +277,66 @@
 </template>
 
 <template name="allGlyphs">
-  <h2>All Glyphs</h2>
-  
+  <div class="container">
     <div class="row">
-      {{#each allGlyphs}}
-        <div class="col-md-2">
-          <div class="card">
-            <img src="{{this.image_link}}" alt="glyph" class="card-img-top" width="100px">
-            <div class="card-overlay">
-              <button class="btn btn-info" id="displayInfo" data-id="{{this._id}}">Info</button>
-              <button class="btn btn-danger" id="deleteGlyph" data-id="{{this._id}}">Delete</button>
+      {{#if allGlyphs}}
+        {{#each allGlyphs}}
+          <div class="col-md-2">
+            <div class="card">
+              <img src="{{this.image_link}}" alt="glyph" class="card-img-top" width="100px">
+              <div class="card-overlay">
+                <button class="btn btn-info" id="displayInfo" data-id="{{this._id}}">Info</button>
+                <button class="btn btn-danger" id="deleteGlyph" data-id="{{this._id}}">Delete</button>
+              </div>
             </div>
           </div>
-        </div>
-      {{/each}}
+        {{/each}}
+      {{else}}
+        <p>No glyphs found.</p>
+      {{/if}}
     </div>
-  
+  </div>
+</template>
+
+<!-- admin template with add/delete user, role setting, and delete whole database -->
+<template name="admin">
+  <h2>Admin</h2>
+  <h3>Users</h3>
+  <!-- teble with user email, role dropdown, and delete button-->
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Delete</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each users}}
+        <tr>
+          <td>{{this.email}}</td>
+          <td>
+            <select class="form-control role-select" id="roleSelect" data-id="{{this._id}}">
+              <option value="current">{{this.role}}</option>
+              <option value="admin">Admin</option>
+              <option value="user">User</option>
+            </select>
+          </td>
+          <td>
+            <button class="btn btn-danger delete-user" id="deleteUser" data-id="{{this._id}}">Delete</button>
+          </td>
+        </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  <h3>Database Delete</h3>
+  <button id="deleteDatabase">Delete Database</button>
+  <p>This will delete all data in the database. This action cannot be undone.</p>
 </template>
 
 <template name="footer">
+  <hr>
   <footer>
-    <p>Glyphwitch is a project by the University of Memphis' Institute for Intelligent Systems.</p>
+    <p style="text-align: center;">Glyphwitch is a project by the University of Memphis' Institute for Intelligent Systems.</p>
   </footer>
 </template>

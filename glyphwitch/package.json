@@ -11,6 +11,7 @@
     "@babel/plugin-transform-private-methods": "^7.24.1",
     "@babel/runtime": "^7.23.5",
     "filereader": "^0.10.3",
+    "image-ssim": "^0.2.0",
     "jquery": "^3.7.1",
     "meteor-node-stubs": "^1.2.7",
     "opencv4nodejs": "^5.6.0",
@@ -23,7 +24,10 @@
     "pdf2png": "^1.0.5",
     "pdfjs": "^2.5.3",
     "pdfjs-dist": "^2.16.105",
-    "pdfkit": "^0.15.0"
+    "pdfkit": "^0.15.0",
+    "request": "^2.88.2",
+    "ssim": "0.0.0",
+    "ssim.js": "^3.5.0"
   },
   "meteor": {
     "mainModule": {

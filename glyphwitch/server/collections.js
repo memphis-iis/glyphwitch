@@ -2,7 +2,9 @@ import { Meteor } from 'meteor/meteor';
 import { FilesCollection } from 'meteor/ostrio:files';
 import { Accounts } from 'meteor/accounts-base';
 import { fromBuffer } from 'pdf2pic';
-import opencv from 'opencv4nodejs';
+import util from 'util';
+import ssim from 'ssim.js';
+
 
 
 const fs = require('fs');
@@ -43,6 +45,89 @@ Files = new FilesCollection({
 // Define methods for the collections. They must be exported to be used in the main server file.
 
 Meteor.methods({
+    //create a new user, set role to user. Must have a username, email, and password. 
+    createNewUser: function(username, email, password) {
+        console.log("Creating user (username: " + username + ", email: " + email + ", password: " + password + ")");
+        //check if the user already exists, if so return an error
+        errors = [];
+        if (Meteor.users.findOne({username: username})) {
+            console.log("Error: User already exists");
+            errors.push("User already exists, please choose a different username or login.");
+        }
+        //if the email is not valid, return an error
+        if (!email.includes('@') || !email.includes('.')) {
+            console.log("Error: Email is not valid");
+            errors.push("Email is not valid, please enter a valid email address.");
+        }
+        //if the password is not at least 6 characters, contailn at least one number, and at least one uppercase letter, and a special character, return an error
+        if (!password.match(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{6,}$/)) {
+            console.log("Error: Password is not valid");
+            errors.push("Password must be at least 6 characters long and contain at least one number, one uppercase letter, and one special character.");
+        }
+        //if there are errors, return the errors
+        if (errors.length > 0) {
+            return errors;
+        }
+        Accounts.createUser({
+            username: username,
+            email: email,
+            password: password
+        });
+        Roles.addUsersToRoles(Meteor.users.findOne({ username: username }), 'user');
+    },
+    //set user role
+    setUserRole: function(username, role) {
+        console.log("Setting user role (username: " + username + ", role: " + role + ")");
+        //get the user
+        user = Meteor.users.findOne({ username: username });
+        //set the role
+        try {
+            Roles.addUsersToRoles(user, role);
+            return true;
+        } catch (error) {
+            console.log("Error: " + error);
+            return error;
+        }
+    },
+    //change username and password, or just the password. Must include the old username. The old username is optional. New password must be at least 6 characters, contain at least one number, one uppercase letter, and one special character.
+    changeEmailPassword: function(oldEmail, newPassword, newEmail=False) {
+    console.log("Changing email and password (oldEmail: " + oldEmail + ", newPassword: " + newPassword + ", newEmail: " + newEmail + ")");
+    //get the current user
+    user = Meteor.user();
+    console.log(user);
+    //if the new email is provided, change the email
+    if (newEmail) {
+        try {
+            Accounts.addEmail(user._id, newEmail);
+            Accounts.removeEmail(user._id, oldEmail);
+        } catch (error) {
+            console.log("Error: " + error);
+            return error;
+        }
+    }
+    //change the password
+    try {
+        Accounts.setPassword(user._id, newPassword);
+        return true;
+    } catch (error) {
+        console.log("Error: " + error);
+        return error;
+    }
+    },
+    //delete user
+    deleteUser: function(username) {
+        console.log("Deleting user (username: " + username + ")");
+        //get the user
+        user = Meteor.users.findOne({ username: username });
+        //delete the user
+        try {
+            Meteor.users.remove(user);
+            return true;
+        } catch (error) {
+            console.log("Error: " + error);
+            return error;
+        }
+    },
     //add an entry to the documents collection. Must include the file collection location, the title, and the author. and the user who added it.
     addDocument: function(file, title, author) {
         console.log("Adding document (file: " + file + ", title: " + title + ", author: " + author + ")");
@@ -221,12 +306,7 @@ Meteor.methods({
     addGlyphFromDataURL: function(dataURL) {
         console.log("Adding glyph from dataURL (dataURL: " + dataURL + ")");
         bufferedImage = new Buffer(dataURL.replace(/^data:image\/\w+;base64,/, ""), 'base64');
-        //use openCV to read the image and get HOG features
-        //read the image using opencv
-        img = opencv.imdecode(bufferedImage);
-        //get the HOG features of the image
-        hog = new opencv.HOGDescriptor();
-        features = hog.compute(img);
+
         Files.write(bufferedImage, { fileName: 'glyph.png', type: 'image/png' }, function (err, fileObj) {
             if (err) {
                 console.log("Error: " + err);
@@ -239,79 +319,69 @@ Meteor.methods({
                     unicode: "",
                     image: fileObj._id,
                     image_link: link,
-                    addedBy: "",
-                    features: features
+
                 });
             }
         });
     },
     compareImageGlyphs: function(glyph1, glyph2) {
         console.log("Comparing image glyphs (glyph1: " + glyph1 + ", glyph2: " + glyph2 + ")");
-        //read the glyphs
-        glyph1 = Glyphs.findOne({ _id: glyph1 });
-        glyph2 = Glyphs.findOne({ _id: glyph2 });
-        //check if HOG features are already calculated
-        if (glyph1.features) {
-            targetFeatures = glyph1.features;
-        } else {
-            //get the image data
-            image1 = Files.findOne({ _id: glyph1.image });
-            //get the image using http
-            image1Data = HTTP.get(image1.link(), {responseType: 'arraybuffer'});
-            //convert the image data to a buffer
-            image1Buffer = new Buffer(image1Data.content, 'binary');
-            //read the image using opencv
-            img1 = opencv.imdecode(image1Buffer);
-            //compare the images using HOG features
-            hog = new opencv.HOGDescriptor();
-            targetFeatures = hog.compute(img1);
-            glyph1.features = targetFeatures;
-            //add the hog features to the image in the database
-            Glyphs.update(glyph1, { $set: { features: targetFeatures } });
-        }
-        if (glyph2.features) {
-            queryFeatures = glyph2.features;
-        } else {
-            //get the image data
-            image2 = Files.findOne({ _id: glyph2.image });
-            //get the image using http
-            image2Data = HTTP.get(image2.link(), {responseType: 'arraybuffer'});
-            //convert the image data to a buffer
-            image2Buffer = new Buffer(image2Data.content, 'binary');
-            //read the image using opencv
-            img2 = opencv.imdecode(image2Buffer);
-            //compare the images using HOG features
-            hog = new opencv.HOGDescriptor();
-            queryFeatures = hog.compute(img2);
-            glyph2.features = queryFeatures;
-            //add the hog features to the image in the database
-            Glyphs.update(glyph2, { $set: { features: queryFeatures } });
-        }
-        //compare the images using HOG features
-        similarity = opencv.matchShapes(targetFeatures, queryFeatures, 1, 0);
-         
-        return similarity;
+       
     },
+    findNearbyGlyphsFromDataURL: async function(dataURL, numGlyphs) {
+        console.log("Finding nearby glyphs from dataURL...");
+      
+        // Decode dataURL efficiently
+        bufferedImage = new Buffer.from(dataURL.replace(/^data:image\/\w+;base64,/, ""), 'base64');
+      
+        //convert the buffer to Uint8ClampedArray
+        const searchImage = {
+            data: new Uint8ClampedArray(bufferedImage),
+            width: 20,
+            height: 20
+        }
+      
+        const distances = [];
+        glyphs = Glyphs.find().fetch();
+        console.log("Glyphs: " + glyphs.length);
+        for (const glyph of glyphs) {
+          console.log("Glyph: " + glyph._id);
+          //get the glyphs image link
+          const glyphImage = Files.findOne(glyph.image).link();
+          console.log("Glyph image: " + glyphImage);
+          //get the image buffer from a link using http
+          request = require('request');
+          getGlyphImage = util.promisify(request.get);
+          glyphBuffer = await getGlyphImage(glyphImage, { encoding: null }).then(response => response.body);
+            
+            //convert the glyph buffer to Uint8ClampedArray
+            const testImage = {
+                data: new Uint8ClampedArray(glyphBuffer),
+                width: 20,
+                height: 20
+            };
+            //compare the images
+            const distance = ssim(testImage, searchImage);
+            mssim = distance.mssim 
+            //mssim is -1 to 1, 1 being identical. Let's change it to 0 to 1, 0 being identical
+            mssim = (mssim + 1) / 2;
+            console.log("Distance: " + mssim);
+            distances.push({ glyph: glyph, distance: mssim });
+                
+            
+        
+        }   
+        //sort the distances by distance (closest first)
+        distances.sort((a, b) => a.distance - b.distance);
+        //return the closest numGlyphs
+        console.log("Distances: " + JSON.stringify(distances));
+        return distances;
+      
+  
+      },
     findNearbyGlyphs: function(glyph_id, numGlyphs) {
         console.log("Finding nearby glyphs (image: " + image + ", numGlyphs: " + numGlyphs + ")");
-        //read the glyphs
-        glyph = Glyphs.findOne({ _id: glyph_id });
-        //get the features of the image
-        features = image.features;
-        //find the nearest glyphs
-        distances = [];
-        Glyphs.find().forEach(function(glyph) {
-            if (glyph.features) {
-                similarity = opencv.matchShapes(features, glyph.features, 1, 0);
-                distances.push({ glyph: glyph._id, similarity: similarity });
-            }
-        });
-        //sort the distances
-        distances.sort(function(a, b) {
-            return a.similarity - b.similarity;
-        });
-        //return the top numGlyphs
-        return distances.slice(0, numGlyphs);
+        
     },
 
     //remove an entry from the glyphs collection. Must include the glyph id.
