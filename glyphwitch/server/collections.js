@@ -4,6 +4,7 @@ import { Accounts } from 'meteor/accounts-base';
 import { fromBuffer } from 'pdf2pic';
 import util from 'util';
 import ssim from 'ssim.js';
+import pdf2img from 'pdf-img-convert';
 
 
 
@@ -173,11 +174,11 @@ Meteor.methods({
     },
     //add line to a page. Must include the document id, the page number, x1, y1, width, height, and the user who added it.
     addLineToPage: function(document, page_number, x1, y1, width, height) {
-        console.log("Adding line (document: " + document + ", page: " + page + ", x1: " + x1 + ", y1: " + y1 + ", width: " + width + ", height: " + height + ")");
+        console.log("Adding line (document: " + document + ", page: " + page_number + ", x1: " + x1 + ", y1: " + y1 + ", width: " + width + ", height: " + height + ")");
         //get the Document
         var doc = Documents.findOne(document);
         //push the line to the page
-        doc.pages[page_number].lines.push({ x1: x1, y1: y1, width: width, height: height });
+        doc.pages[page_number].lines.push({ x1: x1, y1: y1, width: width, height: height , words: []});
         //update the document
         Documents.update(document, doc);
     },
@@ -192,7 +193,7 @@ Meteor.methods({
         Documents.update(document, doc);
     },
     //add word to a line. Must include the document id, the page number, the line number, the x coordinate, the width, the word order number, the word, and the user who added it.
-    addWordToLine: function(document, page, line, x, width, wordOrder, word) {
+    addWordToLine: function(document, page, line, x, width, wordOrder=false, word=false) {
         console.log("Adding word (document: " + document + ", page: " + page + ", line: " + line + ", x: " + x + ", width: " + width + ", wordOrder: " + wordOrder + ", word: " + word + ")");
         //get the Document
         var doc = Documents.findOne(document);
@@ -363,7 +364,7 @@ Meteor.methods({
             //compare the images
             const distance = ssim(testImage, searchImage);
             mssim = distance.mssim 
-            //mssim is -1 to 1, 1 being identical. Let's change it to 0 to 1, 0 being identical
+            //mssim is -1 to 1, 1 being identical. Let's scale it to 0 to 1
             mssim = (mssim + 1) / 2;
             console.log("Distance: " + mssim);
             distances.push({ glyph: glyph, distance: mssim });
@@ -371,8 +372,8 @@ Meteor.methods({
             
         
         }   
-        //sort the distances by distance (closest first)
-        distances.sort((a, b) => a.distance - b.distance);
+        //sort distances high to low
+        distances.sort((a, b) => (a.distance < b.distance) ? 1 : -1);
         //return the closest numGlyphs
         console.log("Distances: " + JSON.stringify(distances));
         return distances;
@@ -478,29 +479,27 @@ async function convertPdfToImages(pdfinfo, documentId) {
     //read the pdf file
     const pdfPath = pdfinfo.fetch()[0].path;
     const pdfPageCounter = require('pdf-page-counter');
-    dataBuffer = fs.readFileSync(pdfPath);
     //get the number of pages in the pdf
-    const imageIds = [];
-    pdfPageCounter(dataBuffer).then(function (data) {
-        for (let i = 1; i <= data.numpages; i++) {
-            console.log("Converting page " + i + " to image");
-            fromBuffer(dataBuffer).bulk(i, { responseType: 'buffer' }).then((images) => {
-                //create a buffer from the image
-                const buffer = Buffer.from(images);
-                //upload the image to the image collection as buffer
-                Files.write(buffer, { fileName: 'page' + i + '.png', type: 'image/png' }, function (err, fileObj) {
-                    if (err) {
-                        console.log("Error: " + err);
-                    } else {
-                        console.log("File added: " + fileObj._id);
-                        //add the image to the images array
-                        imageIds.push({ pageId: fileObj._id , page: i , lines: []});
-                        Documents.update({ _id: documentId }, { $set: { pages: imageIds } });
-                    }
-                });
+    outputImages = pdf2img.convert(pdfPath, function(err, info) {
+        if (err) {
+            console.log("Error: " + err);
+        } else {
+            console.log("Info: " + info);
+        }
+    });
+    outputImages.then(function(images) {
+        console.log("Images: " + images);
+        //add the images to the image collection
+        for (image of images) {
+            Files.write(image, { fileName: 'page' + images.indexOf(image) + '.png', type: 'image/png' }, function (err, fileObj) {
+                if (err) {
+                    console.log("Error: " + err);
+                } else {
+                    console.log("File added: " + fileObj._id);
+                    link = Files.findOne(fileObj._id).link();
+                    Documents.update(documentId, { $push: { pages: {pageId: fileObj._id, image: link, lines: []} } });
+                }
             });
         }
     });
-
-
 }

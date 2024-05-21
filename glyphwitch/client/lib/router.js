@@ -75,6 +75,18 @@ Router.route('/logout', {
   }
 });
 
+//viewPage route. It has 2 parameters, the documentId and the page number
+Router.route('/viewPage/:documentId/:page', {
+  name: 'viewPage',
+  template: 'viewPage',
+  data: function() {
+    return {
+      documentId: this.params.documentId,
+      page: this.params.page
+    };
+  }
+});
+
 //combine all routes into one array
 allRoutes = unrestrictedRoutes.concat(userRoutes, adminRoutes);
 

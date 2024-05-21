@@ -10,6 +10,8 @@
   "dependencies": {
     "@babel/plugin-transform-private-methods": "^7.24.1",
     "@babel/runtime": "^7.23.5",
+    "bootstrap-icons": "^1.11.3",
+    "cropperjs": "^1.6.2",
     "filereader": "^0.10.3",
     "image-ssim": "^0.2.0",
     "jquery": "^3.7.1",
