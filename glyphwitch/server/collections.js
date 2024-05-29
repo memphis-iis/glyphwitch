@@ -5,6 +5,9 @@ import { fromBuffer } from 'pdf2pic';
 import util from 'util';
 import ssim from 'ssim.js';
 import pdf2img from 'pdf-img-convert';
+import request from 'request';
+import promisify from 'util.promisify';
+import opencv from 'opencv4nodejs';
 
 
 
@@ -341,36 +344,90 @@ Meteor.methods({
             width: 20,
             height: 20
         }
-      
+
         const distances = [];
-        glyphs = Glyphs.find().fetch();
-        console.log("Glyphs: " + glyphs.length);
+        const glyphs = Glyphs.find().fetch();
+      
+        //preprocess the image by blurring it
         for (const glyph of glyphs) {
-          console.log("Glyph: " + glyph._id);
-          //get the glyphs image link
-          const glyphImage = Files.findOne(glyph.image).link();
-          console.log("Glyph image: " + glyphImage);
-          //get the image buffer from a link using http
-          request = require('request');
-          getGlyphImage = util.promisify(request.get);
-          glyphBuffer = await getGlyphImage(glyphImage, { encoding: null }).then(response => response.body);
-            
-            //convert the glyph buffer to Uint8ClampedArray
-            const testImage = {
-                data: new Uint8ClampedArray(glyphBuffer),
-                width: 20,
-                height: 20
-            };
-            //compare the images
-            const distance = ssim(testImage, searchImage);
-            mssim = distance.mssim 
-            //mssim is -1 to 1, 1 being identical. Let's scale it to 0 to 1
-            mssim = (mssim + 1) / 2;
-            console.log("Distance: " + mssim);
-            distances.push({ glyph: glyph, distance: mssim });
-                
-            
-        
+            console.log("Comparing glyph: " + glyph._id);
+
+            //get the glyph image link
+            const glyphImage = Files.findOne(glyph.image).link();
+
+            //download the image
+            const getGlyphImage = promisify(request.get);
+            const glyphBuffer = await getGlyphImage(glyphImage, { encoding: null });
+
+            //find the bounding box of each image
+            let minXimage1 = 20 - 1;
+            let minYimage1 = 20 - 1;
+            let maxXimage1 = 0;
+            let maxYimage1 = 0;
+            let minXimage2 = 20 - 1;
+            let minYimage2 = 20 - 1;
+            let maxXimage2 = 0;
+            let maxYimage2 = 0;
+
+            for (let i = 0; i < searchImage.data.length; i += 4) {
+                const x = (i / 4) % 20;
+                const y = Math.floor((i / 4) / 20);
+                if (searchImage.data[i] < 255) {
+                    minXimage1 = Math.min(minXimage1, x);
+                    minYimage1 = Math.min(minYimage1, y);
+                    maxXimage1 = Math.max(maxXimage1, x);
+                    maxYimage1 = Math.max(maxYimage1, y);
+                }
+                if (glyphBuffer.body[i] < 255) {
+                    minXimage2 = Math.min(minXimage2, x);
+                    minYimage2 = Math.min(minYimage2, y);
+                    maxXimage2 = Math.max(maxXimage2, x);
+                    maxYimage2 = Math.max(maxYimage2, y);
+                }
+            }
+
+            //calculate the padding
+            const targetWidth = 20;
+            const targetHeight = 20;
+
+            const paddingX1 = Math.floor((targetWidth - (maxXimage1 - minXimage1 + 1)) / 2);
+            const paddingY1 = Math.floor((targetHeight - (maxYimage1 - minYimage1 + 1)) / 2);
+            const paddingX2 = Math.floor((targetWidth - (maxXimage2 - minXimage2 + 1)) / 2);
+            const paddingY2 = Math.floor((targetHeight - (maxYimage2 - minYimage2 + 1)) / 2);
+
+            //create centered images
+            const centeredImage1 = new Uint8ClampedArray(targetWidth * targetHeight * 4).fill(255);
+
+            for (let i = 0; i < searchImage.data.length; i += 4) {
+                const x = (i / 4) % 20;
+                const y = Math.floor((i / 4) / 20);
+                const index = ((y + paddingY1) * targetWidth + (x + paddingX1)) * 4;
+                centeredImage1[index] = searchImage.data[i];
+                centeredImage1[index + 1] = searchImage.data[i + 1];
+                centeredImage1[index + 2] = searchImage.data[i + 2];
+                centeredImage1[index + 3] = searchImage.data[i + 3];
+            }
+
+            const centeredImage2 = new Uint8ClampedArray(targetWidth * targetHeight * 4).fill(255);
+
+            for (let i = 0; i < glyphBuffer.body.length; i += 4) {
+                const x = (i / 4) % 20;
+                const y = Math.floor((i / 4) / 20);
+                const index = ((y + paddingY2) * targetWidth + (x + paddingX2)) * 4;
+                centeredImage2[index] = glyphBuffer.body[i];
+                centeredImage2[index + 1] = glyphBuffer.body[i + 1];
+                centeredImage2[index + 2] = glyphBuffer.body[i + 2];
+                centeredImage2[index + 3] = glyphBuffer.body[i + 3];
+            }
+
+            const { goodMatches , numSearchKeypoints, numGlyphKeypoints } = findMatches(centeredImage1, centeredImage2);
+
+            const similarity = goodMatches / Math.min(numSearchKeypoints, numGlyphKeypoints);
+
+            distances.push({ glyph: glyph, distance: similarity });
+
+
+
         }   
         //sort distances high to low
         distances.sort((a, b) => (a.distance < b.distance) ? 1 : -1);
@@ -503,3 +560,68 @@ async function convertPdfToImages(pdfinfo, documentId) {
         }
     });
 }
+
+
+//specialty functions for the glyphwitch application
+function blurImage(imageData, kernelSize) {
+    const width = imageData.width;
+    const height = imageData.height;
+    const newImageData = new Uint8ClampedArray(width * height);
+  
+    // Iterate through each pixel (excluding edges for proper blurring)
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        let sum = 0;
+        let count = 0;
+  
+        // Apply kernel around the center pixel
+        for (let ky = -kernelSize; ky <= kernelSize; ky++) {
+          for (let kx = -kernelSize; kx <= kernelSize; kx++) {
+            const neighborX = x + kx;
+            const neighborY = y + ky;
+  
+            // Check if neighbor pixel is within image bounds
+            if (neighborX >= 0 && neighborX < width && neighborY >= 0 && neighborY < height) {
+              const neighborIndex = neighborY * width + neighborX;
+              sum += imageData[neighborIndex];
+              count++;
+            }
+          }
+        }
+  
+        // Set new pixel value as the average of neighbors
+        const newIndex = y * width + x;
+        newImageData[newIndex] = Math.floor(sum / count);
+      }
+    }
+  
+    // Copy edge pixels directly (no blurring for these)
+    for (let y = 0; y < height; y++) {
+      newImageData[y * width] = imageData[y * width]; // Top row
+      newImageData[(y + 1) * width - 1] = imageData[(y + 1) * width - 1]; // Bottom row
+    }
+    for (let x = 0; x < width; x++) {
+      newImageData[x] = imageData[x]; // Left column
+      newImageData[height * width - x - 1] = imageData[height * width - x - 1]; // Right column
+    }
+  
+    return newImageData;
+  }
+
+  function findMatches(searchImage, glyphImage) {
+    // 1. Feature Extraction (using libraries like OpenCV)
+    const sift = opencv.SIFT.create(); // Assuming OpenCV is used
+    const keypoints1 = sift.detect(searchImage.data, null);
+    const keypoints2 = sift.detect(glyphImage.data, null);
+  
+    // 2. Feature Matching (using libraries like OpenCV)
+    const matcher = new cv.FlannBasedMatcher({ indexParams: new cv.FlannIndexParams(0, new cv.HammingDistance()) });
+    const matches = matcher.match(keypoints1, keypoints2);
+  
+    // 3. Filtering Matches (Lowe's ratio test)
+    const goodMatches = matches.filter(
+      (match) => match.distance < 0.7 * matches[0].distance // Adjust threshold as needed
+    );
+  
+    return { goodMatches, numSearchKeypoints: keypoints1.length, numGlyphKeypoints: keypoints2.length };
+  }

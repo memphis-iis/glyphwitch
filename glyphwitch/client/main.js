@@ -81,7 +81,7 @@ Template.login.events({
           Router.go('changeEmailPassword');
         } else {
           //otherwise, redirect to the dashboard
-          Router.go('dashboard');
+          Router.go('/viewPage');
         }
       }
     });
@@ -100,6 +100,17 @@ Template.login.events({
         alert('Error signing up');
       } else {
         console.log(result);
+        //login the user
+        Meteor.loginWithPassword(email, password, function(error, result) {
+          if (error) {
+            console.log(error);
+            alert('Error logging in');
+          } else {
+            console.log(result);
+            //redirect to the dashboard
+            Router.go('/viewPage');
+          }
+        });
       }
     });
   }
@@ -266,10 +277,13 @@ Template.newGlyph.events({
 Template.selectDocument.onCreated(function() {
   console.log("selectDocument created");
   Template.instance().currentDocument = new ReactiveVar(false);
+  this.setDocument = new ReactiveVar(Template.currentData().setDocument);
+  this.setPage = new ReactiveVar(Template.currentData().setPage);
 });
 
 Template.selectDocument.helpers({
   documents() {
+    console.log(Template.instance().data);
     ret = Documents.find().fetch();
     console.log(ret);
     return ret;
@@ -296,9 +310,12 @@ Template.selectDocument.helpers({
 Template.selectDocument.events({
   'click #selectDoc'(event, trigger) {
     console.log("documentSelect to " + event.target.value);
-    const instance = Template.instance();
-    instance.currentDocument.set(event.target.value);
-
+    fn = Template.instance().setDocument.get();
+    fn(event.target.value);
+    fn2 = Template.instance().setPage.get();
+    fn2(0);
+  
+    
   }
 });
 
@@ -324,15 +341,10 @@ Template.allGlyphs.events({
 Template.viewPage.onCreated(function() {
   console.log("viewPage created");
   //get the current Page and current Document from the Iron Router variables
-  currentPage = Router.current().params.page;
-  currentDocument = Router.current().params.documentId;
   Template.instance().currentLine = new ReactiveVar(false);
   //set the global variables
-
-  console.log("currentDocument is " + currentDocument);
-  console.log("currentPage is " + currentPage);
-  Template.instance().currentDocument = new ReactiveVar(currentDocument);
-  Template.instance().currentPage = new ReactiveVar(currentPage);
+  Template.instance().currentDocument = new ReactiveVar();
+  Template.instance().currentPage = new ReactiveVar();
   Template.instance().currentTool =  new ReactiveVar('view');
   Template.instance().subTool = new ReactiveVar(false);
   Template.instance().currentHelp = new ReactiveVar("You can use [Shift] + Scroll to zoom in and out of the page image.");
@@ -345,16 +357,35 @@ Template.viewPage.onCreated(function() {
 
 });
 
+//Onrendered function for viewPage
+Template.viewPage.onRendered(function() {
+  //if the currentDocument is false, show the openModal
+  if (!Template.instance().currentDocument.get()) {
+    console.log("No document selected");
+    $('#openModal').modal('show');
+  } else {
+    $('#openModal').modal('hide');
+    currentPage = Te  
+    currentDocument = Template.instance().currentDocument.get();
+    console.log("currentDocument is " + currentDocument);
+    console.log("currentPage is " + currentPage);
+    instance = Template.instance();
+    instance.currentDocument.set(currentDocument);
+    instance.currentPage.set(currentPage);
+  }
+  
+});
+
 
 
 //function to reset all buttons in toolbox-container to btn-light
 function resetToolbox() {
   currentTool = Template.instance().currentTool.get();
   //if the createLine button is disabled, we need to reload the entire page
-  $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light').hide();
+  $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light').show();
   $('#exitTool').hide();
   //if currentTool is not false, enable the exitTool
-  if (currentTool) {
+  if (currentTool != 'view') {
     console.log("currentTool is " + currentTool);
     $('#exitTool').show();
     //set exittool to have class btn-danger
@@ -501,19 +532,22 @@ function resetCropper() {
 
 //replace the image with a canvas that has the same dimensions and source
 function replaceWithOriginalImage() {
-  //delete the canvas
+  //check if a canvas with the id pageImage exists
   const canvas = document.getElementById('pageImage');
-  canvas.parentNode.removeChild(canvas);
-  //get the original image
-  const image = document.getElementById('originalImage');
-  image.id = 'pageImage';
-  image.style.display = 'block';
-  //reset the cropper's variables
-  Template.instance().drawing.set(false);
-  Template.instance().bound1.set(false);
-  Template.instance().bound2.set(false);
-  Template.instance().yScaling.set(1);
-  Template.instance().xScaling.set(1);
+  //check if the type is canvas
+  if (canvas.tagName == 'CANVAS') {
+    canvas.remove();
+    //get the original image
+    const image = document.getElementById('originalImage');
+    image.id = 'pageImage';
+    image.style.display = 'block';
+    //reset the cropper's variables
+    Template.instance().drawing.set(false);
+    Template.instance().bound1.set(false);
+    Template.instance().bound2.set(false);
+    Template.instance().yScaling.set(1);
+    Template.instance().xScaling.set(1);
+  }
 }
 
 
@@ -535,6 +569,23 @@ Template.viewPage.helpers({
 
     } else {
       return false;
+    }
+  },
+  selectedDocument() {
+    const instance = Template.instance();
+    return function(newDocument) {
+      instance.currentDocument.set(newDocument);
+    }
+  },
+  selectedPage() {
+    const instance = Template.instance();
+    return function(newPage) {
+      instance.currentPage.set(newPage);
+      page = Documents.findOne({_id: instance.currentDocument.get()}).pages[newPage];
+      console.log(page);
+      //reset the pageImage to the new page's image
+      $('#pageImage').attr('src', page.image);
+      
     }
   },
   currentPage() {
@@ -641,8 +692,11 @@ Template.viewPage.events({
     $('#ToolBox').css('background-color', 'transparent');
   },
   'click #exitTool'(event, instance) {
-    //reload the page
-    location.reload();
+    //set the currentTool to view
+    instance.currentTool.set('view');
+    resetToolbox();
+    replaceWithOriginalImage();
+    
   },
   'click #lastPage'(event, instance) {
     event.preventDefault();
@@ -920,9 +974,9 @@ Template.viewPage.events({
       } else {
         console.log(result);
         $('#createLineModal').modal('hide');
+        replaceWithOriginalImage();
       }
     });
-    location.reload();
   },
   'click #confirmWord'(event, instance) {
     //we call meteor method addWordToLine: function(document, page_number, line_number, x1, y1, width, height)
@@ -946,11 +1000,11 @@ Template.viewPage.events({
       } else {
         console.log(result);
         $('#createWordModal').modal('hide');
+        replaceWithOriginalImage();
       }
     });
     //set the location to reload the page with the current page and document
     routeTo = "/viewPage/" + instance.currentDocument.get() + "/" + instance.currentPage.get();
-    location.reload();
   },
   //keyboard shift and mouse wheel event
   'wheel #pageImage'(event, instance) {
@@ -973,7 +1027,11 @@ Template.viewPage.events({
 
       
     }
-  }
+  },
+  //logout and head to the home page
+  'click #allExit': function(event, instance) {
+      Router.go('/logout');
+  },
 
   
 

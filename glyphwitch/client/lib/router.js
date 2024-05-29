@@ -14,7 +14,7 @@ Router.configure({
 unrestrictedRoutes = ['login', 'register'];
 
 //set user routes
-userRoutes = ['dashboard','profile','newGlyph','glyphSearch','uploadDocument','selectDocument','changeEmailPassword'];
+userRoutes = ['dashboard','profile','newGlyph','glyphSearch','uploadDocument','selectDocument','changeEmailPassword','viewPage'];
 
 //set admin routes
 adminRoutes = ['admin'];
@@ -77,7 +77,6 @@ Router.route('/logout', {
 
 //viewPage route. It has 2 parameters, the documentId and the page number
 Router.route('/viewPage/:documentId/:page', {
-  name: 'viewPage',
   template: 'viewPage',
   data: function() {
     return {

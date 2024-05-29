@@ -5,7 +5,8 @@
     "start": "meteor run",
     "test": "meteor test --once --driver-package meteortesting:mocha",
     "test-app": "TEST_WATCH=1 meteor test --full-app --driver-package meteortesting:mocha",
-    "visualize": "meteor --production --extra-packages bundle-visualizer"
+    "visualize": "meteor --production --extra-packages bundle-visualizer",
+    "postinstall": "cd node_modules/opencv4nodejs/build; make"
   },
   "dependencies": {
     "@babel/plugin-transform-private-methods": "^7.24.1",
@@ -16,6 +17,7 @@
     "image-ssim": "^0.2.0",
     "jquery": "^3.7.1",
     "meteor-node-stubs": "^1.2.7",
+    "opencv-build": "^0.1.9",
     "opencv4nodejs": "^5.6.0",
     "pdf-img-convert": "^1.2.1",
     "pdf-lib": "^1.17.1",
@@ -29,7 +31,8 @@
     "pdfkit": "^0.15.0",
     "request": "^2.88.2",
     "ssim": "0.0.0",
-    "ssim.js": "^3.5.0"
+    "ssim.js": "^3.5.0",
+    "util.promisify": "^1.1.2"
   },
   "meteor": {
     "mainModule": {
