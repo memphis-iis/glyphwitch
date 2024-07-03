@@ -1090,6 +1090,52 @@ Template.uploadDocument.events({
   }
 });
 
+//Template for uploading fonts
+Template.uploadFont.onCreated(function() {
+  this.currentUpload = new ReactiveVar(false);
+});
+
+//Template helpers for uploading fonts
+Template.uploadFont.helpers({
+  currentUpload() {
+    return Template.instance().currentUpload.get();
+  }
+});
+
+//Template events for uploading fonts
+Template.uploadFont.events({
+  'click #submitFont'(event, template) {
+    console.log("submitFont");
+    event.preventDefault();
+    const font = $('#font').get(0).files[0];
+    console.log("Filename: " + font.name);
+    if (font) {
+      const upload = Files.insert({
+        file: font,
+        chunkSize: 'dynamic'
+      }, false);
+
+      upload.on('end', function(error, fileObj) {
+        if (error) {
+          console.log(error);
+          alert('Error uploading file');
+        } else {
+          console.log(fileObj);
+          Meteor.call('addFont', fileObj._id, function(error, result) {
+            if (error) {
+              console.log(error);
+              alert('Error adding font');
+            } else {
+              console.log(result);
+            }
+          });
+        }
+      });
+      upload.start();
+    }
+  }
+});
+
 //Template events for select options
 Template.select.events({
   'click #selectReference'(event, instance) {

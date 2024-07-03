@@ -7,7 +7,8 @@ import ssim from 'ssim.js';
 import pdf2img from 'pdf-img-convert';
 import request from 'request';
 import promisify from 'util.promisify';
-import opencv from 'opencv4nodejs';
+import jimp from 'jimp';
+
 
 
 
@@ -307,7 +308,7 @@ Meteor.methods({
         });
     },
     //add glyph using canvas data
-    addGlyphFromDataURL: function(dataURL) {
+    addGlyphFromDataURL: function(dataURL, font="", unicode=0) {
         console.log("Adding glyph from dataURL (dataURL: " + dataURL + ")");
         bufferedImage = new Buffer(dataURL.replace(/^data:image\/\w+;base64,/, ""), 'base64');
 
@@ -328,6 +329,26 @@ Meteor.methods({
             }
         });
     },
+    //add glyph from buffer
+    addGlyphFromBuffer: function(buffer, font, unicode) {
+        console.log("Adding glyph from buffer (buffer: " + buffer + ", font: " + font + ", unicode: " + unicode + ")");
+        Files.write(buffer, { fileName: 'glyph.png', type: 'image/png' }, function (err, fileObj) {
+            if (err) {
+                console.log("Error: " + err);
+            } else {
+                console.log("File added: " + fileObj._id);
+                link = Files.findOne(fileObj._id).link();
+                Glyphs.insert({
+                    glyph: "glyph",
+                    font: font,
+                    unicode: unicode,
+                    image: fileObj._id,
+                    image_link: link,
+                });
+            }
+        });
+    },
+
     compareImageGlyphs: function(glyph1, glyph2) {
         console.log("Comparing image glyphs (glyph1: " + glyph1 + ", glyph2: " + glyph2 + ")");
        
@@ -420,9 +441,7 @@ Meteor.methods({
                 centeredImage2[index + 3] = glyphBuffer.body[i + 3];
             }
 
-            const { goodMatches , numSearchKeypoints, numGlyphKeypoints } = findMatches(centeredImage1, centeredImage2);
-
-            const similarity = goodMatches / Math.min(numSearchKeypoints, numGlyphKeypoints);
+            const similarity = findMatches(centeredImage1, centeredImage2);
 
             distances.push({ glyph: glyph, distance: similarity });
 
@@ -453,13 +472,17 @@ Meteor.methods({
         Glyphs.update(glyph, { $set: { glyph: glyph, font: font, unicode: unicode, image: image } });
     },
     //add an entry to the fonts collection. Must include the font, the user who added it, and it's file collection id
-    addFont: function(font, file) {
-        console.log("Adding font (font: " + font + ", file: " + file + ")");
-        Fonts.insert({
-            font: font,
-            file: file,
-            addedBy: Meteor.userId()
-        });
+    addFont: function(file) {
+        file = Files.findOne({ _id: file });
+        //iterate over all the glyphs in the font and generate images for them
+        const font = file.path;
+        const glyphs = [];
+        //we have to iterate over all the possible unicode values for a font
+        for (let i = 0; i < 100; i++) {
+            console.log("Adding glyph: " + i + " to font: " + file._id);
+            const fileName = "glyph_" + file._id + "_" + i + ".png";
+            createGlyphImage(font, i)
+        }
     },
     //remove an entry from the fonts collection. Must include the font id.
     removeFont: function(font) {
@@ -609,19 +632,63 @@ function blurImage(imageData, kernelSize) {
   }
 
   function findMatches(searchImage, glyphImage) {
-    // 1. Feature Extraction (using libraries like OpenCV)
-    const sift = opencv.SIFT.create(); // Assuming OpenCV is used
-    const keypoints1 = sift.detect(searchImage.data, null);
-    const keypoints2 = sift.detect(glyphImage.data, null);
-  
-    // 2. Feature Matching (using libraries like OpenCV)
-    const matcher = new cv.FlannBasedMatcher({ indexParams: new cv.FlannIndexParams(0, new cv.HammingDistance()) });
-    const matches = matcher.match(keypoints1, keypoints2);
-  
-    // 3. Filtering Matches (Lowe's ratio test)
-    const goodMatches = matches.filter(
-      (match) => match.distance < 0.7 * matches[0].distance // Adjust threshold as needed
-    );
-  
-    return { goodMatches, numSearchKeypoints: keypoints1.length, numGlyphKeypoints: keypoints2.length };
+    //generate matrices for the images
+    const searchMatrix = new cv.Mat(searchImage, 20, 20, cv.CV_8UC4);
+    const glyphMatrix = new cv.Mat(glyphImage, 20, 20, cv.CV_8UC4);
+    const dest = new cv.Mat();
+    const mask = new cv.Mat();
+    //create a match template
+    cv.matchTemplate(searchMatrix, glyphMatrix, dest, cv.TM_CCOEFF_NORMED, mask);
+    const res = cv.minMaxLoc(dest, mask);
+    const match = {
+        x: res.minMaxLoc().maxLoc.x,
+        y: res.minMaxLoc().maxLoc.y,
+        width: glyphMatrix.cols,
+        height: glyphMatrix.rows
+    };
+    match.center = {
+        x: match.x + match.width / 2,
+        y: match.y + match.height / 2
+    };
+    //copy the search image
+    const searchImageCopy = searchMatrix.clone();
+    //draw the match rectangle
+    const color = new cv.Scalar(255, 0, 0, 255);
+    cv.rectangle(searchImageCopy, new cv.Point(match.x, match.y), new cv.Point(match.x + match.width, match.y + match.height), color, 2, cv.LINE_8, 0);
+    //convert the image to a dataURL
+    const dataURL = cv.imencode('.png', searchImageCopy).toString('base64');
+    console.log("Match: " + JSON.stringify(match));
+    //get the confidence of the match
+    const confidence = res.maxVal;
+
+  }
+
+  function createGlyphImage(fontPath, charCode) {
+    const fontFileName = fontPath.split('/').pop();
+    const opentype  = require('opentype.js');
+    const { createCanvas } = require('canvas');
+    const canvas = createCanvas(20, 20);
+    const ctx = canvas.getContext('2d');
+    const buffers = {};
+    const font = opentype.loadSync(fontPath, (err, font) => {
+        if (err) {
+            console.log("Error: " + err);
+            return;
+        }
+    });
+    //print the character
+    console.log("Glyph: " + String.fromCharCode(charCode));
+    if (font.charToGlyph(String.fromCharCode(charCode)) == "") {
+        console.log("Error: Glyph not found in font");
+        return;
+    }
+    font.draw(ctx, String.fromCharCode(charCode), 3, 18, 20);
+    //if the image is pure white, return
+    if (ctx.getImageData(0, 0, 20, 20).data.every((val, i, arr) => val === arr[0])) {
+        console.log("Error: Glyph is blank");
+        return;
+    }
+    newBuffer = canvas.toDataURL();
+    //add the image to the image collection
+    Meteor.call('addGlyphFromDataURL', newBuffer, fontFileName, charCode);
   }

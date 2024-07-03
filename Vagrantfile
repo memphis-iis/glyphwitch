@@ -9,7 +9,7 @@ glypwitch_gid=1002
 # you're doing.
 Vagrant.configure(2) do |config|
   config.vm.provision :shell, :inline => "sudo rm /etc/localtime && sudo ln -s /usr/share/zoneinfo/America/Chicago /etc/localtime", run: "always"
-  config.vm.box = "ubuntu/bionic64"
+  config.vm.box = "ubuntu/focal64"
   config.vm.network "forwarded_port", guest: 27017, host: 30017, host_ip: "127.0.0.1"
   config.vm.network "forwarded_port", guest: 5432, host: 65432
   config.vm.network "forwarded_port", guest: 3000, host: 3000, host_ip: "0.0.0.0"

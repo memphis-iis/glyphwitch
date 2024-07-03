@@ -25,6 +25,7 @@ sudo apt-get install -y mongodb-org
 
 sudo systemctl enable mongod
 
+sudo apt-get install dos2unix
 
 # Change mongo to listen on all addresses (which is fine since we're walled off)
 PDIR="$HOME/.provision"
@@ -45,7 +46,8 @@ sudo systemctl restart mongod
 ###############################################################################
 
 
-
+# Now restart the service since we've changed the config
+sudo systemctl restart mongod
 
 # Install nvm
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
@@ -61,7 +63,20 @@ nvm install 14
 nvm use 14
 
 # Install meteor
-curl https://install.meteor.com/?release=2.15 | sh
+curl https://install.meteor.com/?release=2.16 | sh
+
+# Install npm packages
+npm install -g node-gyp
+
+# Install meteor packages
+meteor npm install
+
+# Install npm opencv4nodejs and run the auto build script
+npm install opencv4nodejs
+npm install opencv-build
+cd node_modules/opencv-build
+node install.js
+cd ../../
 
 # In case we're running on a Windows host, we force the use of mounting instead
 # of symlinks for meteor packages

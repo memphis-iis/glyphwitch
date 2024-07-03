@@ -255,9 +255,22 @@
       </select>
     </div>
   </form>
-
-  
 </template>
+
+<!-- template for uploading fonts or image sets. uploader with checkbox for font or image set -->
+<template name="uploadFont">
+  <div class="container">
+    <p>Upload a font file (TTF) or image set (ZIP) to create glyphs.</p>
+    <form id="uploadFontForm">
+      <div class="form-group">
+        <label for="font">Font File</label>
+        <input type="file" class="form-control-file" id="font" name="font">
+      </div>
+      <button type="submit" class="btn btn-primary" id="submitFont">Upload</button>
+    </form>
+  </div>
+</template>
+
 
 <!-- template for document viewing UI, with a left side -->
 <template name="viewPage">
@@ -394,13 +407,16 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <!-- two bootstrap tabs, Open and Upload-->
+          <!-- three bootstrap tabs, Open and Upload, and Upload Font -->
           <ul class="nav nav-tabs" id="myTab" role="tablist">
             <li class="nav-item" role="presentation">
               <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Open</button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Font</button>
             </li>
             {{#if isAdmin}}
             <li class="nav-item" role="presentation">
@@ -417,6 +433,9 @@
             </div>
             <div class="tab-pane fade" id="upload" role="tabpanel" aria-labelledby="upload-tab">
               {{> uploadDocument}}
+            </div>
+            <div class="tab-pane fade" id="upload-font" role="tabpanel" aria-labelledby="upload-font-tab">
+              {{> uploadFont}}
             </div>
             <div class="tab-pane fade" id="admin" role="tabpanel" aria-labelledby="admin-tab">
               {{> admin}}
