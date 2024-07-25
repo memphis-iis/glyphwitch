@@ -8,6 +8,8 @@ import pdf2img from 'pdf-img-convert';
 import request from 'request';
 import promisify from 'util.promisify';
 import jimp from 'jimp';
+import cv from 'opencv4nodejs';
+import sharp from 'sharp';
 
 
 
@@ -354,8 +356,9 @@ Meteor.methods({
        
     },
     findNearbyGlyphsFromDataURL: async function(dataURL, numGlyphs) {
-        console.log("Finding nearby glyphs from dataURL...");
+        console.log("Finding nearby glyphs from dataURL... (dataURL: " + dataURL + ", numGlyphs: " + numGlyphs + ")");
       
+              
         // Decode dataURL efficiently
         bufferedImage = new Buffer.from(dataURL.replace(/^data:image\/\w+;base64,/, ""), 'base64');
       
@@ -366,101 +369,85 @@ Meteor.methods({
             height: 20
         }
 
-        const distances = [];
-        const glyphs = Glyphs.find().fetch();
-      
-        //preprocess the image by blurring it
-        for (const glyph of glyphs) {
-            console.log("Comparing glyph: " + glyph._id);
+        console.log("Search image data: " + searchImage.data);
+        //open with opencv
+        const searchImageMat = new cv.Mat(searchImage.height, searchImage.width, cv.CV_8UC4);
+        console.log("Search image mat: " + searchImageMat);
+        searchImageMat.data = searchImage.data;
+        //blur the image
+        const ksize = new cv.Size(5, 5);
+        const searchImageBlurred = searchImageMat.gaussianBlur(ksize, 5, 5, borderType=cv.BORDER_DEFAULT);
+        const searchImageGrayscale = searchImageBlurred.cvtColor(cv.COLOR_RGBA2GRAY);
+        console.log("Search image grayscale: " + searchImageGrayscale);
+        //output as buffer
+        const buffer = searchImageGrayscale.getData();
+        console.log("Search image buffer: " + buffer);
+        const hog = new cv.HOGDescriptor();
+        console.log("HOG: " + hog);
+        //compute HOG features
+        const searchImageHOG = hog.compute(searchImageGrayscale);
 
-            //get the glyph image link
-            const glyphImage = Files.findOne(glyph.image).link();
 
-            //download the image
-            const getGlyphImage = promisify(request.get);
-            const glyphBuffer = await getGlyphImage(glyphImage, { encoding: null });
-
-            //find the bounding box of each image
-            let minXimage1 = 20 - 1;
-            let minYimage1 = 20 - 1;
-            let maxXimage1 = 0;
-            let maxYimage1 = 0;
-            let minXimage2 = 20 - 1;
-            let minYimage2 = 20 - 1;
-            let maxXimage2 = 0;
-            let maxYimage2 = 0;
-
-            for (let i = 0; i < searchImage.data.length; i += 4) {
-                const x = (i / 4) % 20;
-                const y = Math.floor((i / 4) / 20);
-                if (searchImage.data[i] < 255) {
-                    minXimage1 = Math.min(minXimage1, x);
-                    minYimage1 = Math.min(minYimage1, y);
-                    maxXimage1 = Math.max(maxXimage1, x);
-                    maxYimage1 = Math.max(maxYimage1, y);
+        //iterate over all the glyphs, see if they have an imageData field containing a Uint8ClampedArray of the image data, otherwise download it from the image_link
+        for (glyph of glyphs) {
+            console.log("Processing glyph (glyph: " + glyph._id + ")");
+            if (!glyph.imageData || !glyph.imageDataBlurred) {
+                const glyphImagePath = Files.findOne(glyph.image).path;
+                console.log("Glyph image path: " + glyphImagePath);
+                try{
+                    const image = cv.imread(glyphImagePath);
+                    const imageGrayscale = image.cvtColor(cv.COLOR_RGBA2GRAY);
+                    const glyphImageData = imageGrayscale.getData();
+                    //create a copy that blurs the image
+                    const imageBlurred = greyImage.blur(5);
+                    const glyphImageDataBlurred = imageBlurred.getData();
+                    glyph.imageData = glyphImageData;
+                    glyph.imageDataBlurred = glyphImageDataBlurred;
+                    console.log("Image data for glyph (glyph: " + glyph._id + ") added.");
+                } catch (error) {
+                    console.log("Error preprocessing image data for glyph (glyph: " + glyph._id + "): " + error);
                 }
-                if (glyphBuffer.body[i] < 255) {
-                    minXimage2 = Math.min(minXimage2, x);
-                    minYimage2 = Math.min(minYimage2, y);
-                    maxXimage2 = Math.max(maxXimage2, x);
-                    maxYimage2 = Math.max(maxYimage2, y);
+            }
+            if (!glyph.HOGfeatures || !glyph.HOGfeaturesBlurred) {
+                try{
+                    //read the imgData into a cv.Mat
+                    const glyphMat = cv.matFromArray(Float32Array.from(glyph.imageData));
+                    const glyphMatBlurred = cv.matFromArray(Float32Array.from(glyph.imageDataBlurred));
+                    const hogFeatures = hog.compute(glyphMat);
+                    const hogFeaturesBlurred = hog.compute(glpyhMatBlurred);
+                    glyph.HOGfeatures = hogFeatures;
+                    glyph.HOGfeaturesBlurred = hogFeaturesBlurred;
+                    console.log("HOG features for glyph (glyph: " + glyph._id + ") added.");
+                } catch (error) {
+                    console.log("Error computing HOG feature for glyph (glyph: " + glyph._id + "): " + error);
                 }
             }
+            Glyphs.upsert(glyph);
 
-            //calculate the padding
-            const targetWidth = 20;
-            const targetHeight = 20;
+            matches = [];
+            
+            //iterate over all the glyphs and compare the search image to each glyph
+            feature1Mat = cv.matFromArray(Float32Array.from(searchImageHOG));
+            feature2Mat = cv.matFromArray(Float32Array.from(glyph.hogFeaturesBlurred));
+            const chi_square = feature1Mat.chiSquare(feature2Mat, cv.HISTCMP_CHISQR);
+            
 
-            const paddingX1 = Math.floor((targetWidth - (maxXimage1 - minXimage1 + 1)) / 2);
-            const paddingY1 = Math.floor((targetHeight - (maxYimage1 - minYimage1 + 1)) / 2);
-            const paddingX2 = Math.floor((targetWidth - (maxXimage2 - minXimage2 + 1)) / 2);
-            const paddingY2 = Math.floor((targetHeight - (maxYimage2 - minYimage2 + 1)) / 2);
+            //add the chi square value to the matches array
+            console.log("glyph: " + glyph._id + ", chi_square: " + chi_square);
+            matches.push({ glyph: glyph._id, chi_square: chi_square });
 
-            //create centered images
-            const centeredImage1 = new Uint8ClampedArray(targetWidth * targetHeight * 4).fill(255);
+        }
 
-            for (let i = 0; i < searchImage.data.length; i += 4) {
-                const x = (i / 4) % 20;
-                const y = Math.floor((i / 4) / 20);
-                const index = ((y + paddingY1) * targetWidth + (x + paddingX1)) * 4;
-                centeredImage1[index] = searchImage.data[i];
-                centeredImage1[index + 1] = searchImage.data[i + 1];
-                centeredImage1[index + 2] = searchImage.data[i + 2];
-                centeredImage1[index + 3] = searchImage.data[i + 3];
-            }
+        //sort the matches array by chi square value
+        matches.sort(function(a, b) {
+            return a.chi_square - b.chi_square;
+        });
 
-            const centeredImage2 = new Uint8ClampedArray(targetWidth * targetHeight * 4).fill(255);
-
-            for (let i = 0; i < glyphBuffer.body.length; i += 4) {
-                const x = (i / 4) % 20;
-                const y = Math.floor((i / 4) / 20);
-                const index = ((y + paddingY2) * targetWidth + (x + paddingX2)) * 4;
-                centeredImage2[index] = glyphBuffer.body[i];
-                centeredImage2[index + 1] = glyphBuffer.body[i + 1];
-                centeredImage2[index + 2] = glyphBuffer.body[i + 2];
-                centeredImage2[index + 3] = glyphBuffer.body[i + 3];
-            }
-
-            const similarity = findMatches(centeredImage1, centeredImage2);
-
-            distances.push({ glyph: glyph, distance: similarity });
+        //return the top numGlyphs matches
+        return matches.slice(0, numGlyphs);
 
 
-
-        }   
-        //sort distances high to low
-        distances.sort((a, b) => (a.distance < b.distance) ? 1 : -1);
-        //return the closest numGlyphs
-        console.log("Distances: " + JSON.stringify(distances));
-        return distances;
-      
-  
-      },
-    findNearbyGlyphs: function(glyph_id, numGlyphs) {
-        console.log("Finding nearby glyphs (image: " + image + ", numGlyphs: " + numGlyphs + ")");
-        
     },
-
     //remove an entry from the glyphs collection. Must include the glyph id.
     removeGlyph: function(glyph) {
         console.log("Removing glyph (glyph: " + glyph + ")");
@@ -631,37 +618,7 @@ function blurImage(imageData, kernelSize) {
     return newImageData;
   }
 
-  function findMatches(searchImage, glyphImage) {
-    //generate matrices for the images
-    const searchMatrix = new cv.Mat(searchImage, 20, 20, cv.CV_8UC4);
-    const glyphMatrix = new cv.Mat(glyphImage, 20, 20, cv.CV_8UC4);
-    const dest = new cv.Mat();
-    const mask = new cv.Mat();
-    //create a match template
-    cv.matchTemplate(searchMatrix, glyphMatrix, dest, cv.TM_CCOEFF_NORMED, mask);
-    const res = cv.minMaxLoc(dest, mask);
-    const match = {
-        x: res.minMaxLoc().maxLoc.x,
-        y: res.minMaxLoc().maxLoc.y,
-        width: glyphMatrix.cols,
-        height: glyphMatrix.rows
-    };
-    match.center = {
-        x: match.x + match.width / 2,
-        y: match.y + match.height / 2
-    };
-    //copy the search image
-    const searchImageCopy = searchMatrix.clone();
-    //draw the match rectangle
-    const color = new cv.Scalar(255, 0, 0, 255);
-    cv.rectangle(searchImageCopy, new cv.Point(match.x, match.y), new cv.Point(match.x + match.width, match.y + match.height), color, 2, cv.LINE_8, 0);
-    //convert the image to a dataURL
-    const dataURL = cv.imencode('.png', searchImageCopy).toString('base64');
-    console.log("Match: " + JSON.stringify(match));
-    //get the confidence of the match
-    const confidence = res.maxVal;
 
-  }
 
   function createGlyphImage(fontPath, charCode) {
     const fontFileName = fontPath.split('/').pop();

@@ -18,6 +18,7 @@ Vagrant.configure(2) do |config|
   config.vm.provider "virtualbox" do |vb|
     vb.gui = false
     vb.memory = "6144"
+    vb.customize ["setextradata", :id, "VBoxInternal2/SharedFoldersEnableSymlinksCreate/v-root", "1"]
   end
   config.vm.provision "shell", privileged: false, path: ".provisioning_script.sh"
 end

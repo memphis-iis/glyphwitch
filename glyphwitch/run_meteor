@@ -2,6 +2,10 @@
 export MONGO_URL=mongodb://localhost:27017/glyphwitch
 echo "MONGO_URL=$MONGO_URL"
 
+#!/bin/bash
+
+meteor npm install --no-bin-links
+
 # Figure command line
 CL=$*
 if [ ${#CL} -lt 1 ]; then

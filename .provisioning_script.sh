@@ -12,6 +12,9 @@ sudo apt-get install -y g++
 sudo apt-get install -y make
 sudo apt-get install -y automake
 sudo apt-get install -y git
+sudo apt-get install -y cmake
+sudo apt-get install -y make
+sudo apt-get install -y wget unzip
 
 
 ###############################################################################
@@ -49,34 +52,27 @@ sudo systemctl restart mongod
 # Now restart the service since we've changed the config
 sudo systemctl restart mongod
 
-# Install nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
-
-# Load nvm
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-# Install node
+#install node and nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
 nvm install 14
-
-#use node 14
 nvm use 14
 
-# Install meteor
-curl https://install.meteor.com/?release=2.16 | sh
+#install meteor
+npm install -g meteor
 
-# Install npm packages
-npm install -g node-gyp
+# Install opencv4nodejs, set enviorment variables to stop autobuild, add opencv include path, library path, and bin path
+cd "$HOME/glyphwitch/glyphwitch"
 
-# Install meteor packages
-meteor npm install
+mkdir /unsychronized/
+mkdir /unsychronized/node_modules
 
-# Install npm opencv4nodejs and run the auto build script
-npm install opencv4nodejs
-npm install opencv-build
-cd node_modules/opencv-build
-node install.js
-cd ../../
+rm -rf node_modules
+ln -s /unsychronized/node_modules node_modules
+
+meteor npm install opencv4nodejs --save --no-bin-links
+
 
 # In case we're running on a Windows host, we force the use of mounting instead
 # of symlinks for meteor packages
