@@ -56,22 +56,23 @@ sudo systemctl restart mongod
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
 export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
-nvm install 14
-nvm use 14
+nvm install 20
+nvm use 20
 
-#install meteor
-npm install -g meteor
+#install meteor 3.0.1
+curl https://install.meteor.com/ | sh
 
 # Install opencv4nodejs, set enviorment variables to stop autobuild, add opencv include path, library path, and bin path
 cd "$HOME/glyphwitch/glyphwitch"
 
-mkdir /unsychronized/
-mkdir /unsychronized/node_modules
+sudo mkdir /unsychronized/
+sudo mkdir /unsychronized/node_modules
+
+sudo chmod 777 /unsychronized/node_modules
 
 rm -rf node_modules
 ln -s /unsychronized/node_modules node_modules
 
-meteor npm install opencv4nodejs --save --no-bin-links
 
 
 # In case we're running on a Windows host, we force the use of mounting instead
