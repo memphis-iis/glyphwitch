@@ -192,6 +192,7 @@
     <small>Structured Similarity Search</small>
     <table>
       <canvas id="searchCanvas" width="200" height="200" style="border: 1px solid black;"></canvas>
+      <canvas id="findCanvas" width="200" height="200" style="border: 1px solid black;"></canvas>
     </table>
     <button id="clearSearchCanvas" class="btn btn-danger">Clear</button>
     <button id="searchGlyph" class="btn btn-success">Search</button>
@@ -263,7 +264,7 @@
     <p>Upload a font file (TTF) or image set (ZIP) to create glyphs.</p>
     <form id="uploadFontForm">
       <div class="form-group">
-        <label for="font">Font File</label>
+        <label for="font">Font File or Image Package</label>
         <input type="file" class="form-control-file" id="font" name="font">
       </div>
       <button type="submit" class="btn btn-primary" id="submitFont">Upload</button>
@@ -413,10 +414,10 @@
               <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Open</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload</button>
+              <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload Document</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Font</button>
+              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Glyphs</button>
             </li>
             {{#if isAdmin}}
             <li class="nav-item" role="presentation">

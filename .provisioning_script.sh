@@ -60,18 +60,19 @@ nvm install 14
 nvm use 14
 
 #install meteor
-npm install -g meteor
+curl https://install.meteor.com/?release=3.0.1 | sh
 
-# Install opencv4nodejs, set enviorment variables to stop autobuild, add opencv include path, library path, and bin path
-cd "$HOME/glyphwitch/glyphwitch"
+#install python3
+sudo apt install python3 python3-pip
 
-mkdir /unsychronized/
-mkdir /unsychronized/node_modules
+#create a virtual environment for python
+pip3 install virtualenv
+virtualenv -p python3 ~/glyphwitch/venv
+source ~/glyphwitch/venv/bin/activate
 
-rm -rf node_modules
-ln -s /unsychronized/node_modules node_modules
+#install python dependencies
+pip install torch torchvision torchaudio transformers fastapi uvicorn opencv-python requests numpy
 
-meteor npm install opencv4nodejs --save --no-bin-links
 
 
 # In case we're running on a Windows host, we force the use of mounting instead

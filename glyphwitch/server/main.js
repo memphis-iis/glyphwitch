@@ -1,13 +1,15 @@
 import { Meteor } from 'meteor/meteor';
 import { Accounts } from 'meteor/accounts-base';
+import { Roles } from 'meteor/alanning:roles';
 import './collections';
+
 
 Meteor.startup(() => {
   // welcome message
   console.log('*** GlyphWitch Server ***');
   console.log('Welcome to the GlyphWitch server!');
   //setup roles, admin and user
-  if (Meteor.roles.find().count() == 0) {
+  if (Roles.getAllRoles().count() == 0) {
     console.log('Creating roles');
     Roles.createRole('admin');
     Roles.createRole('user');

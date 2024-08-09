@@ -2,10 +2,12 @@ import { Template } from 'meteor/templating';
 import { ReactiveVar } from 'meteor/reactive-var';
 import { FilesCollection } from 'meteor/ostrio:files';
 import { Session } from 'meteor/session';
-import  Cropper  from 'cropperjs';
-
-
+import { Buffer } from 'buffer';
 import './main.html';
+import cv from "@techstark/opencv-js";
+
+
+
 
 Documents = new Mongo.Collection('documents');
 References = new Mongo.Collection('references');
@@ -87,7 +89,7 @@ Template.login.events({
     });
   },
   //when the signup form is submitted
-  'click #signup'(event, instance) {
+  async 'click #signup'(event, instance) {
     event.preventDefault();
     console.log("signup");
     //get the email and password from the form
@@ -188,20 +190,34 @@ Template.searchGlyphs.events({
     //clear the glyphs
     instance.glyphs.set(false);
   },
-  'click #searchGlyph'(event, instance) {
+  async 'click #searchGlyph'(event, instance) {
     console.log("saveGlyph");
     const canvas = $('#searchCanvas')[0];
-    const img = canvas.toDataURL('image/png');
-    Meteor.call('findNearbyGlyphsFromDataURL', img, 10, function(error, result) {
-      if (error) {
-        console.log(error);
-        alert('Error searching for glyphs or no glyphs found');
-      } else {
-        console.log(result);
-        instance.glyphs.set(result);
+    const searchCanvas = $('#findCanvas')[0];
+    const searchContext = searchCanvas.getContext('2d');
+    const imgData = searchContext.getImageData(0, 0, 200, 200);
+    const img1cv = cv.matFromImageData(imgData);
+    const huMoments1 = extractFeatures(img1cv);
+    const allGlyphs = Glyphs.find().fetch();
+    console.log(allGlyphs);
+    //iterate over all the glyphs
+    scores = [];
+    allGlyphs.forEach(async function(glyph) {
+      const img = new Image();
+      img.src = glyph.image_link;
+      img.onload = function() {
+        //draw the glyph on the searchCanvas
+        searchContext.drawImage(img, 0, 0);
+        const imgData2 = searchContext.getImageData(0, 0, 200, 200);
+        const img2cv = cv.matFromImageData(imgData2);
+        const huMoments2 = extractFeatures(img2cv);
+        //compare the two images
+        distance = cv.matchShapes(huMoments1, huMoments2, 1, 0);
+        scores.push({id: glyph._id, score: distance});
       }
     });
-  }
+    console.log(scores);
+  },
 });
 
 
@@ -1161,4 +1177,31 @@ function isContainedBy(point, x1, y1, x2, y2) {
 function setCurrentHelp(help) {
   const instance = Template.instance();
   instance.currentHelp.set(help);
+}
+
+
+function extractFeatures(imageMat){
+  //convert the image to grayscale
+  cv.cvtColor(imageMat, imageMat, cv.COLOR_RGBA2GRAY, 0);
+  //find the contours
+  let contours = new cv.MatVector();
+  let hierarchy = new cv.Mat();
+  cv.findContours(imageMat, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+  //calculate Hu moments for the largest contour
+  if (contours.size() > 0) {
+    //sort contours by area
+    contours.sort(function(a, b) {
+      return cv.contourArea(b) - cv.contourArea(a);
+    });
+    //get the largest contour
+    let largestContour = contours.get(0);
+    //get the moments of the largest contour
+    let moments = cv.moments(largestContour);
+    //get the Hu moments of the largest contour
+    let huMoments = cv.HuMoments(moments);
+    //return the Hu moments
+    return huMoments;
+  } else {
+    return false;
+  }
 }
