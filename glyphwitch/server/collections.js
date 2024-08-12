@@ -8,7 +8,6 @@ import pdf2img from 'pdf-img-convert';
 import request from 'request';
 import promisify from 'util.promisify';
 import jimp from 'jimp';
-import cv from 'opencv4nodejs';
 import sharp from 'sharp';
 
 
@@ -546,8 +545,11 @@ async function convertPdfToImages(pdfinfo, documentId) {
     //read the pdf file
     const pdfPath = pdfinfo.fetch()[0].path;
     const pdfPageCounter = require('pdf-page-counter');
+    const pdfConversionConfig = {
+        width: 4096,
+    };
     //get the number of pages in the pdf
-    outputImages = pdf2img.convert(pdfPath, function(err, info) {
+    outputImages = pdf2img.convert(pdfPath, pdfConversionConfig, function(err, info) {
         if (err) {
             console.log("Error: " + err);
         } else {

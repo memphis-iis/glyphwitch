@@ -192,6 +192,7 @@
     <small>Structured Similarity Search</small>
     <table>
       <canvas id="searchCanvas" width="200" height="200" style="border: 1px solid black;"></canvas>
+      <canvas id="findCanvas" width="200" height="200" style="border: 1px solid black;"></canvas>
     </table>
     <button id="clearSearchCanvas" class="btn btn-danger">Clear</button>
     <button id="searchGlyph" class="btn btn-success">Search</button>
@@ -263,7 +264,7 @@
     <p>Upload a font file (TTF) or image set (ZIP) to create glyphs.</p>
     <form id="uploadFontForm">
       <div class="form-group">
-        <label for="font">Font File</label>
+        <label for="font">Font File or Image Package</label>
         <input type="file" class="form-control-file" id="font" name="font">
       </div>
       <button type="submit" class="btn btn-primary" id="submitFont">Upload</button>
@@ -276,6 +277,14 @@
 <template name="viewPage">
   <div class="container-fluid d-flex flex-nowrap">
     <div class="col-md-2 bg-light collapse show text-center" id="sidebar">
+      <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Page Selection</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Data Browser</button>
+        </li>
+      </ul>
       <div class="d-flex p-3" style="line-height: 40px;">  <button class="btn btn-light mb-3 me-2" id="lastPage">  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
         <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L6.707 8l4.647 4.646a.5.5 0 0 1-.708.708l-5-5a.5.5 0 0 1 0-.708l5-5a.5.5 0 0 1 .708 0z"/>
       </svg>
@@ -289,6 +298,7 @@
   </div>
   <!-- display each page in a scrollable frame -->
   <div class="d-flex flex-column align-items-center" style="overflow-y: auto; height: 100vh;">
+    
     {{#each currentDocument.pages}}
     Page {{@index}}<br>
       <div class="page" id="{{this.pageId}}" style="border: 1px solid gray;">
@@ -301,6 +311,17 @@
     </div>
   
     <div class="col position-relative">
+      <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Simple View</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Flow</button>
+        </li>
+        <li class="nav-item" role="presentation" style="display: none;" id="view-tab-template">
+          <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Template</button>
+        </li>
+      </ul>
       <button class="btn btn-light d-inline-block d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar" aria-expanded="false" aria-controls="sidebar">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-list" viewBox="0 0 16 16">
           <path fill-rule="evenodd" d="M2.5 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM5 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM7.5 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM10 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM12.5 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5z"/>
@@ -309,7 +330,7 @@
       <div class="image-container" style="position: relative; overflow-y:scroll; overflow-x:scroll; height: 90vh; width: 80vw;">
         <img src="{{currentPage.image}}" class="img" alt="Image" style="height:200%; " id="pageImage">
       </div>
-      <div class="toolbox-container" style="display: flex; flex-direction: column; position: absolute; top: 0; right: 0; margin-right: 50px; opacity: 1;">
+      <div class="toolbox-container" style="display: flex; flex-direction: column; position: absolute; top: 15px; right: 0; margin-right: 50px; opacity: 1;">
         <div class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" id="ToolBox">
           <button type="button" class="btn btn-dark me-2" title="View" id="viewTool">
             <i class="bi bi-eyeglasses"></i>
@@ -320,23 +341,30 @@
           <button type="button" class="btn btn-light me-2" title="Search Glyphs" id="searchGlyphs">
             <i class="bi bi-search"></i>
           </button>
-          <button type="button" class="btn btn-light me-2" title="Create Reference" id="createReference">
+          <button type="button" class="btn btn-light me-2" title="Create Reference" id="createReference" style="display: none;">
             <i class="bi bi-link-45deg"></i>
           </button>
           <button type="button" class="btn btn-light me-2" title="Create Line" id="createLine">
             <i class="bi bi-body-text"></i>
           </button>
-          <button type="button" class="btn btn-light me-2" title="Create Word" id="createWord">
+          <button type="button" class="btn btn-light me-2" title="Create Sentence" id="createSentence" style="display: none;">
+            <i class="bi bi-paragraph"></i>
+          </button>
+          <button type="button" class="btn btn-light me-2" title="Create Word" id="createWord" style="display: none;">
             <i class="bi bi-wikipedia"></i>
           </button> 
-          <button type="button" class="btn btn-light me-2" title="Create Phoneme" id="createPhoneme">
+          <button type="button" class="btn btn-light me-2" title="Create Phoneme" id="createPhoneme" style="display: none;">
             <i class="bi bi-volume-up-fill"></i>
           </button>
-          <button type="button" class="btn btn-light me-2" title="Create Glyph" id="createGlyph">
+          <button type="button" class="btn btn-light me-2" title="Create Glyph" id="createGlyph" style="display: none;">
             <i class="bi bi-file-earmark-font"></i>
           </button>
           <button type="button" class="btn btn-danger me-2" title="Exit Tool" id="exitTool" style="display: none;">
             <i class="bi bi-x"></i>
+          </button>
+          <button type="button" class="btn btn-success me-2" title="Help" id="confirmTool" style="display: none;">
+            <!-- checkmark -->
+            <i class="bi bi-check2"></i>
           </button>
         </div>
       </div>
@@ -349,7 +377,7 @@
       </div>
       {{/if}}
       {{#if currentHelp}}
-        <div id="ToolOptions" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" style="margin-top: 70px; margin-right:20px; pointer-events: fill">
+        <div id="HelpBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" style="margin-top: 90px; margin-right:20px; pointer-events: fill">
           <div class="container" style="width:500px;">
             <h4>{{currentToolHumanReadable}}</h4>
             
@@ -413,10 +441,10 @@
               <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Open</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload</button>
+              <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload Document</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Font</button>
+              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Glyphs</button>
             </li>
             {{#if isAdmin}}
             <li class="nav-item" role="presentation">
@@ -525,24 +553,5 @@
     <small><b>1. First select the line to add the word to by clicking on the line that contains the word. </b>  
       <br>2. Then click once to start the bounding box, click again to end the bounding box.</small>
     <br>
-  </div>
-</template>
-
-<template name="select">
-  <div class="container" style="width:500px;">
-    <h4>Select Options</h4>
-    <!-- two buttons, select line and create word and and exit tool button -->
-    <button type="button" class="btn btn-light me-2" title="Select Reference" id="selectReference">
-      <i class="bi bi-link-45deg"></i>
-    </button>
-    <button type="button" class="btn btn-light me-2" title="Select Line" id="selectLine">
-      <i class="bi bi-body-text"></i>
-    </button>
-    <button type="button" class="btn btn-light me-2" title="Select Word" id="selectWord">
-      <i class="bi bi-wikipedia"></i>
-    </button> 
-    <button type="button" class="btn btn-light me-2" title="Select Glyph" id="selectGlyph">
-      <i class="bi bi-file-earmark-font"></i>
-    </button>
   </div>
 </template>

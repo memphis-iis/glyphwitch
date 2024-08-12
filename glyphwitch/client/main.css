@@ -2,3 +2,14 @@ body {
   padding: 10px;
   font-family: sans-serif;
 }
+
+.page-element {
+  /* hover using tight dotted border */
+  z-index: 10;
+  border: 1px dotted #000;
+}
+
+.line-element{
+  /*light green transparent box with a light green border*/
+  background-color: rgba(0, 255, 0, 0.1);
+}

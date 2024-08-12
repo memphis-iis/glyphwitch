@@ -2,7 +2,7 @@ import { Template } from 'meteor/templating';
 import { ReactiveVar } from 'meteor/reactive-var';
 import { FilesCollection } from 'meteor/ostrio:files';
 import { Session } from 'meteor/session';
-import  Cropper  from 'cropperjs';
+import Cropper from 'cropperjs';
 
 
 import './main.html';
@@ -345,15 +345,23 @@ Template.viewPage.onCreated(function() {
   //set the global variables
   Template.instance().currentDocument = new ReactiveVar();
   Template.instance().currentPage = new ReactiveVar();
+  Template.instance().currentLine = new ReactiveVar(false);
+  Template.instance().currentWord = new ReactiveVar();
+  Template.instance().currentPhoneme = new ReactiveVar()
+  Template.instance().currentSentence = new ReactiveVar();
   Template.instance().currentTool =  new ReactiveVar('view');
+  Template.instance().currentView = new ReactiveVar('simple');
   Template.instance().subTool = new ReactiveVar(false);
   Template.instance().currentHelp = new ReactiveVar("You can use [Shift] + Scroll to zoom in and out of the page image.");
   Template.instance().drawing = new ReactiveVar(false);
-  Template.instance().bound1 = new ReactiveVar(false);
-  Template.instance().bound2 = new ReactiveVar(false);
+  Template.instance().selectx1 = new ReactiveVar(false);
+  Template.instance().selecty1 = new ReactiveVar(false);
+  Template.instance().selectwidth = new ReactiveVar(false);
+  Template.instance().selectheight = new ReactiveVar(false);
   Template.instance().originalImage = new ReactiveVar(false);
   Template.instance().yScaling = new ReactiveVar(1);
   Template.instance().xScaling = new ReactiveVar(1);
+  Template.instance().cropper = new ReactiveVar(false);
 
 });
 
@@ -381,82 +389,61 @@ Template.viewPage.onRendered(function() {
 //function to reset all buttons in toolbox-container to btn-light
 function resetToolbox() {
   currentTool = Template.instance().currentTool.get();
-  //if the createLine button is disabled, we need to reload the entire page
+  currentView = Template.instance().currentView.get();
+  console.log("resetToolbox, currentTool is " + currentTool);
   $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light').show();
   $('#exitTool').hide();
+  $('#confirmTool').hide();
+  //set the confirmtool class to btn-success
+  $('#confirmTool').removeClass('btn-light').addClass('btn-success');
+  //set the exitTool class to btn-danger
+  $('#exitTool').removeClass('btn-light').addClass('btn-danger');
   //if currentTool is not false, enable the exitTool
-  if (currentTool != 'view') {
-    console.log("currentTool is " + currentTool);
-    $('#exitTool').show();
-    //set exittool to have class btn-danger
-    $('#exitTool').removeClass('btn-light').addClass('btn-danger');
-  }
-  
+  if (currentView == 'simple') {
+    $('.toolbox-container button').hide();
+    if(currentTool == 'view') {
+      $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light').show();
+      //hide create reference, create line, create word, create phoneme, and new glyph
+      $('#createReference').hide();
+      $('#createSentence').hide();
+      $('#createWord').hide();
+      $('#createPhoneme').hide();
+      $('#newGlyph').hide();
+      //hide the exitTool and confirmTool
+      $('#exitTool').hide();
+      $('#confirmTool').hide();
+    }
+    if(currentTool == 'createLine') {
+      $('#exitTool').show();
+      $('#confirmTool').show();
+    }
+    if(currentTool == 'select') {
+      $('#exitTool').show();
+    }
+   }
 }
 
 //function to initialize cropper
-function initCropper(divId, x=false, y=false, deswidth=false, desheight=false) {
+function initCropper() {
   //replace the image with a canvas that has the same dimensions and source
-  if(!divId.src) {
-   src = Template.instance().originalImage.get();
-  } else {
-    Template.instance().originalImage.set(divId.src);
-    src = divId.src;
-  }
+  divId = document.getElementById('pageImage');
+  src = divId.src;
+  height = window.getComputedStyle(divId).getPropertyValue('height');
+  x = false;
+  y = false;
+  deswidth = false;
+  desheight = false;
+  //hide the original image with display none
+  divId.style.display = 'none';
   const image = new Image();
   image.src = src;
   const canvas = document.createElement('canvas');
-  // Get the declared height (consider using getComputedStyle for more flexibility)
-  height = window.getComputedStyle(divId).getPropertyValue('height');
-
-
-
-
-  //if x, y, deswidth, and desheight are set, crop the image
-  if (x && y && deswidth && desheight) {
-      // crop the image
-      canvas.style.height = desheight;
-      canvas.width = deswidth;
-      canvas.height = desheight;
-      const context = canvas.getContext('2d');
-      //create a new image with the cropped dimensions
-      context.drawImage(image, x, y, deswidth, desheight, 0, 0, deswidth, desheight);
-      //set the source of the image to the cropped image
-      image.src = canvas.toDataURL('image/png');
-      ogWidth = window.getComputedStyle(divId).getPropertyValue('width');
-      ogHeight = window.getComputedStyle(divId).getPropertyValue('height');
-      //get the scale difference between the original image and the cropped image
-      scaleX = deswidth / ogWidth;
-      scaleY = desheight / ogHeight;
-      //set the width of the element to the original width
-      divId.style.width = ogWidth;
-      //set the height of the element to the original height scaled by the difference between the original height and the cropped height
-      divId.style.height = ogHeight * scaleY;
-      //set the divId to the cropped image
-      divId.src = image.src;
-      //display the cropped image
-      divId.style.display = 'block';
-      //set the width and height of the image to the computed width and height
-      console.log("image width is " + image.width + ". image height is " + image.height);
-      height = window.getComputedStyle(divId).getPropertyValue('height');
-      
-      
-
-
-
-
-
-
-      
-  } else {
-      // Set the height on the canvas style
-      canvas.style.height = height;
-      canvas.width = image.width;
-      canvas.height = image.height;
-      const context = canvas.getContext('2d');
-      context.drawImage(image, 0, 0);
-  }
-
+  // Set the height on the canvas style
+  canvas.style.height = height;
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const context = canvas.getContext('2d');
+  context.drawImage(image, 0, 0);
 
 
   xScaling = image.width / divId.width;
@@ -482,73 +469,127 @@ function initCropper(divId, x=false, y=false, deswidth=false, desheight=false) {
   
 }
 
-//function to draw a rectangle on the canvas given x1, y1, width, and height
-function drawRectangle(context, x1, y1, width, height) {
-  context.beginPath();
-  context.rect(x1, y1, width, height);
-  context.stroke();
-}
 
-//function to draw a button over a img element relative to the parent div element given x1, y1, width, and height
-function drawButton(image, x1, y1, width, height, type, text, id) {
-  console.log("drawing button over " + image + " at " + x1 + ", " + y1 + " with width " + width + " and height " + height);
-  //create a new button element
+
+//function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index.
+// We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
+function drawButton(image, x, y, width, height, type, text, id) {
+
+  //round the x, y, width, and height to the nearest integer
+  x = Math.round(x);
+  y = Math.round(y);
+  width = Math.round(width);
+  height = Math.round(height);
+
+  //get the canvas' context
+  const context = image.getContext('2d');
+
+
+  //create button element
   const button = document.createElement('button');
-  //set the data-id attribute to the id
   button.setAttribute('data-id', id);
-  //set the data-type attribute to the type
   button.setAttribute('data-type', type);
-  //set the text of the button to the text
-  button.textContent = text;
-  //get the image's computed dimensions
-  const imageWidth = window.getComputedStyle(image).getPropertyValue('width');
-  const imageHeight = window.getComputedStyle(image).getPropertyValue('height');
-  const imageX = window.getComputedStyle(image).getPropertyValue('left');
-  const imageY = window.getComputedStyle(image).getPropertyValue('top');
-  //get the scale difference between the image and the parent div
-  const xScaling = image.width / parseInt(imageWidth);
-  const yScaling = image.height / parseInt(imageHeight);
-  //set the button's position to absolute
-  button.style.position = 'relative';
+
+
+  //get the canvas' container
+  const parent = context.canvas.parentNode;
+
+  //get the canvas' computed offset relative to the parent
+  const canvasOffset = context.canvas.getBoundingClientRect();
+
+  //calculate the scale factor
+  const xScaling =  canvasOffset.width / 4096;
+
   
 
-  console.log("appended button: " + button + " to " + image.parentNode);
+  
+  //draw the button at the x, y, width, and height 
+  button.style.position = 'absolute';
+  button.style.left = (x * xScaling) + 'px';
+  button.style.top = (y * xScaling) + 'px';
+  button.style.width = (width * xScaling) + 'px';
+  button.style.height = (height * xScaling) + 'px';
+
+  //add a label on the bottom left corner of the button that says the type and index
+  const label = document.createElement('label');
+  label.textContent = type + ' ' + text;
+  label.style.position = 'absolute';
+  label.style.bottom = '0';
+  label.style.left = '0';
+
+  //label width is only 10 percent of the width of the button
+  label.style.width = '10%';
+  label.style.height = '15px';
+
+  //label font size is 10px
+  label.style.fontSize = '10px';
+
+
+  //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
+  if (type == 'line') {
+    button.style.backgroundColor = 'rgba(0, 255, 0, 0.2)';
+    button.style.border = '1px solid green';
+    label.style.backgroundColor = 'green';
+    label.style.color = 'white';
+  }
+
+
+  //set the button class to 'select-element'
+  button.className = 'selectElement';
+  
+  button.appendChild(label);
+
+
+  //append the button to the parent
+  parent.appendChild(button);
+  
+  
+  
+}
+
+//function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index.
+// We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
+function drawRect(image, x, y, width, height, type, text, id) {
+
+  //get the canvas' context
+  const context = image.getContext('2d');
+
+  
+
+
+  //draw a rectangle at the x, y, width, and height
+  //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
+  if (type == 'line') {
+    context.fillStyle = 'rgba(0, 255, 0, 0.2)';
+    context.strokeStyle = 'green';
+    context.lineWidth = 1;
+  }
+  context.fillRect(x, y, width, height);
+  
 }
 
 
-
-
-
-//reset the canvas to the original image
-function resetCropper() {
-  //redraw the original image
-  const image = new Image();
-  image.src = Template.instance().originalImage.get();
-  //get the #pageImage canvas
-  const canvas = document.getElementById('pageImage');
-  const context = canvas.getContext('2d');
-  context.drawImage(image, 0, 0);
-}
 
 //replace the image with a canvas that has the same dimensions and source
 function replaceWithOriginalImage() {
-  //check if a canvas with the id pageImage exists
-  const canvas = document.getElementById('pageImage');
-  //check if the type is canvas
-  if (canvas.tagName == 'CANVAS') {
-    canvas.remove();
-    //get the original image
-    const image = document.getElementById('originalImage');
-    image.id = 'pageImage';
-    image.style.display = 'block';
-    //reset the cropper's variables
-    Template.instance().drawing.set(false);
-    Template.instance().bound1.set(false);
-    Template.instance().bound2.set(false);
-    Template.instance().yScaling.set(1);
-    Template.instance().xScaling.set(1);
+  //remove the cropper from the DOM
+  cropper = Template.instance().cropper.get();
+  if (cropper) {
+    cropper.destroy();
+    $('.cropper-container').remove();
+    
   }
+  $('#pageImage').each(function() {
+    //delete each pageImage
+    $(this).remove();
+  });
+  //unhide the original image
+  $('#originalImage').show();
+  //change the id of the original image to pageImage
+  $('#originalImage').attr('id', 'pageImage');
 }
+
+
 
 
 
@@ -687,14 +728,28 @@ Template.viewPage.events({
   'mouseleave #ToolBox'(event, instance) {
     console.log("mouseout");
     //fade out the toolbox
-    $('#ToolBox').fadeTo(100, 0.2);
+    $('#ToolBox').fadeTo(100, 0.8);
     //set background color to transparent
     $('#ToolBox').css('background-color', 'transparent');
   },
+  'mouseover #HelpBox'(event, instance) {
+    //opacity on mouseover if the currentTool is 'createLine', 'createWord', or 'createPhoneme'
+    $('#HelpBox').fadeTo(100, 1);
+  },
+  'mouseleave #HelpBox'(event, instance) {
+    //opacity on mouseleave if the currentTool is 'createLine', 'createWord', or 'createPhoneme'
+    $('#HelpBox').fadeTo(100, 0.2);    
+  },
+
   'click #exitTool'(event, instance) {
     //set the currentTool to view
     instance.currentTool.set('view');
     resetToolbox();
+    $('.cropper-container').remove();
+    $('#pageImage').removeClass('cropper-hidden');
+    //delete all buttons from the pageImage's parent
+    $('#pageImage').parent().children('button').remove();
+    setCurrentHelp(false);
     replaceWithOriginalImage();
     
   },
@@ -730,11 +785,55 @@ Template.viewPage.events({
   },
   'click #selectItem'(event, instance) {
     event.preventDefault();
+    instance.currentTool.set('select');
     resetToolbox();
     //set the currentTool to btn-dark
     $('#selectItem').removeClass('btn-light').addClass('btn-dark');
-    instance.currentTool.set('select');
-    setCurrentHelp(false);
+    selectedLine = instance.currentLine.get();
+    console.log("selectedLine is " + selectedLine);
+    if (!selectedLine) {
+      image = initCropper();
+      const context = image.getContext('2d');
+      const page = instance.currentPage.get();
+      const documentId = instance.currentDocument.get();
+      const lines = Documents.findOne({_id: documentId}).pages[page].lines;
+      //if there are no lines, simulate clicking the exitTool button
+      if (lines.length == 0) {
+        alert("No lines to display. Use the Create Line tool to create a line.");
+        return;
+      }
+      //sort the lines by y1
+      lines.sort(function(a, b) {
+        return a.y1 - b.y1;
+      }
+      );
+      //split the canvas into multiple canvases by line
+      lines.forEach(function(line) {
+        index = lines.indexOf(line);
+        drawButton(image, 0, line.y1, image.width, line.height, 'line', index, index);
+      }
+      );
+      //hide the original image with display none
+      setCurrentHelp('To select a line, click on the line.  To cancel, click the close tool button.');
+    }
+  },
+  'click .selectElement'(event, instance) {
+    event.preventDefault();
+    //get the data-type and data-id from the button
+    const type = event.target.getAttribute('data-type');
+    const id = event.target.getAttribute('data-id');
+    console.log("selectElement, type is " + type + " and id is " + id);
+    //copy view-tab-template to it's parent
+    viewTemplate = document.getElementById('view-tab-template').content.cloneNode(true);
+    //set the viewtemplate's buttons' innerhtml to the type and id
+    viewTemplate.querySelector('#viewType').innerHTML = type + ' ' + id;
+    //append the viewTemplate to the parent
+    event.target.parentNode.appendChild(viewTemplate);
+    //remove display none style from the view-tab
+    viewTab = document.getElementById('view-tab');
+    viewTab.style.display = 'block';
+    //change the view-tab's id to view-tab-type
+    viewTab.id = 'view-tab-' + type;
   },
   'click #searchGlyphs'(event, instance) {
     event.preventDefault();
@@ -751,260 +850,90 @@ Template.viewPage.events({
     $('#createReference').removeClass('btn-light').addClass('btn-dark');
     instance.currentTool.set('createReference');
   },
+  'click #confirmTool'(event, instance) {
+    currentTool = instance.currentTool.get();
+    if(currentTool == 'createLine') {
+      ret = Meteor.callAsync('addLineToPage', instance.currentDocument.get(), instance.currentPage.get(), instance.selectx1.get(), instance.selecty1.get(), instance.selectwidth.get(), instance.selectheight.get());
+      alert("line added");
+      //find the cropper and destroy it
+      $('.cropper-container').remove();
+      $('#pageImage').removeClass('cropper-hidden');
+    }
+    instance.currentTool.set('view');
+    resetToolbox();
+    $('.cropper-container').remove();
+    $('#pageImage').removeClass('cropper-hidden');
+    //delete all buttons from the pageImage's parent
+    $('#pageImage').parent().children('button').remove();
+    setCurrentHelp(false);
+    replaceWithOriginalImage();
+  },
   'click #createLine'(event, instance) {
     event.preventDefault();
-    resetToolbox();
     console.log("createLine, drawing is " + instance.drawing.get());
     //disable all buttons in the toolbox-container
     //set the currentTool to btn-dark
     $('#createLine').removeClass('btn-light').addClass('btn-dark');
     instance.currentTool.set('createLine');
-    cropper = initCropper(document.getElementById('pageImage'));
+    resetToolbox();
+    image = initCropper();
     //draw all bounding boxes from the page
-    const context = cropper.getContext('2d');
+    const context = image.getContext('2d');
     const page = instance.currentPage.get();
     const documentId = instance.currentDocument.get();
     const lines = Documents.findOne({_id: documentId}).pages[page].lines;
+    //sort the lines by y1
+    lines.sort(function(a, b) {
+      return a.y1 - b.y1;
+    });
     lines.forEach(function(line) {
       console.log("drawing line");
       index = lines.indexOf(line);
-      drawRectangle(context, line.x1, line.y1, line.width, line.height);
+      drawRect(image, 0, line.y1, image.width, line.height, 'line', index, index);
     });
-    setCurrentHelp('To create a bounding box to represent a line in the document, click once at the top left corner of the bounding box, then click again at the bottom right corner of the bounding box.  The bounding box will be drawn on the page image.  To confirm the bounding box, click the confirm button.  To cancel the bounding box, click the close tool button.');
-    //set the subTool to createWord
-    console.log(cropper);
-    //bring the cropper to the front
+    setCurrentHelp('To create a bounding box to represent a line in the document, use the cropping bounds to select the area of the page that contains the line. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
+    //se the image css to display block and max-width 100%
+    image.style.display = 'block';
+    image.style.maxWidth = '100%';   
+    //create a cropper object for the pageImage
+    cropDetails = {};
+    //add a event listener for hitting the enter key, which will confirm the selection
+    const cropper = new Cropper(image, {
+      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
+      dragMode: 'crop',
+      aspectRatio: 0,
+      crop(event) {
+        cropDetails = event.detail;
+        instance.selectx1.set(cropDetails.x);
+        instance.selecty1.set(cropDetails.y);
+        instance.selectwidth.set(cropDetails.width);
+        instance.selectheight.set(cropDetails.height);
+      }
+    });
+    cropper.setCropBoxData({left: 0, top: lines[lines.length - 1].y2, width: image.width, height: 20});
 
   },
   'click #createWord'(event, instance) {
     event.preventDefault();
-    instance.currentTool.set('createWord');
-    instance.subTool.set("selectLine");
-    resetToolbox();
+    console.log("createWord, drawing is " + instance.drawing.get());
+    //disable all buttons in the toolbox-container
     //set the currentTool to btn-dark
     $('#createWord').removeClass('btn-light').addClass('btn-dark');
-    //disable all buttons in the toolbox-container
-    //initialize the cropper
-    cropper = initCropper(document.getElementById('pageImage'));
-    originalImage = document.getElementById('originalImage');
-    console.log("originalImage is " + originalImage.src);
-    //draw all bounding boxes from the page's lines
-    const context = cropper.getContext('2d');
+    instance.currentTool.set('createWord');
+    resetToolbox();
+    image = initCropper();
+    //draw all bounding boxes from the page
     const page = instance.currentPage.get();
     const documentId = instance.currentDocument.get();
     const lines = Documents.findOne({_id: documentId}).pages[page].lines;
+    //split the canvas into multiple canvases by line
     lines.forEach(function(line) {
-      drawRectangle(context, line.x1, line.y1, line.width, line.height);
+      index = lines.indexOf(line);
+      splitCanvas(index, image, 0, line.y1, line.width, line.height);
     });
-    setCurrentHelp('To create a word boundary, select the line that the word is contained in.  Click inside the line to select it. To cancel, click the close tool button.');
-  },
-  'click #createPhoneme'(event, instance) {
-    event.preventDefault();
-    resetToolbox();
-    //set the currentTool to btn-dark
-    $('#createPhoneme').removeClass('btn-light').addClass('btn-dark');
-    instance.currentTool.set('createPhoneme');
-  },
-  'click #createGlyph'(event, instance) {
-    event.preventDefault();
-    resetToolbox();
-    //set the currentTool to btn-dark
-    $('#createGlyph').removeClass('btn-light').addClass('btn-dark');
-    setCurrentHelp(false);
-    instance.currentTool.set('newGlyph');
-  },
-  'click #selectItem': function(event, instance) {
-    console.log("selectItem");
-    resetToolbox();
-    //set the currentTool to select
-    $('#selectItem').removeClass('btn-light').addClass('btn-dark');
-    instance.currentTool.set('select');
-    setCurrentHelp(false);
-
-  },
-  //mouse events
-  'mousedown #pageImage'(event, instance) {
-    console.log("mousedown");
-
-    const tool = instance.currentTool.get();
-    const subTool = instance.subTool.get();
-    const drawing = instance.drawing.get();
-    if (tool == 'createLine' && drawing == false && subTool == false) {
-
-      if (instance.bound1.get() && instance.drawing.get() == false) {
-        replaceWithOriginalImage();
-        cropper = initCropper(document.getElementById('pageImage'));
-        //draw all bounding boxes from the page
-        const context = cropper.getContext('2d');
-        const page = instance.currentPage.get();
-        const documentId = instance.currentDocument.get();
-        const lines = Documents.findOne({_id: documentId}).pages[page].lines;
-        lines.forEach(function(line) {
-          drawRectangle(context, line.x1, line.y1, line.width, line.height);
-        });
-
-        return;
-      } else {
-        
-      instance.drawing.set(true);
-      //set pointer events for ToolOptions to none and hide the ToolOptions
-      $('#ToolOptions').css('pointer-events', 'none');
-      $('#ToolOptions').hide();
-    
-
-
-      //get the current mouse position and set the first bound to that position.  Use the scaling factors to adjust the position
-      const xScaling = instance.xScaling.get();
-      const yScaling = instance.yScaling.get();
-
-      instance.bound1.set({x: event.offsetX * xScaling, y: event.offsetY * yScaling}) 
-      console.log("bound1 is " + JSON.stringify(instance.bound1.get()) + ". Drawing is " + instance.drawing.get());
-      }
-    } else if (tool == 'createLine' && drawing == true) {
-      instance.drawing.set(false);
-      //set the ToolOptions to have pointer events and show the ToolOptions
-      $('#ToolOptions').css('pointer-events', 'auto');
-      $('#ToolOptions').show();
-      //get the current mouse position and set the second bound to that position.  Use the scaling factors to adjust the position
-      const xScaling = instance.xScaling.get();
-      const yScaling = instance.yScaling.get();
-      instance.bound2.set({x: event.offsetX * xScaling, y: event.offsetY * yScaling}) 
-      console.log("bound2 is " + JSON.stringify(instance.bound2.get()) + ". Drawing is " + instance.drawing.get());
-      //display createLineModal
-      $('#createLineModal').modal('show');
-    } else if (tool == 'createWord' && subTool == 'selectLine') {
-      console.log("selectLine for createWord");
-      //get the mouse position on the canvas
-      mousePositionX = event.offsetX;
-      mousePositionY = event.offsetY;
-      //scale the mouse position by the scaling factors
-      const xScaling = instance.xScaling.get();
-      const yScaling = instance.yScaling.get();
-      mousePositionX = mousePositionX * xScaling;
-      mousePositionY = mousePositionY * yScaling;
-      console.log("mousePositionX is " + mousePositionX + ". mousePositionY is " + mousePositionY);
-      lines = Documents.findOne({_id: instance.currentDocument.get()}).pages[instance.currentPage.get()].lines;
-      index = 0;
-      lines.forEach(function(line) {
-        index = lines.indexOf(line);
-        console.log("checking line " + JSON.stringify(line), isContainedBy({x: mousePositionX, y: mousePositionY}, line.x1, line.y1, line.x1 + line.width, line.y1 + line.height));
-        if (isContainedBy({x: mousePositionX, y: mousePositionY}, line.x1, line.y1, line.x1 + line.width, line.y1 + line.height)) {
-          console.log("setting currentLine to " + JSON.stringify(line) + " at index " + index);
-          instance.currentLine.set(index);
-          //get the context of the canvas
-          canvas = document.getElementById('pageImage');
-          context = canvas.getContext('2d');
-          //draw the bounding box of the line and existing word bounding boxes
-          drawRectangle(context, line.x1, line.y1, line.width, line.height);
-          words = line.words;
-                  
-          words.forEach(function(word) {
-            //we extrapolate the word's bounding box from the line's height, the words's x1, and width
-            console.log("drawing word x1: " + word.x1 + " y1: " + line.y1 + " width: " + word.width + " height: " + line.height);
-            drawRectangle(context, word.x, line.y1, word.width, line.height);
-          });
-          setCurrentHelp('Now that a line has been selected, create a boundary for the word by clicking once at the top left corner of the bounding box, then clicking again at the bottom right corner of the bounding box.  The bounding box will be drawn on the page image.  To confirm the bounding box, click the confirm button.  To cancel the bounding box, click the close tool button.');
-          //set subtool to createWord
-          instance.subTool.set('createWord');       
-          instance.drawing.set(false); 
-        }
-        index++;
-      });
-    } else if (tool == 'createWord' && subTool == 'createWord' && drawing == false) {
-      //get the current scaling factors
-      const xScaling = instance.xScaling.get();
-      const yScaling = instance.yScaling.get();
-      //get the mouse position on the canvas
-      instance.bound1.set({x: event.offsetX * xScaling, y: event.offsetY * yScaling});
-      //set drawing to true
-      instance.drawing.set(true);
-    } else if (tool == 'createWord' && subTool == 'createWord' && drawing == true) {
-      //get the current scaling factors
-      const xScaling = instance.xScaling.get();
-      const yScaling = instance.yScaling.get();
-      //get the mouse position on the canvas
-      instance.bound2.set({x: event.offsetX * xScaling, y: event.offsetY * yScaling});
-      //set drawing to false
-      instance.drawing.set(false);
-      instance.subTool.set(false);
-      instance.currentHelp.set(false);
-      //display createWordModal
-      $('#createWordModal').modal('show');
-    }
-
-  },
-  //if mouse moves while drawing, draw a bounding box from the first point to the current point
-  'mousemove #pageImage'(event, instance) {
-    if (instance.drawing.get()) {
-      //redraw the original image (optional)
-      resetCropper();
-      const context = event.target.getContext('2d');
-      context.strokeStyle = 'black';
-      const bound1 = instance.bound1.get();
-      
-
-      
-      // Calculate width and height based on current position, use scaling factors to adjust the position
-      const xScaling = instance.xScaling.get();
-      const yScaling = instance.yScaling.get();
-      const width = event.offsetX * xScaling - bound1.x;
-      const height = event.offsetY * yScaling - bound1.y;
-      
-      context.beginPath();
-      context.rect(bound1.x, bound1.y, width, height);
-      context.stroke(); 
-      console.log("drawing rectangle from " + JSON.stringify(bound1) + " with width " + width + " and height " + height)
-    }
-  },
-  'click #confirmLine'(event, instance) {
-    //we call meteor method addLineToPage: function(document, page_number, x1, y1, width, height)
-    const documentId = instance.currentDocument.get();
-    const page = instance.currentPage.get();
-    const bound1 = instance.bound1.get();
-    const bound2 = instance.bound2.get();
-    const x1 = bound1.x;
-    const y1 = bound1.y;
-    const width = bound2.x - bound1.x;
-    const height = bound2.y - bound1.y;
-    console.log("addLineToPage with " + documentId + ", " + page + ", " + x1 + ", " + y1 + ", " + width + ", " + height);
-    Meteor.call('addLineToPage', documentId, page, x1, y1, width, height, function(error, result) {
-      if (error) {
-        console.log(error);
-        alert('Error adding line to page');
-      } else {
-        console.log(result);
-        $('#createLineModal').modal('hide');
-        replaceWithOriginalImage();
-      }
-    });
-  },
-  'click #confirmWord'(event, instance) {
-    //we call meteor method addWordToLine: function(document, page_number, line_number, x1, y1, width, height)
-    const documentId = instance.currentDocument.get();
-    const page = instance.currentPage.get();
-    const line = instance.currentLine.get();
-    instance.currentLine.set(false);
-    const bound1 = instance.bound1.get();
-    const bound2 = instance.bound2.get();
-    instance.bound1.set(false);
-    instance.bound2.set(false);
-    const x1 = bound1.x;
-    const y1 = bound1.y;
-    const width = bound2.x - bound1.x;
-    const height = bound2.y - bound1.y;
-    console.log("addWordToLine with " + documentId + ", " + page + ", " + line + ", " + x1 + ", " + y1 + ", " + width + ", " + height);
-    Meteor.call('addWordToLine', documentId, page, line, x1, width, function(error, result) {
-      if (error) {
-        console.log(error);
-        alert('Error adding word to line');
-      } else {
-        console.log(result);
-        $('#createWordModal').modal('hide');
-        replaceWithOriginalImage();
-      }
-    });
-    //set the location to reload the page with the current page and document
-    routeTo = "/viewPage/" + instance.currentDocument.get() + "/" + instance.currentPage.get();
+    //hide the original image with display none
+    image.style.display = 'none';
+    setCurrentHelp('To create a word, select the line that the word is on by clicking on the line.  Then, use the cropping bounds to select the area of the page that contains the word. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
   },
   //keyboard shift and mouse wheel event
   'wheel #pageImage'(event, instance) {

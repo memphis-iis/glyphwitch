@@ -4,14 +4,14 @@ echo "MONGO_URL=$MONGO_URL"
 
 #!/bin/bash
 
-meteor npm install --no-bin-links
+meteor npm install 
 
 # Figure command line
 CL=$*
 if [ ${#CL} -lt 1 ]; then
     echo "Running meteor with --settings ./settings.json"
     # meteor --release 1.4.2.7 --settings ./settings.json
-    meteor run
+    meteor run 
 else
     echo "Running meteor with your command line (did you remember --settings?)"
     meteor "$@"
