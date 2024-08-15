@@ -62,22 +62,34 @@ nvm use 20
 #install meteor 3.0.1
 curl https://install.meteor.com/ | sh
 
-# Install opencv4nodejs, set enviorment variables to stop autobuild, add opencv include path, library path, and bin path
-cd "$HOME/glyphwitch/glyphwitch"
-
-sudo mkdir /unsychronized/
-sudo mkdir /unsychronized/node_modules
-
-sudo chmod 777 /unsychronized/node_modules
-
-rm -rf node_modules
-ln -s /unsychronized/node_modules node_modules
 
 
 
 # In case we're running on a Windows host, we force the use of mounting instead
 # of symlinks for meteor packages
 cd "$HOME/glyphwitch/glyphwitch"
+
+dos2unix run_meteor
+
+sudo umount .meteor/local -f
+rm .meteor/local -rf
+mkdir -p .meteor/local
+
+sudo umount packages -f
+rm packages -rf
+mkdir -p packages
+
+mkdir -p "$HOME/.meteor/local"
+sudo mount --bind "$HOME/.meteor/local" .meteor/local
+
+mkdir -p "$HOME/.meteor/packages"
+sudo mount --bind "$HOME/.meteor/packages" packages
+
+#meteor update
+meteor npm install --save babel-runtime --no-bin-links
+
+#run $HOME/glyphwitch/glyphwitch/startup.sh on login 
+echo "bash ~/glyphwitch/glyphwitch/startup.sh" >> ~/.bashrc
 
 
 

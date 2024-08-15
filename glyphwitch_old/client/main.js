@@ -3,7 +3,7 @@ import { ReactiveVar } from 'meteor/reactive-var';
 import { FilesCollection } from 'meteor/ostrio:files';
 import { Session } from 'meteor/session';
 import Cropper from 'cropperjs';
-import go from 'gojs';
+
 
 
 import './main.html';
@@ -398,6 +398,8 @@ function resetToolbox() {
   //get the buttons in the first child and hide them and remove the btn-dark class
   buttons = firstChild.children();
   $(buttons).each(function(index, button) {
+    $(button.hide);
+    //exclude the exitTool and confirmTool
     if ($(button).attr('id') != 'exitTool' && $(button).attr('id') != 'confirmTool') {
       $(button).removeClass('btn-dark').addClass('btn-light');
     }
@@ -405,41 +407,38 @@ function resetToolbox() {
   //if currentTool is not false, enable the exitTool
   if (currentView == 'simple') {
     if(currentTool == 'view') {
-      hideAllToolButtons();
       $('#viewTool').removeClass('btn-light').addClass('btn-dark');
       //show the viewTool, createReference, createLine, searchGlyphs, and selectTool
       $('#viewTool').show();
       $('#createReference').show();
       $('#createLine').show();
       $('#searchGlyphs').show();
-      $('#selectItem').show();
     }
     if(currentTool == 'createLine') {
-      hideAllToolButtons();
+      hideAllToolButtoms();
       $('#exitTool').show();
       $('#confirmTool').show();
     }
     if(currentTool == 'select') {
-      hideAllToolButtons();
-      $('selectItem').removeClass('btn-light').addClass('btn-dark');
+      hideAllToolButtoms();
+      $('selectTool').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
     }
    } else if (currentView == 'line') {
     if(currentTool == 'view') {
-      hideAllToolButtons();
+      hideAllToolButtoms();
       //show the viewTool, createWord,  selectTool, and viewTool
       $('#viewTool').show();
       $('#createWord').show();
-      $('#selectItem').show();
+      $('#selectTool').show();
+
       $('#viewTool').removeClass('btn-light').addClass('btn-dark');
     } 
     if(currentTool == 'select') {
-      hideAllToolButtons();
       $('selectTool').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
     }
     if(currentTool == 'createWord') {
-      hideAllToolButtons();
       $('#createWord').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
       $('#confirmTool').show();
@@ -450,92 +449,35 @@ function resetToolbox() {
       $('#confirmTool').show();
     }
   } else if(currentView == 'word') {
+      //show the createPhoneme, createGlyph, and selectTool, and viewTool
+      $('#viewTool').show();
+      $('#createPhoneme').show();
+      $('#createGlyph').show();
+      $('#selectTool').show();
       if(currentTool == 'view') {
-        hideAllToolButtons();
-        $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light')
-        //show createPhoneme, selectItem, createGlyph, and viewTool
-        $('#createPhoneme').show();
-        $('#selectItem').show();
-        $('#createGlyph').show();
-        $('#viewTool').show();
-        $('#viewTool').removeClass('btn-light').addClass('btn-dark');
+        $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light').show();
+        //hide create line, create word, 
     } 
   } 
 }
 
-//fucntion to generate document flow using gojs
+//fucntion to generate document flow
 function generateFlow() {
+  //import gojs library
 
-  myDiagram = new go.Diagram("flow", {
-    initialContentAlignment: go.Spot.Center,
-    "undoManager.isEnabled": true
-    }
-  );
-
-  doc = Documents.findOne({_id: Template.instance().currentDocument.get()});
-
-  //create node templates for the document, pages, lines, words, phonemes, glyphs, and references
-  myDiagram.nodeTemplate = new go.Node('Auto')
-     .add(
-        new go.Shape('RoundedRectangle', { fill: 'lightblue' }),
-        new go.TextBlock({ margin: 8 },
-          new go.Binding('text', 'key')
-        )
-      );
-
-
-
-
-
-
-
-  //for each document, create a node, keeping parent connections
-  doc = Documents.findOne({_id: Template.instance().currentDocument.get()});
-  console.log(doc);
-
-  //create a object to hold the nodes
-  nodes = [];
-  links = [];
-
-  //create a node for the document
-  nodes.push({ key: doc.title, category: "document" });
-
-  //for each page, create a node, keeping parent connections and creating a link
-  doc.pages.forEach(function(page, index) {
-    nodes.push({ key: doc.title + ' page ' + index, category: "page", parent: doc.title });
-    links.push({ from: doc.title, to: doc.title + ' page ' + index });
-  });
-
-
-  //for each line, create a node, keeping parent connections to the page and creating a link
-  doc.pages.forEach(function(page, pageIndex) {
-    page.lines.forEach(function(line, lineIndex) {
-      nodes.push({ key: doc.title + ' page ' + pageIndex + ' line ' + lineIndex, category: "line", parent: doc.title + ' page ' + pageIndex });
-      links.push({ from: doc.title + ' page ' + pageIndex, to: doc.title + ' page ' + pageIndex + ' line ' + lineIndex });
-    });
-  });
-
-  //for each word, create a node, keeping parent connections to the line and creating a link
-  doc.pages.forEach(function(page, pageIndex) {
-    page.lines.forEach(function(line, lineIndex) {
-      line.words.forEach(function(word, wordIndex) {
-        nodes.push({ key: doc.title + ' page ' + pageIndex + ' line ' + lineIndex + ' word ' + wordIndex, category: "word", parent: doc.title + ' page ' + pageIndex + ' line ' + lineIndex });
-        links.push({ from: doc.title + ' page ' + pageIndex + ' line ' + lineIndex, to: doc.title + ' page ' + pageIndex + ' line ' + lineIndex + ' word ' + wordIndex });
-      });
-    });
-  });
-
-
-  //set the model
-  myDiagram.model = new go.GraphLinksModel(nodes, links);
 
 
 
 }
 
-function hideAllToolButtons() {
-  //hide all buttons in the toolbox-container, even if in a div
-  $('.toolbox-container button').hide();
+function hideAllToolButtoms() {
+  $(buttons).each(function(index, button) {
+    $(button.hide);
+    //exclude the exitTool and confirmTool
+    if ($(button).attr('id') != 'exitTool' && $(button).attr('id') != 'confirmTool') {
+      $(button).removeClass('btn-dark').addClass('btn-light');
+    }
+  });
 }
 
 
@@ -994,7 +936,6 @@ Template.viewPage.events({
   'click #exitTool'(event, instance) {
     //set the currentTool to view
     instance.currentTool.set('view');
-    hideAllToolButtons();
     resetToolbox();
     $('.cropper-container').remove();
     $('#pageImage').removeClass('cropper-hidden');
@@ -1132,29 +1073,6 @@ Template.viewPage.events({
     //set the data-type and data-id of the clone to the type and id
     clone.attr('data-type', type);
     clone.attr('data-id', id);
-    //get the parent element type using cases
-    if (type == 'line') {
-      parent = 'simple';
-      parenttab = 'simple';
-    }
-    if (type == 'word') {
-      parentId = instance.currentLine.get();
-      parenttab = "view-tab-element-line-" + parentId;
-    }
-    if (type == 'phoneme') {
-      parentId = instance.currentWord.get();
-      parenttab = "view-tab-element-word-" + parentId;
-    }
-    if (type == 'glyph') {
-      parentId = instance.currentPhoneme.get();
-      parenttab = "view-tab-element-phoneme-" + parentId;
-    }
-
-    //set the data-parent of the clone to the parent's expected tab id
-    clone.attr('data-parent', parenttab);
-    clone.attr('id', 'view-tab-element-' + type + '-' + id);
-
-
     //get the ammount of tabs open
     tabs = $('#view-tab-template').parent().children().length;
     //set the clone's data tab index to the number of tabs open
@@ -1177,14 +1095,10 @@ Template.viewPage.events({
     setImage(type, id);
   
   },
-  'click .open-tab'(event, instance) {
+  'click #open-tab'(event, instance) {
     event.preventDefault();
     //get the clicked tab data-tab-id
     tabId = event.target.getAttribute('data-tab-id');
-    //set the aria of the parent to true
-    $(event.target).attr('aria-selected', 'true');
-    //set the class of the parent to active
-    $(event.target).addClass('active');
     if(tabId == 'flow') {
       //hide the image-container
       $('#image-container').hide();
@@ -1230,47 +1144,41 @@ Template.viewPage.events({
   },
   'click .close-tab' (event, instance) {
     event.preventDefault();
-    //get the grandparent of the event target
-    grandparent = event.target.parentElement.parentElement;
-    //get the data-parent of the grandparent
-    tabparent = grandparent.getAttribute('data-parent');
-    //get the data-type of the grandparent
+    //get the parent's parent of the button
+    parent = event.target.parentNode;
+    grandparent = event.target.parentNode.parentNode;
+    greatgrandparent = grandparent.parentNode;
+    //get the data-tab-index from the parent
+    index = grandparent.getAttribute('data-tab-index');
+    //get the data-type from the parent
     type = grandparent.getAttribute('data-type');
-
-
+    //if line, set the currentLine to false
     if (type == 'line') {
       instance.currentLine.set(false);
       $('#lineImage').remove();
     }
-    if (type == 'word') {
-      instance.currentWord.set(false);
-      $('#wordImage').remove();
-    }
-    if (type == 'phoneme') {
-      instance.currentPhoneme.set(false);
-      $('#phonemeImage').remove();
-    }
-    if (type == 'glyph') {
-      instance.currentGlyph.set(false);
-      $('#glyphImage').remove();
-    }
 
-    
+    //get the tab with the same data-tab-index - 1
+    searchIndex = parseInt(index) - 1;
+    //remove the tab
+    parent.parentNode.remove();
+    tab = $(greatgrandparent).children('[data-tab-index=' + searchIndex + ']');
     //if the tab exists, make it active
-    if (tabparent != 'simple') {
-      //set the currentView to the tabparent's type
-      instance.currentView.set(tabparent.split('-')[3]);
-      console.log("currentView is " + instance.currentView.get());
-      //simulate a click on the tabparent's button
-      $('#' + tabparent + ' button').click();
+    if (tab.length > 0) {
+      tab[0].children().addClass('active');
+      tab[0].children().attr('aria-selected', 'true');
     } else {
+      //activate the first tab
+      first = $(greatgrandparent).children().first();
+      first.children().addClass('active');
+      first.children().attr('aria-selected', 'true');
       //set the currentView to simple
       instance.currentView.set('simple');
-      //simulate a click on the simple tab
-      $('#simple-tab').click();
+      //set currentTool to view
+      instance.currentTool.set('view');
+      //replace the image with the original image
+      replaceWithOriginalImage();
     }
-    //remove the grandparent
-    grandparent.remove();
     resetToolbox();
   },
   'click #searchGlyphs'(event, instance) {
