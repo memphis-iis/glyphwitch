@@ -276,7 +276,9 @@
 <!-- template for document viewing UI, with a left side -->
 <template name="viewPage">
   <div class="container-fluid d-flex flex-nowrap">
+    
     <div class="col-md-2 bg-light collapse show text-center" id="sidebar">
+      {{#if currentDocument}}
       <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
           <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Page Selection</button>
@@ -289,15 +291,19 @@
         <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L6.707 8l4.647 4.646a.5.5 0 0 1-.708.708l-5-5a.5.5 0 0 1 0-.708l5-5a.5.5 0 0 1 .708 0z"/>
       </svg>
     </button>
+    
     {{currentPageNumber}} of {{totalPages}}
-    <button class="btn btn-light mb-3" id="nextPage">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
-        <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l5 5a.5.5 0 0 1 0 .708l-5 5a.5.5 0 0 1-.708-.708L9.293 8 4.646 3.354a.5.5 0 0 1 0-.708z"/>
-      </svg>
-    </button>
-  </div>
+      <button class="btn btn-light mb-3" id="nextPage">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
+          <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l5 5a.5.5 0 0 1 0 .708l-5 5a.5.5 0 0 1-.708-.708L9.293 8 4.646 3.354a.5.5 0 0 1 0-.708z"/>
+        </svg>
+      </button>
+      
+    </div>
+    {{/if}}
+    
   <!-- display each page in a scrollable frame -->
-  <div class="d-flex flex-column align-items-center" style="overflow-y: auto; height: 100vh;">
+    <div class="d-flex flex-column align-items-center" style="overflow-y: auto; height: 100vh;">
     
     {{#each currentDocument.pages}}
     Page {{@index}}<br>
@@ -306,7 +312,7 @@
       </div> <br>
 
     {{/each}}
-  </div>
+    </div>
     </div>
     <div class="col position-relative">
       <ul class="nav nav-tabs" id="myTab" role="tablist">
@@ -329,9 +335,11 @@
           <path fill-rule="evenodd" d="M2.5 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM5 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM7.5 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM10 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5zM12.5 1a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-1 0v-11a.5.5 0 0 1 .5-.5z"/>
         </svg>
       </button>
+      {{#if currentDocument}}
       <div class="image-container" style="position: relative; height: 90vh; width: 80vw;">
         <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; height:100%; object-fit: cover; " id="pageImage">
       </div>
+      {{/if}}
       <div class="flow-container" style="position: relative; height: 90vh; width: 80vw; display: none;">
         <div class="flow" id="flow"></div>
       </div>
@@ -374,7 +382,7 @@
         </div>
       </div>
       {{#if toolOptions}}
-      <div id="ToolOptions" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" style="margin-top: 70px; margin-right:20px; pointer-events: fill">
+      <div id="ToolOptions" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" style="margin-top: 120px; margin-right:20px; pointer-events: fill">
         
           {{> Template.dynamic template=toolOptions data=toolOptionsData}}
         

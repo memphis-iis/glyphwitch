@@ -14,7 +14,7 @@ Router.configure({
 unrestrictedRoutes = ['login', 'register'];
 
 //set user routes
-userRoutes = ['dashboard','profile','newGlyph','glyphSearch','uploadDocument','selectDocument','changeEmailPassword','viewPage'];
+userRoutes = ['profile','newGlyph','glyphSearch','uploadDocument','selectDocument','changeEmailPassword','viewPage'];
 
 //set admin routes
 adminRoutes = ['admin'];
@@ -59,7 +59,7 @@ Router.route('/', {
   template: 'home',
   onBeforeAction: function() {
     if (Meteor.userId()) {
-      this.redirect('dashboard');
+      this.redirect('viewPage');
     } else {
       this.redirect('login');
     }

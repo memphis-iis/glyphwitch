@@ -94,24 +94,34 @@ Template.login.events({
     //get the email and password from the form
     const email = $('#email2').val();
     const password = $('#password2').val();
+    //if these are empty, alert the user
+    if (!email || !password) {
+      alert('Email and password are required');
+      return;
+    }
+    console.log("calling createNewUser with email " + email + " and password " + password);
     //call the createUser method
-    Meteor.call('createUser', email, password, function(error, result) {
+    Meteor.call('createNewUser', email, password, function(error, result) {
       if (error) {
         console.log(error);
-        alert('Error signing up');
+        alert('Error signing up: ' + error.join(', '));
+      } else {
+        //if the return is an array, its an error
+        if (result instanceof Array) {
+          alert('Error signing up: ' + result.join(', '));
+        } else {
+          console.log(result);
+        }
+      }
+    });
+    //login the user
+    Meteor.loginWithPassword(email, password, function(error, result) {
+      if (error) {
+        console.log(error);
       } else {
         console.log(result);
-        //login the user
-        Meteor.loginWithPassword(email, password, function(error, result) {
-          if (error) {
-            console.log(error);
-            alert('Error logging in');
-          } else {
-            console.log(result);
-            //redirect to the dashboard
-            Router.go('/viewPage');
-          }
-        });
+        //redirect to viewPage
+        Router.go('/viewPage');
       }
     });
   }
@@ -303,6 +313,7 @@ Template.selectDocument.helpers({
       return doc;
 
     } else {
+
       return false;
     }
   }
@@ -444,11 +455,6 @@ function resetToolbox() {
       $('#exitTool').show();
       $('#confirmTool').show();
     }
-    if(currentTool == 'createPhoneme') {
-      $('#createPhoneme').removeClass('btn-light').addClass('btn-dark');
-      $('#exitTool').show();
-      $('#confirmTool').show();
-    }
   } else if(currentView == 'word') {
       if(currentTool == 'view') {
         hideAllToolButtons();
@@ -460,6 +466,11 @@ function resetToolbox() {
         $('#viewTool').show();
         $('#viewTool').removeClass('btn-light').addClass('btn-dark');
     } 
+    if(currentTool == 'createPhoneme') {
+      $('#createPhoneme').removeClass('btn-light').addClass('btn-dark');
+      $('#exitTool').show();
+      $('#confirmTool').show();
+    }
   } 
 }
 
@@ -654,6 +665,9 @@ function initCropper(type) {
   }
   if (type == 'word') {
     divId = document.getElementById('wordImage');
+  }
+  if (type == 'phoneme') {
+    divId = document.getElementById('phonemeImage');
   }
   //get calculated width and height of the div
   height = window.getComputedStyle(divId).height;
@@ -859,7 +873,8 @@ Template.viewPage.helpers({
       return doc;
 
     } else {
-      return false;
+        //open the openModal modal if no document is selected
+        $('#openModal').modal('show');
     }
   },
   selectedDocument() {
@@ -1303,15 +1318,18 @@ Template.viewPage.events({
       //find the cropper and destroy it
       $('.cropper-container').remove();
       $('#pageImage').removeClass('cropper-hidden');
+    }  else if(currentTool == 'createPhoneme') {
+      //open the modal
+      instance.currentTool.set('view');
+      resetToolbox();
+      $('.cropper-container').remove();
+      $('#pageImage').removeClass('cropper-hidden');
+      //delete all buttons from the pageImage's parent
+      $('#pageImage').parent().children('button').remove();
+      setCurrentHelp(false);
+      replaceWithOriginalImage();
+      $('#createPhonemeModal').modal('show');
     }
-    instance.currentTool.set('view');
-    resetToolbox();
-    $('.cropper-container').remove();
-    $('#pageImage').removeClass('cropper-hidden');
-    //delete all buttons from the pageImage's parent
-    $('#pageImage').parent().children('button').remove();
-    setCurrentHelp(false);
-    replaceWithOriginalImage();
   },
   'click #createLine'(event, instance) {
     event.preventDefault();
@@ -1385,6 +1403,54 @@ Template.viewPage.events({
       drawRect(image, word.x, 0, word.width, image.height, 'word', index, index);
     });
     setCurrentHelp('To create a bounding box to represent a word in the document, use the cropping bounds to select the area of the page that contains the word. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
+    //se the image css to display block and max-width 100%
+    image.style.display = 'block';
+    image.style.maxWidth = '100%';
+    //create a cropper object for the pageImage
+    cropDetails = {};
+    //add a event listener for hitting the enter key, which will confirm the selection
+    const cropper = new Cropper(image, {
+      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
+      dragMode: 'crop',
+      aspectRatio: 0,
+      crop(event) {
+        cropDetails = event.detail;
+        instance.selectx1.set(cropDetails.x);
+        instance.selecty1.set(cropDetails.y);
+        instance.selectwidth.set(cropDetails.width);
+        instance.selectheight.set(cropDetails.height);
+      }
+    });
+    cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
+  },
+  'click #createPhoneme'(event, instance) {
+    event.preventDefault();
+    console.log("createPhoneme, drawing is " + instance.drawing.get());
+    //disable all buttons in the toolbox-container
+    //set the currentTool to btn-dark
+    $('#createPhoneme').removeClass('btn-light').addClass('btn-dark');
+    instance.currentTool.set('createPhoneme');
+    resetToolbox();
+    image = initCropper('word');
+    //draw all bounding boxes from the word
+    const context = image.getContext('2d');
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const doc = Documents.findOne({_id: documentId});
+    const lineId = instance.currentLine.get();
+    const wordId = instance.currentWord.get();
+    const word = doc.pages[page].lines[lineId].words[wordId];
+    const phonemes = word.phonemes || [];
+    //sort the phonemes by x1
+    phonemes.sort(function(a, b) {
+      return a.x - b.x;
+    });
+    phonemes.forEach(function(phoneme) {
+      console.log("drawing phoneme");
+      index = phonemes.indexOf(phoneme);
+      drawRect(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
+    });
+    setCurrentHelp('To create a bounding box to represent a phoneme in the document, use the cropping bounds to select the area of the page that contains the phoneme. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
     //se the image css to display block and max-width 100%
     image.style.display = 'block';
     image.style.maxWidth = '100%';

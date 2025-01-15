@@ -52,33 +52,36 @@ Files = new FilesCollection({
 
 Meteor.methods({
     //create a new user, set role to user. Must have a username, email, and password. 
-    createNewUser: function(username, email, password) {
-        console.log("Creating user (username: " + username + ", email: " + email + ", password: " + password + ")");
-        //check if the user already exists, if so return an error
-        errors = [];
-        if (Meteor.users.findOne({username: username})) {
-            console.log("Error: User already exists");
-            errors.push("User already exists, please choose a different username or login.");
-        }
-        //if the email is not valid, return an error
-        if (!email.includes('@') || !email.includes('.')) {
+    createNewUser( email, password ) {
+        console.log("Creating new user (email: " + email + ")");
+        let errors = [];
+
+        // Validate email
+        if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
             console.log("Error: Email is not valid");
-            errors.push("Email is not valid, please enter a valid email address.");
+            errors.push("Email is not valid");
         }
-        //if the password is not at least 6 characters, contailn at least one number, and at least one uppercase letter, and a special character, return an error
-        if (!password.match(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{6,}$/)) {
+
+        // Validate password
+        if (!password || !password.match(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{6,}$/)) {
             console.log("Error: Password is not valid");
             errors.push("Password must be at least 6 characters long and contain at least one number, one uppercase letter, and one special character.");
         }
-        //if there are errors, return the errors
+
+        // If there are errors, return the errors
         if (errors.length > 0) {
+            //return an error by throwing an exception
             return errors;
         }
+
+        // Create user
         Accounts.createUser({
-            username: username,
+            username: email,
             email: email,
             password: password
         });
+
+        // Assign role to user
         Roles.addUsersToRoles(Meteor.users.findOne({ username: username }), 'user');
     },
     //set user role
@@ -182,6 +185,9 @@ Meteor.methods({
         console.log("Adding line (document: " + document + ", page: " + page_number + ", x1: " + x1 + ", y1: " + y1 + ", width: " + width + ", height: " + height + ")");
         //get the Document
         var doc = Documents.findOne(document);
+        //get the page's image
+        var page = doc.pages[page_number];
+
         //push the line to the page
         doc.pages[page_number].lines.push({ x1: x1, y1: y1, width: width, height: height , words: []});
         //update the document
@@ -271,6 +277,25 @@ Meteor.methods({
             ipa: ipa,
             addedBy: Meteor.userId()
         });
+    },
+    addPhonemeToWord: function(phonemeId, document, page, line, word) {
+        console.log("Adding phoneme to word (phoneme: " + phoneme + ", word: " + word + ")");
+        //get the phoneme's id
+        phoneme = Phonemes.findOne(phonemeId);
+        //get the word's id
+        doc = Documents.findOne({ _id: document });
+        page = doc.pages[page];
+        line = page.lines[line];
+        word = line.words[word];
+        //add the phoneme to the word, if phonemes is an array, push the phoneme id, otherwise set the phoneme id
+        if (word.phonemes) {
+            word.phonemes.push(phonemeId);
+        } else {
+            word.phonemes = [phonemeId];
+        }
+        //update the word
+        Documents.update(document, doc);
+        return true;
     },
     //remove an entry from the phonemes collection. Must include the phoneme id.
     removePhoneme: function(phoneme) {

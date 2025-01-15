@@ -1,15 +1,8 @@
 version: '3.2'
 
 services:
-  mofacts:
-    image: iisdevs/mofacts-mini:staging
-    volumes:
-      - type: bind
-        source: /mofactsAssets
-        target: /mofactsAssets
-        bind:
-          propagation: shared
-          create_host_path: true
+  glyphwitch:
+    image: iisdevs/glyphwitch:staging
     build:
       context: ../../
       dockerfile: Dockerfile
@@ -17,12 +10,11 @@ services:
       - '3000:3000'
     depends_on:
       - mongo
-      - syllables
     environment:
       ROOT_URL: ${APP_ROOT_URL:-http://localhost}
-      MONGO_URL: mongodb://mongo:27017/MoFACT
+      MONGO_URL: mongodb://mongo:27017/glyphwitch
       PORT: 3000
-      METEOR_SETTINGS_WORKAROUND: '/mofactsAssets/settings.json'
+      METEOR_SETTINGS_WORKAROUND: '/glyphwitchAssets/settings.json'
     deploy:
       restart_policy:
         condition: on-failure
@@ -43,15 +35,6 @@ services:
       - --storageEngine=wiredTiger
     volumes:
       - data:/data/db
-
-  syllables:
-    image: iisdevs/mofacts-syllables
-    build:
-      context: ../../syllables_subsystem
-      dockerfile: Dockerfile
-    ports:
-      - '4567:4567'
-
 
 volumes:
   data:
