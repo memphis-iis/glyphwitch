@@ -3,6 +3,10 @@ body {
   font-family: sans-serif;
 }
 
+.navbar{
+  margin:0;
+  padding:0;
+}
 .page-element {
   /* hover using tight dotted border */
   z-index: 10;

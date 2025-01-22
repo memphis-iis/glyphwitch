@@ -913,7 +913,7 @@ Template.viewPage.helpers({
     if (currentPage) {
       return currentPage;
     } else {
-      return false;
+      return 1;
     }
   },
   
@@ -1524,6 +1524,9 @@ Template.uploadDocument.events({
   'click #submitDocument'(event, template) {
     console.log("submitDocument");
     event.preventDefault();
+    //disable the submit button
+    $('#submitDocument').prop('disabled', true);
+    //get the author, title, and file from the form
     const author = $('#author').val();
     const title = $('#title').val();
     const file = $('#fileInput').get(0).files[0];
@@ -1546,6 +1549,11 @@ Template.uploadDocument.events({
               alert('Error adding document');
             } else {
               console.log(result);
+              alert('Document added');
+              //enable the submit button
+              $('#submitDocument').prop('disabled', false);
+              //click the #view-tab button
+              $('#view-tab').click();
             }
           });
         }

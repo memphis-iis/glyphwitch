@@ -23,8 +23,8 @@ const path = require('path');
 
 // Define the collections for the MongoDB database. 
 
-//set storagepath to the ../../assets folder
-const storagePath = path.join(process.cwd(), '../assets');
+//set storagepath to the /glyphwitchAssets folder in the server root
+const storagePath = '/glyphwitchAssets';
 
 
 Documents = new Meteor.Collection("documents");
