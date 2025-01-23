@@ -149,7 +149,7 @@ Meteor.methods({
             title: title,
             author: author,
             pages: [],
-            addedBy: ""
+            addedBy: Meteor.userId()
         });
         console.log("Document added: " + document + ". Populating pages.")
         convertPdfToImages(file, document);
@@ -189,7 +189,7 @@ Meteor.methods({
         var page = doc.pages[page_number];
 
         //push the line to the page
-        doc.pages[page_number].lines.push({ x1: x1, y1: y1, width: width, height: height , words: []});
+        doc.pages[page_number].lines.push({ x1: x1, y1: y1, width: width, height: height , words: [], reference: [], annotatedBy: Meteor.userId() });
         //update the document
         Documents.update(document, doc);
     },
@@ -209,7 +209,7 @@ Meteor.methods({
         //get the Document
         var doc = Documents.findOne(document);
         //push the word to the line
-        doc.pages[page].lines[line].words.push({ x: x, width: width, wordOrder: wordOrder, word: word});
+        doc.pages[page].lines[line].words.push({ x: x, width: width, wordOrder: wordOrder, word: word, phonemes: [], glyph: [], addedBy: Meteor.userId() });
         //update the document
         Documents.update(document, doc);
     },
@@ -234,19 +234,63 @@ Meteor.methods({
         Documents.update(document, doc);
     },
     //add an entry to the references collection. Must include the user who added it, the document id, the page number, and the line number, the word order number, and the word, an empty phoneme array, and notes.
-    addReference: function(document, page, line, wordOrder, word, notes) {
-        console.log("Adding reference (document: " + document + ", page: " + page + ", line: " + line + ", wordOrder: " + wordOrder + ", word: " + word + ", notes: " + notes + ")");
-        References.insert({
+    addReference: function(document, page, line, word, phoneme, glyph, notes) {
+        console.log("Adding reference (document: " + document + ", page: " + page + ", line: " + line + ", word: " + word + ", phoneme: " + phoneme + ", glyph: " + glyph + ", notes: " + notes + ")");
+        refId = References.insert({
             document: document,
             page: page,
             line: line,
-            wordOrder: wordOrder,
             word: word,
-            phonemes: [],
+            phoneme: phoneme,
+            glyph: glyph,
             notes: notes,
             discussion: [],
             addedBy: Meteor.userId()
         });
+        //if glyph is set, we add the refId to the glyph
+        if (glyph) {
+            Glyphs.update(glyph, { $push: { references: refId } });
+            return refId;
+        }
+        //if phoneme is set, we add the refId to the phoneme
+        if (phoneme) {
+            Phonemes.update(phoneme, { $push: { references: refId } });
+            return refId;
+        }
+        //if word is set, we add the refId to the word given document, page, and line
+        if (word) {
+            doc = Documents.findOne(document);
+            page = doc.pages[page];
+            line = page.lines[line];
+            word = line.words[word];
+            word.references.push(refId);
+            Documents.update(document, doc);
+            return refId;
+        }
+        //if line is set, we add the refId to the line given document and page
+        if (line) {
+            doc = Documents.findOne(document);
+            page = doc.pages[page];
+            line = page.lines[line];
+            line.references.push(refId);
+            Documents.update(document, doc);
+            return refId;
+        }
+        //if page is set, we add the refId to the page given document
+        if (page) {
+            doc = Documents.findOne(document);
+            page = doc.pages[page];
+            page.references.push(refId);
+            Documents.update(document, doc);
+            return refId;
+        }
+        //if document is set, we add the refId to the document
+        if (document) {
+            doc = Documents.findOne(document);
+            doc.references.push(refId);
+            Documents.update(document, doc);
+            return refId;
+        }
     },
     //remove an entry from the references collection. Must include the reference id.
     removeReference: function(reference) {
@@ -273,15 +317,18 @@ Meteor.methods({
         console.log("Adding phoneme (phoneme: " + phoneme + ", ipa: " + ipa + ")");
         Phonemes.insert({
             phoneme: phoneme,
-            glyphs: [],
             ipa: ipa,
             addedBy: Meteor.userId()
         });
     },
-    addPhonemeToWord: function(phonemeId, document, page, line, word) {
-        console.log("Adding phoneme to word (phoneme: " + phoneme + ", word: " + word + ")");
-        //get the phoneme's id
-        phoneme = Phonemes.findOne(phonemeId);
+    addPhonemeToWord: function(document, page, line, word, x, width, ipa) {
+        console.log("Adding phoneme to word (document: " + document + ", page: " + page + ", line: " + line + ", word: " + word + ", x: " + x + ", width: " + width + ", ipa: " + ipa + ")");
+        //create the phoneme in the Phoneme collection
+        phonemeId = Phonemes.insert({
+            ipa: ipa,
+            addedBy: Meteor.userId(),
+            references: []
+        });
         //get the word's id
         doc = Documents.findOne({ _id: document });
         page = doc.pages[page];
@@ -289,9 +336,9 @@ Meteor.methods({
         word = line.words[word];
         //add the phoneme to the word, if phonemes is an array, push the phoneme id, otherwise set the phoneme id
         if (word.phonemes) {
-            word.phonemes.push(phonemeId);
+            word.phonemes.push({ phoneme: phonemeId, x: x, width: width, ipa: ipa });
         } else {
-            word.phonemes = [phonemeId];
+            word.phonemes = [{ phoneme: phonemeId, x: x, width: width, ipa: ipa }];
         }
         //update the word
         Documents.update(document, doc);

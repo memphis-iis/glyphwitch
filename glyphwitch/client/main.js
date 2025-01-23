@@ -471,6 +471,12 @@ function resetToolbox() {
       $('#exitTool').show();
       $('#confirmTool').show();
     }
+    if(currentTool == 'createGlyph') {
+      hideAllToolButtons();
+      $('#selectItem').removeClass('btn-light').addClass('btn-dark');
+      $('#exitTool').show();
+      $('#confirmTool').show();
+    }
   } 
 }
 
@@ -1329,7 +1335,29 @@ Template.viewPage.events({
       setCurrentHelp(false);
       replaceWithOriginalImage();
       $('#createPhonemeModal').modal('show');
+    } else if(currentTool == 'createGlyph') {
+      //open the modal
+      instance.currentTool.set('view');
+      resetToolbox();
+      $('.cropper-container').remove();
+      $('#pageImage').removeClass('cropper-hidden');
+      //delete all buttons from the pageImage's parent
+      $('#pageImage').parent().children('button').remove();
+      setCurrentHelp(false);
+      replaceWithOriginalImage();
+      $('#createGlyphModal').modal('show');
     }
+
+  },
+  //modal popup tools
+  'click #confirmPhoneme'(event, instance) {
+    event.preventDefault();
+    let ipa = $('#phonemeInput').val();
+    //hide the modal
+    $('#createPhonemeModal').modal('hide');
+    //create the phoneme (Meteor call  addPhonemeToWord: function(document, page, line, word, x, width, ipa)
+    ret = Meteor.callAsync('addPhonemeToWord', instance.currentDocument.get(), instance.currentPage.get(), instance.currentLine.get(), instance.currentWord.get(), instance.selectx1.get(), instance.selectwidth.get(), ipa);
+    alert("phoneme added");
   },
   'click #createLine'(event, instance) {
     event.preventDefault();
@@ -1431,6 +1459,10 @@ Template.viewPage.events({
     $('#createPhoneme').removeClass('btn-light').addClass('btn-dark');
     instance.currentTool.set('createPhoneme');
     resetToolbox();
+    //show confirmTool button
+    $('#confirmTool').show();
+    //show cancelTool button
+    $('#cancelTool').show();
     image = initCropper('word');
     //draw all bounding boxes from the word
     const context = image.getContext('2d');
@@ -1471,6 +1503,55 @@ Template.viewPage.events({
     });
     cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
   },
+  'click #createGlyph'(event, instance) {
+    event.preventDefault();
+    console.log("createGlyph, drawing is " + instance.drawing.get());
+    //disable all buttons in the toolbox-container
+    //set the currentTool to btn-dark
+    $('#createGlyph').removeClass('btn-light').addClass('btn-dark');
+    instance.currentTool.set('createGlyph');
+    resetToolbox();
+    image = initCropper('word');
+    //draw all bounding boxes from the word
+    const context = image.getContext('2d');
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const doc = Documents.findOne({_id: documentId});
+    const lineId = instance.currentLine.get();
+    const wordId = instance.currentWord.get();
+    const word = doc.pages[page].lines[lineId].words[wordId];
+    const glyphs = word.glyph;
+    //sort the phonemes by x1
+    glyphs.sort(function(a, b) {
+      return a.x - b.x;
+    });
+    glyphs.forEach(function(glyph) {
+      console.log("drawing glyph");
+      index = glyphs.indexOf(glyph);
+      drawRect(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
+    });
+    setCurrentHelp('To create a bounding box to represent a glyph in the document, use the cropping bounds to select the area of the page that contains the glyph. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
+    //se the image css to display block and max-width 100%
+    image.style.display = 'block';
+    image.style.maxWidth = '100%';
+    //create a cropper object for the pageImage
+    cropDetails = {};
+    //add a event listener for hitting the enter key, which will confirm the selection
+    const cropper = new Cropper(image, {
+      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
+      dragMode: 'crop',
+      aspectRatio: 0,
+      crop(event) {
+        cropDetails = event.detail;
+        instance.selectx1.set(cropDetails.x);
+        instance.selecty1.set(cropDetails.y);
+        instance.selectwidth.set(cropDetails.width);
+        instance.selectheight.set(cropDetails.height);
+      }
+    });
+    cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
+  },
+
   //keyboard shift and mouse wheel event
   'wheel #pageImage'(event, instance) {
     if(event.shiftKey) {

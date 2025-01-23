@@ -7,13 +7,68 @@ body {
   margin:0;
   padding:0;
 }
+
+.nav-link {
+  text-decoration: none;
+  color: green;
+}
+.nav-link a:hover {
+  text-decoration: underline;
+}
 .page-element {
   /* hover using tight dotted border */
   z-index: 10;
   border: 1px dotted #000;
 }
 
+.navbar-brand {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: green !important;
+  font-family: cursive;
+}
+
 .line-element{
   /*light green transparent box with a light green border*/
   background-color: rgba(0, 255, 0, 0.1);
+}
+
+.file-tree {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.file-tree li {
+  /* no bullets */
+  list-style-type: none;
+}
+
+.file-tree a {
+  text-decoration: none;
+  color: black;
+  display: flex;
+  align-items: center;
+}
+
+/* file tree icons should be blue */
+.file-tree i {
+  color: green;
+  margin-right: 10px;
+}
+
+.file-tree a:hover {
+  text-decoration: underline;
+}
+
+.file-tree .collapse {
+  padding-left: 0px;
+}
+
+.file-tree .fa-caret-right {
+  margin-right: 5px;
+  transition: transform 0.3s ease;
+}
+
+.file-tree .collapse.show .fa-caret-right {
+  transform: rotate(90deg);
 }

@@ -26,7 +26,7 @@
 <template name="header">
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
-      <a class="navbar-brand border border-success rounded px-4" href="/">GlyphWitch</a>
+      <a class="navbar-brand rounded px-4" href="/">GlyphWitch</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -331,23 +331,62 @@
     <!-- data browser tab content-->
     <div class="tab-pane fade" id="databrowse" role="tabpanel" aria-labelledby="databrowse-tab">
       <div class="container">
-        <h4>Data Browser</h4>
-        <p>View and edit data for the current document.</p>
-        <div class="row">
-          <div class="col-md-6">
-            <h5>Document</h5>
-            <p>Title: {{currentDocument.title}}</p>
-            <p>Author: {{currentDocument.author}}</p>
-          </div>
-          <div class="col-md-6">
-            <h5>Pages</h5>
+      <div class="row">
+        <div class="col-12 bg-secondary text-white">
+        <small>Title: {{currentDocument.title}}, Author: {{currentDocument.author}}</small>
+        </div>
+        <div class="col-12 my-2">
+        <div class="btn-group" role="group" aria-label="Toolbox">
+          <button type="button" class="btn rounded border" id="expandAll"><i class="bi bi-arrow-down"></i></button>
+          <button type="button" class="btn rounded border" id="collapseAll"><i class="bi bi-arrow-up"></i></button>
+          <!-- delete button -->
+          <button type="button" class="btn rounded border" id="deleteDocument"><i class="bi bi-x"></i></button>
+        </div>
+        </div>
+        <div class="col-12">
+        <ul class="file-tree">
+          {{#each currentDocument.pages}}
+          <li>
+          <a data-bs-toggle="collapse" href="#page-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{@index}}">
+            <i class="bi bi-folder-fill"></i> Page {{@index}}
+          </a>
+          <div class="collapse" id="page-{{@index}}">
             <ul>
-              {{#each currentDocument.pages}}
-                <li>Page {{@index}}</li>
+            {{#each this.lines}}
+            <li>
+            <a data-bs-toggle="collapse" href="#line-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="line-{{../@index}}-{{@index}}">
+              <i class="bi bi-list"></i> Line {{@index}}
+            </a>
+            <div class="collapse" id="line-{{../@index}}-{{@index}}">
+              <ul>
+              {{#each this.words}}
+              <li>
+              <a data-bs-toggle="collapse" href="#word-{{../../@index}}-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="word-{{../../@index}}-{{../@index}}-{{@index}}">
+                <i class="bi bi-file-word-fill"></i>Word {{@index}}
+              </a>
+              <div class="collapse" id="word-{{../../@index}}-{{../@index}}-{{@index}}">
+                <ul>
+                {{#each this.phonemes}}
+                <li><i class="bi bi-soundwave"></i> {{this.ipa}}</li>
+                {{/each}}
+                {{#each this.glyphs}}
+                <li><i class="bi bi-wikipedia"></i> Glyph {{@index}}</li>
+                {{/each}}
+                </ul>
+              </div>
+              </li>
               {{/each}}
+              </ul>
+            </div>
+            </li>
+            {{/each}}
             </ul>
           </div>
+          </li>
+          {{/each}}
+          </ul>
         </div>
+      </div>
       </div>
     </div>
   </div>
@@ -358,9 +397,6 @@
       <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
           <button id="simple-tab" class="nav-link active open-tab" data-tab-id="simple" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Simple View</button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button id="flow-tab" class="nav-link open-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false" data-tab-id="flow">Flow</button>
         </li>
         <li class="nav-item" role="presentation" style="display: none;" id="view-tab-template">
           <button class="nav-link open-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">
@@ -476,6 +512,46 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="button" class="btn btn-primary" id="confirmWord">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+    <!-- bootstrap modal for creating a phoneme -->
+  <div class="modal fade" id="createPhonemeModal" tabindex="-1" aria-labelledby="createWordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content" style="width: 75vw; right: 25vw;">
+        <div class="modal-header">
+          <h5 class="modal-title" id="createWordModalLabel">Create Phoneme</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          A phoneme will be created. Please type in the IPA Pronunciation of this Phoneme.
+        </div>
+        <!-- input for phoneme -->
+        <div class="modal-footer">
+          <input type="text" class="form-control" id="phonemeInput" name="phoneme">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmPhoneme">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- bootstrap modal for creating a glyph, includes a canvas to draw on -->
+  <div class="modal fade" id="createGlyphModal" tabindex="-1" aria-labelledby="createGlyphModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content" style="width: 75vw; right: 25vw;">
+        <div class="modal-header">
+          <h5 class="modal-title" id="createGlyphModalLabel">Create Glyph</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          Trace the glyph below then confirm the new glyph. Click OK to confirm or Cancel to exit.
+          <br>
+          <canvas id="glyphCanvas" width="200" height="200" style="border: 1px solid black;"></canvas>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmGlyph">OK</button>
         </div>
       </div>
     </div>
