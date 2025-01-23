@@ -365,12 +365,12 @@
                 <i class="bi bi-file-word-fill"></i>Word {{@index}}
               </a>
               <div class="collapse" id="word-{{../../@index}}-{{../@index}}-{{@index}}">
-                <ul>
+                <ul class="d-flex">
                 {{#each this.phonemes}}
-                <li><i class="bi bi-soundwave"></i> {{this.ipa}}</li>
+                <li><i class="bi bi-soundwave"></i> {{this.ipa}}<br></li>
                 {{/each}}
                 {{#each this.glyphs}}
-                <li><i class="bi bi-wikipedia"></i> Glyph {{@index}}</li>
+                <li><i class="bi bi-wikipedia"></i> Glyph {{@index}}<br></li>
                 {{/each}}
                 </ul>
               </div>

@@ -359,24 +359,51 @@ Meteor.methods({
         console.log("Adding glyph (phoneme: " + phoneme + ", glyph: " + glyph + ")");
         Phonemes.update(phoneme, { $push: { glyphs: glyph, addedBy: Meteor.userId() } });
     },
+    addGlyphToWord: function(document, page, line, word, x, width, documentImageData, drawnImageData) {
+        console.log("Adding glyph to word (document: " + document + ", page: " + page + ", line: " + line + ", word: " + word + ", x: " + x + ", width: " + width + ", documentImageData: " + documentImageData + ", drawnImageData: " + drawnImageData + ")");
+        //create the glyph in the Glyphs collection
+        glyphId = Glyphs.insert({
+            documentImageData: documentImageData,
+            drawnImageData: drawnImageData,
+            addedBy: Meteor.userId(),
+            references: []
+        });
+        //get the word's id
+        doc = Documents.findOne({ _id: document });
+        page = doc.pages[page];
+        line = page.lines[line];
+        word = line.words[word];
+        //add the glyph to the word, if glyphs is an array, push the glyph id, otherwise set the glyph id
+        if (word.glyphs) {
+            word.glyphs.push({ glyph: glyphId, x: x, width: width });
+        } else {
+            word.glyphs = [{ glyph: glyphId, x: x, width: width }];
+        }
+        //update the word
+        Documents.update(document, doc);
+        return true;
+    },
+
     //remove a glyph from a phoneme. Must include the phoneme id, the glyph id, and the user who added it.
     removeGlyphFromPhoneme: function(phoneme, glyph) {
         console.log("Removing glyph (phoneme: " + phoneme + ", glyph: " + glyph + ")");
         Phonemes.update(phoneme, { $pull: { glyphs: glyph, addedBy: Meteor.userId() } });
     },
     //add an entry to the glyphs collection. Must include the glyph, the user who added it, it may contain a font id, a unicode value for that font, an image, and the user who added it.
-    addGlyph: function(glyph, font=False, unicode=False, image=False) {
+    addGlyph: function(glyph, font=False, unicode=False, documentImageData, drawnImageData){
         console.log("Adding glyph (glyph: " + glyph + ", font: " + font + ", unicode: " + unicode + ", image: " + image + ")");
         //if font or unicode or image is not provided, return an error
-        if ((!font && !unicode) || !image) {
-            console.log("Error: Glyph must have a font and unicode or an image");
+        if ((!font && !unicode) || (!documentImageData && !drawnImageData)) {
+            console.log("Error: Glyph must have a font and unicode or image data.");
             return;
         }
         Glyphs.insert({
             glyph: glyph,
             font: font,
             unicode: unicode,
-            image: image,
+            documentImageData: documentImageData,
+            drawnImageData: drawnImageData,
+            references: [],
             addedBy: Meteor.userId()
         });
     },

@@ -374,6 +374,8 @@ Template.viewPage.onCreated(function() {
   Template.instance().yScaling = new ReactiveVar(1);
   Template.instance().xScaling = new ReactiveVar(1);
   Template.instance().cropper = new ReactiveVar(false);
+  Template.instance().x = new ReactiveVar(false);
+  Template.instance().y = new ReactiveVar(false);
 
 });
 
@@ -764,7 +766,7 @@ function drawButton(image, x, y, width, height, type, text, id) {
   const xScaling =  canvasOffset.width / context.canvas.width;
 
   
-
+  let defaultClass = 'selectElement';
   
   //draw the button at the x, y, width, and height 
   button.style.position = 'absolute';
@@ -803,9 +805,25 @@ function drawButton(image, x, y, width, height, type, text, id) {
     label.style.color = 'white';
   }
 
+  if (type == 'phoneme') {
+    button.style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
+    button.style.border = '1px solid red';
+    label.style.backgroundColor = 'red';
+    label.style.color = 'white';
+    defaultClass = 'showReferences';
+  }
+
+  if (type == 'glyph') {
+    button.style.backgroundColor = 'rgba(255, 255, 0, 0.2)';
+    button.style.border = '1px solid yellow';
+    label.style.backgroundColor = 'yellow';
+    label.style.color = 'black';
+    defaultClass = 'showReferences';
+  }
+
 
   //set the button class to 'select-element'
-  button.className = 'selectElement';
+  button.className = defaultClass;
   
   button.appendChild(label);
 
@@ -1134,6 +1152,48 @@ Template.viewPage.events({
       //hide the original image with display none
       setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
     }
+    if(currentView == 'word') {
+      //get $('#wordImage') and change it from img-fluid to a calculated width and height
+      calcWidth = $('#wordImage').width();
+      calcHeight = $('#wordImage').height();
+      $('#wordImage').removeClass('img-fluid');
+      //add width and height to the wordImage's style
+      $('#wordImage').css('width', calcWidth + 'px');
+      $('#wordImage').css('height', calcHeight + 'px');
+      image = initCropper("word");
+      const context = image.getContext('2d');
+      const page = instance.currentPage.get();
+      const documentId = instance.currentDocument.get();
+      const phonemes = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words[selectedWord].phonemes;
+      const glyphs = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words[selectedWord].glyph;
+      //if there are no phonemes or words, simulate clicking the exitTool button
+      if (phonemes.length == 0 && glyphs.length == 0) {
+        alert("No phonemes or glyphs to display. Use the Create Phoneme or Create Glyph tool to create a phoneme or glyph.");
+        return;
+      }
+      //sort the phonemes by x1
+      phonemes.sort(function(a, b) {
+        return a.x1 - b.x1;
+      }
+      );
+      //sort the glyphs by x1
+      glyphs.sort(function(a, b) {
+        return a.x1 - b.x1;
+      }
+      );
+      //split the canvas into multiple canvases by phoneme
+      phonemes.forEach(function(phoneme) {
+        index = phonemes.indexOf(phoneme);
+        drawButton(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
+      });
+      //split the canvas into multiple canvases by glyph, these buttons appear over the phoneme buttons
+      glyphs.forEach(function(glyph) {
+        index = glyphs.indexOf(glyph);
+        drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
+      });
+      //hide the original image with display none
+      setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph.  To cancel, click the close tool button.');
+    }
   },
   'click .selectElement'(event, instance) {
     event.preventDefault();
@@ -1161,14 +1221,6 @@ Template.viewPage.events({
     if (type == 'word') {
       parentId = instance.currentLine.get();
       parenttab = "view-tab-element-line-" + parentId;
-    }
-    if (type == 'phoneme') {
-      parentId = instance.currentWord.get();
-      parenttab = "view-tab-element-word-" + parentId;
-    }
-    if (type == 'glyph') {
-      parentId = instance.currentPhoneme.get();
-      parenttab = "view-tab-element-phoneme-" + parentId;
     }
 
     //set the data-parent of the clone to the parent's expected tab id
@@ -1346,8 +1398,77 @@ Template.viewPage.events({
       setCurrentHelp(false);
       replaceWithOriginalImage();
       $('#createGlyphModal').modal('show');
+      //set glyphcanvas to have the cropped image as its background with 
+      glyphCanvas = document.getElementById('glyphCanvas');
+      glyphCanvas.width = instance.selectwidth.get();
+      glyphCanvas.height = instance.selectheight.get();
+      glyphContext = glyphCanvas.getContext('2d');
+      glyphImage = new Image();
+      glyphImage.src = $('#wordImage').attr('src');
+      glyphImage.onload = function() {
+        glyphContext.drawImage(glyphImage, instance.selectx1.get(), instance.selecty1.get(), instance.selectwidth.get(), instance.selectheight.get(), 0, 0, glyphCanvas.width, glyphCanvas.height);
+      }
+      //renanme the glyphimage Id to glyphImageActual
+      $('#glyphImage').attr('id', 'glyphImageActual');
+      //create a new canvas with the id glyphImageDraw
+      glyphImageDraw = document.createElement('canvas');
+      glyphImageDraw.width = instance.selectwidth.get();
+      glyphImageDraw.height = instance.selectheight.get();
+      glyphImageDraw.id = 'glyphImageDraw';
+      //add a border to the glyphImageDraw
+      glyphImageDraw.style.border = '1px solid black';
+      //append the glyphImageDraw to the parent of the glyphCanvas
+      glyphCanvas.parentNode.appendChild(glyphImageDraw);
+      //set the src of the glyphImage to the dataURL of the glyphCanvas
+      $('#glyphImage').attr('src', glyphCanvas.toDataURL('image/png'));
+
     }
 
+  },
+  //event listners to draw on the glyphImageDraw canvas
+  'mousedown #glyphImageDraw'(event, instance) {
+    event.preventDefault();
+    //get the x and y of the mouse down event
+    x = event.offsetX;
+    y = event.offsetY;
+    //set the drawing to true
+    instance.drawing.set(true);
+    //set the x and y of the mouse down event
+    instance.x.set(x);
+    instance.y.set(y);
+  },
+  'mousemove #glyphImageDraw'(event, instance) {
+    event.preventDefault();
+    //if drawing is true, draw a line from the x and y to the current x and y
+    if (instance.drawing.get()) {
+      x = instance.x.get();
+      y = instance.y.get();
+      x1 = event.offsetX;
+      y1 = event.offsetY;
+      //get the canvas and context
+      canvas = document.getElementById('glyphImageDraw');
+      context = canvas.getContext('2d');
+      //set the line width to 10 percent of the canvas width
+      context.lineWidth = canvas.width * 0.1;
+      //set the stroke style to black
+      context.strokeStyle = 'black';
+      //begin the path
+      context.beginPath();
+      //move to the x and y
+      context.moveTo(x, y);
+      //line to the x1 and y1
+      context.lineTo(x1, y1);
+      //stroke the path
+      context.stroke();
+      //set the x and y to the x1 and y1
+      instance.x.set(x1);
+      instance.y.set(y1);
+    }
+  },
+  'mouseup #glyphImageDraw'(event, instance) {
+    event.preventDefault();
+    //set drawing to false
+    instance.drawing.set(false);
   },
   //modal popup tools
   'click #confirmPhoneme'(event, instance) {
@@ -1358,6 +1479,23 @@ Template.viewPage.events({
     //create the phoneme (Meteor call  addPhonemeToWord: function(document, page, line, word, x, width, ipa)
     ret = Meteor.callAsync('addPhonemeToWord', instance.currentDocument.get(), instance.currentPage.get(), instance.currentLine.get(), instance.currentWord.get(), instance.selectx1.get(), instance.selectwidth.get(), ipa);
     alert("phoneme added");
+  },
+  'click #confirmGlyph'(event, instance) {
+    event.preventDefault();
+    //get the glyphCanvas
+    glyphCanvas = document.getElementById('glyphCanvas');
+    //get the glyphImageDraw
+    glyphImageDraw = document.getElementById('glyphImageDraw');
+    //get the glyphImageActual
+    //get the image data from the glyphImageDraw and glyphCanvas
+    glyphImageData = glyphImageDraw.toDataURL('image/png');
+    glyphImageDataActual = glyphCanvas.toDataURL('image/png');
+    //submit the glyph addGlyphToWord: function(document, page, line, word, x, width, documentImageData, drawnImageData) {
+    ret = Meteor.callAsync('addGlyphToWord', instance.currentDocument.get(), instance.currentPage.get(), instance.currentLine.get(), instance.currentWord.get(), instance.selectx1.get(), instance.selectwidth.get(), glyphImageDataActual, glyphImageData);
+    alert("glyph added");
+    //close the modal and destroy the glyphImageDraw
+    $('#createGlyphModal').modal('hide');
+    $('#glyphImageDraw').remove();
   },
   'click #createLine'(event, instance) {
     event.preventDefault();
