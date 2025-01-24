@@ -162,7 +162,7 @@
   <div class="container">
     <h2>Dashboard</h2>
     <p>Welcome to the dashboard, {{currentUser.username}}.</p>
-    <p>Here you can upload documents, view documents, and create and search glyphs.</p>
+    <p>Here you can upload documents, start a blank document, view documents, and create and search glyphs.</p>
     <!-- bootstrap tabs for each section -->
     <ul class="nav nav-tabs" id="myTab" role="tablist">
       <li class="nav-item" role="presentation">
@@ -253,6 +253,23 @@
   </form>
 </template>
 
+<!-- template for new document with field for name and author -->
+<template name="newDocument">
+  <br>
+  <p> Please specify the title and author of the new blank document.</p>
+  <form id="newDocumentForm">
+    <div class="form-group">
+      <label for="title">Title</label>
+      <input type="text" class="form-control" id="newTitle" name="title">
+    </div>
+    <div class="form-group">
+      <label for="author">Author</label>
+      <input type="text" class="form-control" id="newAuthor" name="author">
+    </div>
+    <button type="submit" class="btn btn-primary" id="submitNewDocument">Create</button>
+  </form>
+</template>
+
 <template name="selectDocument">
   <br>
   <p> Please select a document and a page to view.</p>
@@ -316,15 +333,49 @@
           </div>
           
         <div class="d-flex flex-column align-items-center" style="overflow-y: auto; height: 100vh;">
-    
-        {{#each currentDocument.pages}}
-        Page {{@index}}<br>
-          <div class="page" id="{{this.pageId}}" style="border: 1px solid gray;">
-            <a href="#" class="changePage" data-id="{{@index}}"><img src="{{this.image}}" alt="page" class="img-fluid"></a>  
-          </div> <br>
 
-         {{/each}}
+        
 
+        {{#if currentDocument.pages}}
+          {{#each currentDocument.pages}}
+          <div class="pagesel" id="{{this.pageId}}" style="position: relative; border: 1px solid gray;">
+            <a href="#" class="changePage" data-id="{{@index}}">
+              <img src="{{this.image}}" alt="page" class="img-fluid" loading="lazy">
+            </a>
+            <div class="page-controls">
+              <button class="btn btn-primary changePage" data-id="{{@index}}" title="Change Page">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn btn-secondary move-up" data-id="{{@index}}" title="Move Up">
+                <i class="bi bi-arrow-up"></i>
+              </button>
+              <button class="btn btn-secondary move-down" data-id="{{@index}}" title="Move Down">
+                <i class="bi bi-arrow-down"></i>
+              </button>
+              <button class="btn btn-secondary add-page-after" data-id="{{@index}}" title="Add Page After" id="addPage">
+                <i class="bi bi-plus"></i>
+              </button>
+            </div>
+          </div>
+          <div class="page-title" data-id="{{@index}}">
+            <a href="#" class="changePage" data-id="{{@index}}">
+              {{#if this.title}} 
+                <span class="title-text">{{this.title}} #{{@index}}</span>
+              {{else}} 
+                <span class="title-text">Untitled Page #{{@index}}</span>
+              {{/if}}
+            </a>
+            <input type="text" class="title-input" value="{{this.title}}" style="display: none;">
+          </div>
+          <br>
+          {{/each}}
+        {{else}}
+          <div class="alert" role="alert">
+            <p>No pages found. Please add a page to the document.</p>
+            <button class="btn border" id="addPage"><i class="bi bi-plus"></i></button>
+          </div>
+        {{/if}}
+          
         </div>
       </div>
     </div>
@@ -418,7 +469,13 @@
       </button>
       {{#if currentDocument}}
       <div class="image-container" style="position: relative; height: 90vh; width: 80vw;">
-        <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; height:100%; object-fit: cover; " id="pageImage">
+        {{#if currentPage.image}}
+          <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; height:100%; object-fit: cover; " id="pageImage">
+        {{else}}
+          <div class="alert alert-secondary" role="alert">
+            No page selected. Please select a page to view.
+          </div>
+        {{/if}}
       </div>
       {{/if}}
       <div class="flow-container" style="position: relative; height: 90vh; width: 80vw; display: none;">
@@ -533,7 +590,30 @@
       </div>
     </div>
   </div>
-  
+  <!-- bootstrap modal for creating a new page with an image file upload -->
+  <div class="modal fade" id="createPageModal" tabindex="-1" aria-labelledby="createPageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="createPageModalLabel">Create Page</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p> Please specify the title and image of the new page. This page will be created after the current page.</p>
+          <form id="createPageForm">
+            <div class="form-group">
+              <label for="title">Title</label>
+              <input type="text" class="form-control" id="pageTitle" name="title">
+              <input type="file" class="form-control-file" id="newpageImage" name="image">
+              <!-- unchangable input for page index -->
+              <input type="hidden" class="form-control" id="pageIndex" name="index" value="{{currentPageNumber}}">
+              <button type="submit" class="btn btn-primary" id="submitNewPage">Create</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- bootstrap modal for creating a line -->
   <div class="modal fade" id="createLineModal" tabindex="-1" aria-labelledby="createLineModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -618,10 +698,13 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <!-- three bootstrap tabs, Open and Upload, and Upload Font -->
+          <!-- four bootstrap tabs, Open, New Blank, and Upload, and Upload Font -->
           <ul class="nav nav-tabs" id="myTab" role="tablist">
             <li class="nav-item" role="presentation">
               <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Open</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="new-blank-tab" data-bs-toggle="tab" data-bs-target="#new-blank" type="button" role="tab" aria-controls="new-blank" aria-selected="false">New Blank</button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload Document</button>
@@ -642,6 +725,9 @@
               <!-- dismiss modal button -->
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Open</button>
             </div>
+            <div class="tab-pane fade" id="new-blank" role="tabpanel" aria-labelledby="new-blank-tab">
+              {{> newDocument}}
+              </div>
             <div class="tab-pane fade" id="upload" role="tabpanel" aria-labelledby="upload-tab">
               {{> uploadDocument}}
             </div>

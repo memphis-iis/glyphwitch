@@ -1124,6 +1124,24 @@ Template.viewPage.events({
     page);
     instance.currentPage.set(page);
   },
+  'dblclick .page-title': function(event, template) {
+    const target = $(event.currentTarget);
+    target.find('.title-text').hide();
+    target.find('.title-input').show().focus();
+  },
+  'blur .title-input': function(event, template) {
+    const target = $(event.currentTarget);
+    const newTitle = target.val();
+    const pageIndex = target.closest('.page-title').data('id');
+    const documentId = template.currentDocument.get();
+    doc = Documents.findOne({_id: documentId});
+    doc.pages[pageIndex].title = newTitle;
+
+    // Call the server method to update the page title
+    Meteor.call('modifyDocument', doc);
+    target.hide();
+    target.siblings('.title-text').text(newTitle).show();
+  },
   'click #viewTool'(event, instance) {
     event.preventDefault();
     resetToolbox();
@@ -1762,11 +1780,68 @@ Template.viewPage.events({
   'click #allExit': function(event, instance) {
       Router.go('/logout');
   },
+  //click addPage to open the addPageModal
+  'click #addPage': function(event, instance) {
+    event.preventDefault();
+    //if theres a data-id, we set the currentPage to the data-id
+    if(event.target.getAttribute('data-id')) {
+      instance.currentPage.set(event.target.getAttribute('data-id'));
+    }
+    $('#createPageModal').modal('show');
+  },
+  'submit #createPageForm'(event, template) {
+    event.preventDefault();
+    console.log("submitNewPage");
 
-  
+    // Disable the submit button
+    $('#submitNewPage').prop('disabled', true);
+
+    // Get the title and file from the form
+    const title = $('#pageTitle').val();
+    const file = $('#newpageImage').get(0).files[0];
+    const documentId = template.currentDocument.get();
+    const pageIndex = $('#pageIndex').val();
+    console.log("Filename: " + file.name + ". Title: " + title + ".", "DocumentId: " + documentId + ". PageIndex: " + pageIndex + ".");
+
+    if (file) {
+      const upload = Files.insert({
+        file: file,
+        chunkSize: 'dynamic'
+      }, false);
+
+      upload.on('end', function(error, fileObj) {
+        if (error) {
+          console.log(error);
+          alert('Error uploading file');
+        } else {
+          console.log(fileObj);
+          const thispage = {
+            title: title,
+            addedBy: Meteor.userId(),
+            lines: []
 
 
-
+          };
+          doc = Documents.findOne({_id: documentId});
+          doc.pages.push(thispage);
+          //           addPageToDocument: function(document, fileObjId, pageNumber, title){
+          Meteor.call('addPageToDocument', documentId, fileObj._id, pageIndex, title, function(error, result) {
+            if (error) {
+              console.log(error);
+              alert('Error adding page');
+            } else {
+              console.log(result);
+              alert('Page added');
+              // Enable the submit button
+              $('#submitNewPage').prop('disabled', false);
+              $('#createPageModal').modal('hide');
+            }
+          });
+        }
+      });
+      upload.start();
+    }
+  },
 });
 
 
@@ -1839,6 +1914,27 @@ Template.uploadFont.helpers({
     return Template.instance().currentUpload.get();
   }
 });
+
+
+//Template for new blank document
+Template.newDocument.events({
+  'click #submitNewDocument' (event, instance) {
+    event.preventDefault();
+    //takes id author and title and calls addBlankDocument method
+    title = $('#newTitle').val();
+    author = $('#newAuthor').val();
+    Meteor.call('addBlankDocument', title, author, function(error, result) {
+      if (error) {
+        console.log(error);
+        alert('Error adding document');
+      } else {
+        console.log(result);
+        alert('Document added');
+      }
+    });
+  }
+});
+
 
 //Template events for uploading fonts
 Template.uploadFont.events({

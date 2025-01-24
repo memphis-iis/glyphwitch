@@ -39,7 +39,7 @@ Files = new FilesCollection({
     allowClientCode: false, // Disallow remove files from Client
     onBeforeUpload(file) {
         // Allow upload files under 10MB, and only in image, pdf, text, and font formats
-        if (file.size <= 10485760 && /pdf|jpg|png|jpeg|txt|otf|ttf|woff|woff2/i.test(file.extension)) {
+        if (file.size <= 209715200 && /pdf|jpg|png|jpeg|txt|otf|ttf|woff|woff2/i.test(file.extension)) {
             return true;
         } else {
             return 'Please upload image, pdf, text, or font file, with size equal or less than 10MB';
@@ -155,6 +155,17 @@ Meteor.methods({
         convertPdfToImages(file, document);
     
     },
+    //add a blank document with no pages. Must include the title and the author.
+    addBlankDocument: function(title, author) {
+        console.log("Adding blank document (title: " + title + ", author: " + author + ")");
+        document = Documents.insert({
+            title: title,
+            author: author,
+            pages: [],
+            addedBy: Meteor.userId()
+        });
+        return document;
+    },
     //remove an entry from the documents collection. Must include the document id.
     removeDocument: function(document) {
         console.log("Removing document (document: " + document + ")");
@@ -166,14 +177,50 @@ Meteor.methods({
         Documents.update(document, { $set: { file: file, title: title, author: author } });
     },
     //add page to a document. Must include the document id, the page number, and the user who added it.
-    addPageToDocument: function(document, page) {
-        console.log("Adding page (document: " + document + ", page: " + page + ")");
-        Documents.update(document, { $push: { pages: page, lines: [], addedBy: Meteor.userId() } });
+    addPageToDocument: function(document, fileObjId, pageNumber, title){
+        console.log("Adding page (document: " + document + ", fileObjId: " + fileObjId + ", pageNumber: " + pageNumber + ")");
+        //get the link to the file
+        file = Files.findOne({ _id: fileObjId }).link();
+        page = {
+            pageId: fileObjId,
+            image: file,
+            title: title,
+            addedBy: Meteor.userId()
+        }
+        //get the Document
+        doc = Documents.findOne(document);
+        //add the page to the document
+        doc.pages.push(page);
+        //update the document
+        Documents.update(document, doc);
+    },
+    addPageToDocumentAfterIndex: function(document, fileObjId, pageNumber, title, index){
+        console.log("Adding page (document: " + document + ", fileObjId: " + fileObjId + ", pageNumber: " + pageNumber + ")");
+        //add 1 to the index to insert after the index
+        index += 1;
+        //get the link to the file
+        file = Files.findOne({ _id: fileObjId }).link();
+        page = {
+            pageId: fileObjId,
+            image: file,
+            title: title,
+            addedBy: Meteor.userId()
+        }
+        //get the Document
+        doc = Documents.findOne(document);
+        //add the page to the document at index, push the rest of the pages back
+        doc.pages.splice(index, 0, page);
+        //update the document
     },
     //remove page from a document. Must include the document id, the page number, and the user who added it.
     removePageFromDocument: function(document, page) {
         console.log("Removing page (document: " + document + ", page: " + page + ")");
         Documents.update(document, { $pull: { pages: page, addedBy: Meteor.userId() } });
+    },
+    //modify entire Document. Must include the document id, the file collection location, the title, and the author.
+    modifyDocument: function(document) {
+        console.log("Modifying document (document: " + JSON.stringify(document) + ")");
+        Documents.update(document._id, document);
     },
     //modify page in a document. Must include the document id, the page number, and the user who added it.
     modifyPageInDocument: function(document, page) {

@@ -71,3 +71,37 @@ body {
 .file-tree .collapse.show .fa-caret-right {
   transform: rotate(90deg);
 }
+
+.pagesel {
+  position: relative;
+  border: 1px solid gray;
+}
+
+.pagesel img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.page-controls {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  display: flex;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.pagesel:hover .page-controls {
+  opacity: 1;
+}
+
+.page-controls .btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
