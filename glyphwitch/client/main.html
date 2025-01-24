@@ -327,10 +327,14 @@
         </div>
       </div>
     </div>
+    {{else}}
+    <div class="alert alert-warning" role="alert">
+      No document selected. Please select a document to view.
+    </div>
     {{/if}}
     <!-- data browser tab content-->
     <div class="tab-pane fade" id="databrowse" role="tabpanel" aria-labelledby="databrowse-tab">
-      <div class="container">
+      <div class="container vh-100">
       <div class="row">
         <div class="col-12 bg-secondary text-white">
         <small>Title: {{currentDocument.title}}, Author: {{currentDocument.author}}</small>
@@ -476,7 +480,56 @@
           </div>
         </div>
       {{/if}}
-    
+
+      {{#if currentDiscussion}}
+      <div id="DiscussionBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border border-success p-2 rounded-end" style="margin-top: 140px; margin-right:20px; pointer-events: fill">
+        <div class="container" style="width:500px;">
+          <h4>Discussions</h4>
+          <div class="container">
+            <div class="row">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-header">
+                    <h5>Discussion</h5>
+                  </div>
+                  <div class="card-body">
+                    <p>{{currentDiscussion}}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {{/if}}
+    </div>
+    <div class="fixed-bottom bg-light border-top">
+      <div class="container">
+        <div class="row">
+          <div class="col text-center w-100">
+            <span class="badge bg-secondary float-start mx-2">Document: {{currentDocument.title}} - Page: {{currentPageNumber}}</span>
+            <span class="badge bg-secondary float-start mx-2">Current View: {{currentView}}</span>
+            <span class="badge bg-secondary float-start mx-2">Current Tool: {{currentTool}}</span>
+            {{#if isEqual currentView "line"}}
+            <button class="btn border rounded float-end" id="saveChanges">Line</button>
+            {{/if}}
+            {{#if isEqual currentView "word"}}
+            <button class="btn border
+            rounded float-end" id="saveChanges">Word</button>
+            {{/if}}
+            {{#if isEqual currentView "phoneme"}}
+            <button class="btn border rounded float-end" id="saveChanges">Phoneme</button>
+            {{/if}}
+            {{#if isEqual currentView "glyph"}}
+            <button class="btn border
+            rounded float-end" id="saveChanges">Glyph</button>
+            {{/if}}
+            <button class="btn border rounded float-end" id="saveChanges">Page</button>
+            <button class="btn border rounded float-end" id="saveChanges">Document</button>
+            <span class="btn float-end bg-dark text-light" id="saveChanges">Discussions</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   

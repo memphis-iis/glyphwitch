@@ -52,6 +52,11 @@ Template.registerHelper('currentUser', function() {
   return user;
 });
 
+//isequal helper
+Template.registerHelper('isEqual', function(a, b) {
+  //return true if a is equal to b
+  return a == b;
+});
 
 
 //Template for displaying Stats
@@ -361,6 +366,8 @@ Template.viewPage.onCreated(function() {
   Template.instance().currentWord = new ReactiveVar();
   Template.instance().currentPhoneme = new ReactiveVar()
   Template.instance().currentSentence = new ReactiveVar();
+  Template.instance().currentGlyph = new ReactiveVar();
+  Template.instance().currentDiscussion = new ReactiveVar();
   Template.instance().currentTool =  new ReactiveVar('view');
   Template.instance().currentView = new ReactiveVar('simple');
   Template.instance().subTool = new ReactiveVar(false);
@@ -374,6 +381,16 @@ Template.viewPage.onCreated(function() {
   Template.instance().yScaling = new ReactiveVar(1);
   Template.instance().xScaling = new ReactiveVar(1);
   Template.instance().cropper = new ReactiveVar(false);
+  Template.instance().discussions = new ReactiveVar(
+    {
+      "document": false,
+      "page": false,
+      "line": false,
+      "word": false,
+      "phoneme": false,
+      "glyph": false
+    }
+  );
   Template.instance().x = new ReactiveVar(false);
   Template.instance().y = new ReactiveVar(false);
 
@@ -1003,6 +1020,18 @@ Template.viewPage.helpers({
   currentHelp() {
     const instance = Template.instance();
     return instance.currentHelp.get();
+  },
+  currentView() {
+    const instance = Template.instance();
+    return instance.currentView.get();
+  },  
+  discussions() {
+    const instance = Template.instance();
+    return instance.discussions.get();
+  },
+  currentDiscussion() {
+    const instance = Template.instance();
+    return instance.currentDiscussion.get();
   }
 });
 

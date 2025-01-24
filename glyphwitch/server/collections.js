@@ -236,6 +236,8 @@ Meteor.methods({
     //add an entry to the references collection. Must include the user who added it, the document id, the page number, and the line number, the word order number, and the word, an empty phoneme array, and notes.
     addReference: function(document, page, line, word, phoneme, glyph, notes) {
         console.log("Adding reference (document: " + document + ", page: " + page + ", line: " + line + ", word: " + word + ", phoneme: " + phoneme + ", glyph: " + glyph + ", notes: " + notes + ")");
+        //create a discussion 
+        discussion = Discussion.insert({ comments: [] });
         refId = References.insert({
             document: document,
             page: page,
@@ -244,7 +246,7 @@ Meteor.methods({
             phoneme: phoneme,
             glyph: glyph,
             notes: notes,
-            discussion: [],
+            discussion: discussion,
             addedBy: Meteor.userId()
         });
         //if glyph is set, we add the refId to the glyph
@@ -291,6 +293,76 @@ Meteor.methods({
             Documents.update(document, doc);
             return refId;
         }
+    },
+    addCommentToDiscussion: function(discussion, comment) {
+        console.log("Adding comment to discussion (discussion: " + discussion + ", comment: " + comment + ")");
+        Discussion.update(discussion, { $push: { comments: { text: comment, addedBy: Meteor.userId() } } });
+    },
+    //add discussion to document, page, line, word, phoneme, or glyph. Must include the discussion id, and the document, page, line, word, phoneme, or glyph id.
+    //detects which collection the discussion is being added to and adds the discussion id to that collection.
+    /// documents are hierarchical, so if a discussion is added to a word, we still need it's document, page, and line
+    addDiscussion: function(discussion, document=False, page=False, line=False, word=False, phoneme=False, glyph=False) {
+        console.log("Adding discussion (discussion: " + discussion + ", document: " + document + ", page: " + page + ", line: " + line + ", word: " + word + ", phoneme: " + phoneme + ", glyph: " + glyph + ")");
+        //if the discussion is added to the glyph, add the discussion id to the glyph
+        doc = Documents.findOne(document);
+        discussionId = Discussion.insert({ comments: [] });
+        added = False;
+        if (glyph) {
+            //if a discussion is already in the glyph, do nothing
+            if (Glyphs.findOne(glyph).discussion && doc[page][line][word].glyphs[glyph].discussion) {
+                return "Discussion already exists";
+            }
+            Glyphs.update(glyph, { $push: { discussion: discussion } });
+            doc[page][line][word].glyphs[glyph].discussion = discussion;
+            added = True;
+        }
+        //if the discussion is added to the phoneme inside the document, page, line, and word, add the discussion id to the phoneme
+        if(phoneme && !added){
+            //if a discussion is already in the phoneme, do nothing
+            if (Phonemes.findOne(phoneme).discussion && doc[page][line][word].phonemes[phoneme].discussion) {
+                return "Discussion already exists";
+            }
+            Phonemes.update(phoneme, { $push: { discussion: discussion } });
+            doc[page][line][word].phonemes[phoneme].discussion = discussion;
+            added = True;
+        }
+        //if the discussion is added to the word inside the document, page, and line, add the discussion id to the word
+        if(word && !added){
+            //if a discussion is already in the word, do nothing
+            if (doc[page][line][word].discussion) {
+                return "Discussion already exists";
+            }
+            doc[page][line][word].discussion = discussion;
+            added = True;
+        }
+        //if the discussion is added to the line inside the document and page, add the discussion id to the line
+        if(line && !added){
+            //if a discussion is already in the line, do nothing
+            if (doc[page][line].discussion) {
+                return "Discussion already exists";
+            }
+            doc[page][line].discussion = discussion;
+            added = True;
+        }
+        //if the discussion is added to the page inside the document, add the discussion id to the page
+        if(page && !added){
+            //if a discussion is already
+            if (doc[page].discussion) {
+                return "Discussion already exists";
+            }
+            doc[page].discussion = discussion;
+            added = True;
+        }
+        //if the discussion is added to the document, add the discussion id to the document
+        if(document && !added){
+            //if a discussion is already in the document, do nothing
+            if (doc.discussion) {
+                return "Discussion already exists";
+            }
+            doc.discussion = discussion;
+            added = True;
+        }
+        Documents.update(document, doc);
     },
     //remove an entry from the references collection. Must include the reference id.
     removeReference: function(reference) {
