@@ -27,6 +27,7 @@
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
       <a class="navbar-brand rounded px-4" href="/">GlyphWitch</a>
+      <small class="text-success">{{version}}</small>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -722,7 +723,8 @@
 <template name="footer">
   <hr>
   <footer>
-    <p style="text-align: center;">GlyphWitch is a project by the University of Memphis' Institute for Intelligent Systems.</p>
+    <p style="text-align: center;">GlyphWitch is a project by the University of Memphis' Institute for Intelligent Systems. (C) {{currentYear}}</p>
+
   </footer>
 </template>
 

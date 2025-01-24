@@ -4,6 +4,7 @@ import { FilesCollection } from 'meteor/ostrio:files';
 import { Session } from 'meteor/session';
 import Cropper from 'cropperjs';
 import go from 'gojs';
+import './views/versionInfo.js';
 
 
 import './main.html';
@@ -63,6 +64,22 @@ Template.registerHelper('isEqual', function(a, b) {
 Template.registerHelper('stats', function() {
   //return a string of the counts of the documents, references, phonemes, fonts, glyphs, and discussions
   return "GlyphWitch Stats: " + Documents.find().count() + " documents, " + References.find().count() + " references, " + Phonemes.find().count() + " phonemes, " + Fonts.find().count() + " fonts, " + Glyphs.find().count() + " glyphs, " + Discussions.find().count() + " discussions.";
+});
+
+//Template Helper to display version info session variable
+Template.registerHelper('version', function() {
+  //return the version info
+  ver = Session.get('versionInfo').releaseName;
+  //remove everything after the second to last -
+  ver = ver.substring(0, ver.lastIndexOf('-'));
+  ver =  ver.substring(0, ver.lastIndexOf('-'));
+  return ver;
+});
+
+//Templat helper to display current year
+Template.registerHelper('currentYear', function() {
+  //return the current year
+  return new Date().getFullYear();
 });
 
 
