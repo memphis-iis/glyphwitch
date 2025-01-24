@@ -186,6 +186,7 @@ Meteor.methods({
             image: file,
             title: title,
             addedBy: Meteor.userId()
+            lines: []
         }
         //get the Document
         doc = Documents.findOne(document);
@@ -205,6 +206,7 @@ Meteor.methods({
             image: file,
             title: title,
             addedBy: Meteor.userId()
+            lines: []
         }
         //get the Document
         doc = Documents.findOne(document);
