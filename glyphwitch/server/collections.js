@@ -185,7 +185,7 @@ Meteor.methods({
             pageId: fileObjId,
             image: file,
             title: title,
-            addedBy: Meteor.userId()
+            addedBy: Meteor.userId(),
             lines: []
         }
         //get the Document
@@ -205,7 +205,7 @@ Meteor.methods({
             pageId: fileObjId,
             image: file,
             title: title,
-            addedBy: Meteor.userId()
+            addedBy: Meteor.userId(),
             lines: []
         }
         //get the Document
