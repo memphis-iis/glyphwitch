@@ -1149,116 +1149,115 @@ Template.viewPage.events({
     $('#viewTool').removeClass('btn-light').addClass('btn-dark');
     instance.currentTool.set('view');
   },
+
   'click #selectItem'(event, instance) {
-    event.preventDefault();
-    instance.currentTool.set('select');
-    resetToolbox();
-    //set the currentTool to btn-dark
-    $('#selectItem').removeClass('btn-light').addClass('btn-dark');
-    selectedLine = instance.currentLine.get();
-    selectedWord = instance.currentWord.get();
-    currentView = instance.currentView.get();
-    console.log("selectedLine is " + selectedLine);
-    if (currentView == 'simple') {
-      image = initCropper("page");
-      const context = image.getContext('2d');
-      const page = instance.currentPage.get();
-      const documentId = instance.currentDocument.get();
-      const lines = Documents.findOne({_id: documentId}).pages[page].lines;
-      //if there are no lines, simulate clicking the exitTool button
-      if (lines.length == 0) {
-        alert("No lines to display. Use the Create Line tool to create a line.");
-        return;
-      }
-      //sort the lines by y1
-      lines.sort(function(a, b) {
-        return a.y1 - b.y1;
-      }
-      );
-      //split the canvas into multiple canvases by line
-      lines.forEach(function(line) {
-        index = lines.indexOf(line);
-        drawButton(image, 0, line.y1, image.width, line.height, 'line', index, index);
-      }
-      );
-      //hide the original image with display none
-      setCurrentHelp('To select a line, click on the line.  To cancel, click the close tool button.');
+  event.preventDefault();
+  instance.currentTool.set('select');
+  resetToolbox();
+  //set the currentTool to btn-dark
+  $('#selectItem').removeClass('btn-light').addClass('btn-dark');
+  selectedLine = instance.currentLine.get();
+  selectedWord = instance.currentWord.get();
+  currentView = instance.currentView.get();
+  console.log("selectedLine is " + selectedLine);
+  if (currentView == 'simple') {
+    image = initCropper("page");
+    const context = image.getContext('2d');
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const lines = Documents.findOne({_id: documentId}).pages[page].lines;
+    //if there are no lines, simulate clicking the exitTool button
+    if (lines.length == 0) {
+      alert("No lines to display. Use the Create Line tool to create a line.");
+      $('#exitTool').click();
+      return;
     }
-    if(currentView == 'line') {
-      //get $('#lineImage') and change it from img-fluid to a calculated width and height
-      calcWidth = $('#lineImage').width();
-      calcHeight = $('#lineImage').height();
-      $('#lineImage').removeClass('img-fluid');
-      //add width and height to the lineImage's style
-      $('#lineImage').css('width', calcWidth + 'px');
-      $('#lineImage').css('height', calcHeight + 'px');
-      image = initCropper("line");
-      const context = image.getContext('2d');
-      const page = instance.currentPage.get();
-      const documentId = instance.currentDocument.get();
-      const words = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words;
-      //if there are no words, simulate clicking the exitTool button
-      if (words.length == 0) {
-        alert("No words to display. Use the Create Word tool to create a word.");
-        return;
-      }
-      //sort the words by x1
-      words.sort(function(a, b) {
-        return a.x1 - b.x1;
-      }
-      );
-      //split the canvas into multiple canvases by word
-      words.forEach(function(word) {
-        index = words.indexOf(word);
-        drawButton(image, word.x, 0, word.width, image.height, 'word', index, index);
-      }
-      );
-      //hide the original image with display none
-      setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
+    //sort the lines by y1
+    lines.sort(function(a, b) {
+      return a.y1 - b.y1;
+    });
+    //split the canvas into multiple canvases by line
+    lines.forEach(function(line) {
+      index = lines.indexOf(line);
+      drawButton(image, 0, line.y1, image.width, line.height, 'line', index, index);
+    });
+    //hide the original image with display none
+    setCurrentHelp('To select a line, click on the line.  To cancel, click the close tool button.');
+  }
+  if(currentView == 'line') {
+    //get $('#lineImage') and change it from img-fluid to a calculated width and height
+    calcWidth = $('#lineImage').width();
+    calcHeight = $('#lineImage').height();
+    $('#lineImage').removeClass('img-fluid');
+    //add width and height to the lineImage's style
+    $('#lineImage').css('width', calcWidth + 'px');
+    $('#lineImage').css('height', calcHeight + 'px');
+    image = initCropper("line");
+    const context = image.getContext('2d');
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const words = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words;
+    //if there are no words, simulate clicking the exitTool button
+    if (words.length == 0) {
+      alert("No words to display. Use the Create Word tool to create a word.");
+      $('#exitTool').click();
+      return;
     }
-    if(currentView == 'word') {
-      //get $('#wordImage') and change it from img-fluid to a calculated width and height
-      calcWidth = $('#wordImage').width();
-      calcHeight = $('#wordImage').height();
-      $('#wordImage').removeClass('img-fluid');
-      //add width and height to the wordImage's style
-      $('#wordImage').css('width', calcWidth + 'px');
-      $('#wordImage').css('height', calcHeight + 'px');
-      image = initCropper("word");
-      const context = image.getContext('2d');
-      const page = instance.currentPage.get();
-      const documentId = instance.currentDocument.get();
-      const phonemes = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words[selectedWord].phonemes;
-      const glyphs = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words[selectedWord].glyph;
-      //if there are no phonemes or words, simulate clicking the exitTool button
-      if (phonemes.length == 0 && glyphs.length == 0) {
-        alert("No phonemes or glyphs to display. Use the Create Phoneme or Create Glyph tool to create a phoneme or glyph.");
-        return;
-      }
-      //sort the phonemes by x1
-      phonemes.sort(function(a, b) {
-        return a.x1 - b.x1;
-      }
-      );
-      //sort the glyphs by x1
-      glyphs.sort(function(a, b) {
-        return a.x1 - b.x1;
-      }
-      );
-      //split the canvas into multiple canvases by phoneme
-      phonemes.forEach(function(phoneme) {
-        index = phonemes.indexOf(phoneme);
-        drawButton(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
-      });
-      //split the canvas into multiple canvases by glyph, these buttons appear over the phoneme buttons
-      glyphs.forEach(function(glyph) {
-        index = glyphs.indexOf(glyph);
-        drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
-      });
-      //hide the original image with display none
-      setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph.  To cancel, click the close tool button.');
+    //sort the words by x1
+    words.sort(function(a, b) {
+      return a.x - b.x;
+    });
+    //split the canvas into multiple canvases by word
+    words.forEach(function(word) {
+      index = words.indexOf(word);
+      drawButton(image, word.x, 0, word.width, image.height, 'word', index, index);
+    });
+    //hide the original image with display none
+    setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
+  }
+  if(currentView == 'word') {
+    //get $('#wordImage') and change it from img-fluid to a calculated width and height
+    calcWidth = $('#wordImage').width();
+    calcHeight = $('#wordImage').height();
+    $('#wordImage').removeClass('img-fluid');
+    //add width and height to the wordImage's style
+    $('#wordImage').css('width', calcWidth + 'px');
+    $('#wordImage').css('height', calcHeight + 'px');
+    image = initCropper("word");
+    const context = image.getContext('2d');
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const phonemes = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words[selectedWord].phonemes;
+    const glyphs = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words[selectedWord].glyph;
+    //if there are no phonemes or words, simulate clicking the exitTool button
+    if (phonemes.length == 0 && glyphs.length == 0) {
+      alert("No phonemes or glyphs to display. Use the Create Phoneme or Create Glyph tool to create a phoneme or glyph.");
+      $('#exitTool').click();
+      return;
     }
-  },
+    //sort the phonemes by x1
+    phonemes.sort(function(a, b) {
+      return a.x - b.x;
+    });
+    //sort the glyphs by x1
+    glyphs.sort(function(a, b) {
+      return a.x - b.x;
+    });
+    //split the canvas into multiple canvases by phoneme
+    phonemes.forEach(function(phoneme) {
+      index = phonemes.indexOf(phoneme);
+      drawButton(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
+    });
+    //split the canvas into multiple canvases by glyph, these buttons appear over the phoneme buttons
+    glyphs.forEach(function(glyph) {
+      index = glyphs.indexOf(glyph);
+      drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
+    });
+    //hide the original image with display none
+    setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph.  To cancel, click the close tool button.');
+  }
+},
+
   'click .selectElement'(event, instance) {
     event.preventDefault();
     //simulate clicking the exitTool button
