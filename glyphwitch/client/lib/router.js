@@ -66,6 +66,18 @@ Router.route('/', {
   }
 });
 
+Router.route('/glyphwitch', {
+  name: 'glyphwitch',
+  template: 'home',
+  onBeforeAction: function() {
+    if (Meteor.userId()) {
+      this.redirect('viewPage');
+    } else {
+      this.redirect('login');
+    }
+  }
+});
+
 //logout route, call the logout method
 Router.route('/logout', {
   name: 'logout',
