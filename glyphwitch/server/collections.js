@@ -731,6 +731,17 @@ Meteor.methods({
     getDiscussion: function(reference) {
         console.log("Getting discussion (reference: " + reference + ")");
         return Discussion.findOne({reference: reference});
+    },
+    movePage(documentId, fromIndex, toIndex) {
+        const doc = Documents.findOne(documentId);
+        if (doc && doc.pages && fromIndex >= 0 && toIndex >= 0 && fromIndex < doc.pages.length && toIndex < doc.pages.length) {
+            const pages = doc.pages;
+            const [movedPage] = pages.splice(fromIndex, 1);
+            pages.splice(toIndex, 0, movedPage);
+            Documents.update(documentId, { $set: { pages: pages } });
+        } else {
+            throw new Meteor.Error('invalid-arguments', 'Invalid page indices or document not found');
+        }
     }
 });
 
