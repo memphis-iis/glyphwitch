@@ -1864,15 +1864,15 @@ Template.viewPage.events({
     event.preventDefault();
     const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
     const documentId = instance.currentDocument.get();
-    const totalPages = Template.instance().totalPages();
+    const totalPages = Documents.findOne({_id: documentId}).pages.length;
     if (pageIndex < totalPages - 1) {
-      Meteor.call('movePage', documentId, pageIndex, pageIndex + 1, (error, result) => {
-        if (error) {
-          console.error('Error moving page down:', error);
-        } else {
-          console.log('Page moved down successfully');
-        }
-      });
+        Meteor.call('movePage', documentId, pageIndex, pageIndex + 1, (error, result) => {
+            if (error) {
+                console.error('Error moving page down:', error);
+            } else {
+                console.log('Page moved down successfully');
+            }
+        });
     }
   }
 });

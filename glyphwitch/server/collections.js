@@ -735,15 +735,14 @@ Meteor.methods({
     movePage(documentId, fromIndex, toIndex) {
         const doc = Documents.findOne(documentId);
         if (doc && doc.pages && fromIndex >= 0 && toIndex >= 0 && fromIndex < doc.pages.length && toIndex < doc.pages.length) {
-          const pages = doc.pages;
-          const temp = pages[fromIndex];
-          pages[fromIndex] = pages[toIndex];
-          pages[toIndex] = temp;
-          Documents.update(documentId, { $set: { pages: pages } });
+            const pages = doc.pages;
+            const [movedPage] = pages.splice(fromIndex, 1);
+            pages.splice(toIndex, 0, movedPage);
+            Documents.update(documentId, { $set: { pages: pages } });
         } else {
-          throw new Meteor.Error('invalid-arguments', 'Invalid page indices or document not found');
+            throw new Meteor.Error('invalid-arguments', 'Invalid page indices or document not found');
         }
-      }
+    }
 });
 
 //Define Publications for the collections. They must be exported to be used in the main server file. 
