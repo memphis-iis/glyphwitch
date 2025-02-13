@@ -510,6 +510,9 @@
           <button type="button" class="btn btn-light me-2" title="Create Glyph" id="createGlyph" style="display: none;">
             <i class="bi bi-file-earmark-font"></i>
           </button>
+          <button type="button" class="btn btn-light me-2" title="Create Element" id="createElement" style="display: none;">
+            <i class="bi bi-box"></i>
+          </button>
           <button type="button" class="btn btn-danger me-2" title="Exit Tool" id="exitTool" style="display: none;">
             <i class="bi bi-x"></i>
           </button>
@@ -690,6 +693,26 @@
       </div>
     </div>
   </div>
+  <!-- bootstrap modal for creating an element -->
+  <div class="modal fade" id="createElementModal" tabindex="-1" aria-labelledby="createElementModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="width: 75vw; right: 25vw;">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createElementModalLabel">Create Element</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Trace the element below then confirm the new element. Click OK to confirm or Cancel to exit.
+                <br>
+                <canvas id="elementCanvas" width="200" height="200" style="border: 1px solid black;"></canvas>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmElement">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
   <!-- full size modal for opening and uploading a document -->
   <div class="modal fade" id="openModal" tabindex="-1" aria-labelledby="customModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg"> <div class="modal-content">
