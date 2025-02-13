@@ -1216,6 +1216,8 @@ Template.viewPage.events({
     setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
   }
   if(currentView == 'word') {
+    // Ensure the exitTool button is shown
+    $('#exitTool').show();
     //get $('#wordImage') and change it from img-fluid to a calculated width and height
     calcWidth = $('#wordImage').width();
     calcHeight = $('#wordImage').height();
@@ -1256,18 +1258,24 @@ Template.viewPage.events({
     //hide the original image with display none
     setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph.  To cancel, click the close tool button.');
   }
+  if(currentView == 'phoneme') {
+    // Ensure the exitTool button is shown
+    $('#exitTool').show();
+    // Hide the toolbox buttons
+    $('#ToolBox').hide();
+  }
 },
 
   'click .selectElement'(event, instance) {
     event.preventDefault();
-    console.log("selectElement event triggered"); // check if the event is triggered
+    console.log("selectElement event triggered"); // Add this line to check if the event is triggered
     //simulate clicking the exitTool button
     $('#exitTool').click();
     //get the data-type and data-id from the button
     const type = event.target.getAttribute('data-type');
     const id = event.target.getAttribute('data-id');
     console.log("selectElement, type is " + type + " and id is " + id);
-    // debug statements!!!
+    // Add debugging statements
     console.log("Current view: " + instance.currentView.get());
     console.log("Current line: " + instance.currentLine.get());
     console.log("Current word: " + instance.currentWord.get());
