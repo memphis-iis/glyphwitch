@@ -1260,12 +1260,19 @@ Template.viewPage.events({
 
   'click .selectElement'(event, instance) {
     event.preventDefault();
+    console.log("selectElement event triggered"); // check if the event is triggered
     //simulate clicking the exitTool button
     $('#exitTool').click();
     //get the data-type and data-id from the button
     const type = event.target.getAttribute('data-type');
     const id = event.target.getAttribute('data-id');
     console.log("selectElement, type is " + type + " and id is " + id);
+    // debug statements!!!
+    console.log("Current view: " + instance.currentView.get());
+    console.log("Current line: " + instance.currentLine.get());
+    console.log("Current word: " + instance.currentWord.get());
+    console.log("Current phoneme: " + instance.currentPhoneme.get());
+    console.log("Current glyph: " + instance.currentGlyph.get());
     //copy view-tab-template to it's parent
     viewTemplate = $('#view-tab-template');
     clone = viewTemplate.clone(); 
@@ -1285,12 +1292,13 @@ Template.viewPage.events({
       parentId = instance.currentLine.get();
       parenttab = "view-tab-element-line-" + parentId;
     }
-
+    if (type == 'phoneme') {
+      parentId = instance.currentWord.get();
+      parenttab = "view-tab-element-word-" + parentId;
+    }
     //set the data-parent of the clone to the parent's expected tab id
     clone.attr('data-parent', parenttab);
     clone.attr('id', 'view-tab-element-' + type + '-' + id);
-
-
     //get the ammount of tabs open
     tabs = $('#view-tab-template').parent().children().length;
     //set the clone's data tab index to the number of tabs open
@@ -1311,7 +1319,6 @@ Template.viewPage.events({
     instance.currentView.set(type);
     resetToolbox();
     setImage(type, id);
-  
   },
   'click .open-tab'(event, instance) {
     event.preventDefault();
