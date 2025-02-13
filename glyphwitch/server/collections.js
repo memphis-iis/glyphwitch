@@ -33,6 +33,7 @@ Phonemes = new Meteor.Collection("phonemes");
 Fonts = new Meteor.Collection("fonts");
 Glyphs = new Meteor.Collection("glyphs");
 Discussion = new Meteor.Collection("discussion");
+Elements = new Meteor.Collection("elements");
 Files = new FilesCollection({
     collectionName: 'files',
     storagePath: storagePath,
@@ -731,6 +732,25 @@ Meteor.methods({
     getDiscussion: function(reference) {
         console.log("Getting discussion (reference: " + reference + ")");
         return Discussion.findOne({reference: reference});
+    },
+    addElementToGlyph: function(glyphId, x, y, width, height, imageData, drawnData) {
+        console.log("Adding element to glyph (glyphId: " + glyphId + ", x: " + x + ", y: " + y + ", width: " + width + ", height: " + height + ")");
+        const elementId = Elements.insert({
+            glyphId: glyphId,
+            x: x,
+            y: y,
+            width: width,
+            height: height,
+            imageData: imageData,
+            drawnData: drawnData,
+            addedBy: Meteor.userId()
+        });
+        Glyphs.update(glyphId, { $push: { elements: elementId } });
+    },
+    removeElementFromGlyph: function(glyphId, elementId) {
+        console.log("Removing element from glyph (glyphId: " + glyphId + ", elementId: " + elementId + ")");
+        Glyphs.update(glyphId, { $pull: { elements: elementId } });
+        Elements.remove(elementId);
     }
 });
 
