@@ -350,6 +350,13 @@ Template.selectDocument.events({
     fn2(0);
   
     
+  },
+  'change #selectDoc'(event, instance) {
+    const newDoc = event.target.value;
+    const setDocumentFn = instance.setDocument.get();
+    setDocumentFn(newDoc);
+    const setPageFn = instance.setPage.get();
+    setPageFn(0);
   }
 });
 
