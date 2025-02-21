@@ -1056,7 +1056,11 @@ Template.viewPage.helpers({
   currentDiscussion() {
     const instance = Template.instance();
     return instance.currentDiscussion.get();
-  }
+  },
+  totalPages() {
+    const currentDocument = Template.instance().currentDocument.get();
+    return currentDocument && currentDocument.pages ? currentDocument.pages.length : 0;
+  },
 });
 
 Template.viewPage.events({
@@ -1848,6 +1852,36 @@ Template.viewPage.events({
       upload.start();
     }
   },
+'click .move-up'(event, instance) {
+    event.preventDefault();
+    const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
+    const documentId = instance.currentDocument.get();
+    if (pageIndex > 0) {
+      Meteor.call('movePage', documentId, pageIndex, pageIndex - 1, (error, result) => {
+        if (error) {
+          console.error('Error moving page up:', error);
+        } else {
+          console.log('Page moved up successfully');
+        }
+      });
+    }
+  },
+
+  'click .move-down'(event, instance) {
+    event.preventDefault();
+    const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
+    const documentId = instance.currentDocument.get();
+    const totalPages = Documents.findOne({_id: documentId}).pages.length;
+    if (pageIndex < totalPages - 1) {
+        Meteor.call('movePage', documentId, pageIndex, pageIndex + 1, (error, result) => {
+            if (error) {
+                console.error('Error moving page down:', error);
+            } else {
+                console.log('Page moved down successfully');
+            }
+        });
+    }
+  }
 });
 
 
