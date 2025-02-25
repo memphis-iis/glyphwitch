@@ -347,15 +347,15 @@ Template.selectDocument.events({
     fn = Template.instance().setDocument.get();
     fn(event.target.value);
     fn2 = Template.instance().setPage.get();
+    // Make sure we're setting to zero as a number, not a string
     fn2(0);
-  
-    
   },
   'change #selectDoc'(event, instance) {
     const newDoc = event.target.value;
     const setDocumentFn = instance.setDocument.get();
     setDocumentFn(newDoc);
     const setPageFn = instance.setPage.get();
+    // Make sure we're setting to zero as a number, not a string
     setPageFn(0);
   }
 });
@@ -932,11 +932,22 @@ Template.viewPage.helpers({
       doc = Documents.findOne({_id: documentId});
       //for each pages, get the images from the files collection
       console.log(doc);
-      doc.pages.forEach(function(page) {
-        page.image = Files.findOne({_id: page.pageId}).link();
-      });
+      if (doc && doc.pages) {
+        doc.pages.forEach(function(page) {
+          if (page && page.pageId) {
+            const file = Files.findOne({_id: page.pageId});
+            if (file) {
+              page.image = file.link();
+            } else {
+              console.error("File not found for pageId:", page.pageId);
+              page.image = ""; // Set a default image or empty string
+            }
+          } else {
+            console.error("Invalid page or missing pageId:", page);
+          }
+        });
+      }
       return doc;
-
     } else {
         //open the openModal modal if no document is selected
         $('#openModal').modal('show');
@@ -951,22 +962,40 @@ Template.viewPage.helpers({
   selectedPage() {
     const instance = Template.instance();
     return function(newPage) {
-      instance.currentPage.set(newPage);
-      page = Documents.findOne({_id: instance.currentDocument.get()}).pages[newPage];
+      // Ensure newPage is a number
+      instance.currentPage.set(Number(newPage));
+      page = Documents.findOne({_id: instance.currentDocument.get()}).pages[Number(newPage)];
+      console.log("Setting page to:", Number(newPage));
       console.log(page);
       //reset the pageImage to the new page's image
       $('#pageImage').attr('src', page.image);
-      
     }
   },
   currentPage() {
     const instance = Template.instance();
-    currentPage = instance.currentPage.get();
+    const currentPage = Number(instance.currentPage.get());
     console.log("currentPage is " + currentPage);
-    if (currentPage) {
-      page = Documents.findOne({_id: instance.currentDocument.get()}).pages[currentPage];
-      console.log(page);
-      return page;
+    if (currentPage !== null && currentPage !== undefined) {
+      const doc = Documents.findOne({_id: instance.currentDocument.get()});
+      if (doc && doc.pages && doc.pages[currentPage]) {
+        const page = doc.pages[currentPage];
+        console.log("Found page:", page);
+        
+        // Ensure the page has an image property
+        if (page && page.pageId) {
+          const file = Files.findOne({_id: page.pageId});
+          if (file) {
+            page.image = file.link();
+          } else {
+            console.error("File not found for pageId:", page.pageId);
+          }
+        }
+        
+        return page;
+      } else {
+        console.error("Page not found for index:", currentPage);
+        return false;
+      }
     } else {
       return false;
     }
@@ -1110,31 +1139,63 @@ Template.viewPage.events({
   },
   'click #lastPage'(event, instance) {
     event.preventDefault();
-    const currentPage = parseInt(instance.currentPage.get());
+    // Ensure currentPage is a number
+    const currentPage = Number(instance.currentPage.get());
     console.log("Last page clicked, current page:", currentPage);
     if (currentPage > 0) {
-      instance.currentPage.set(currentPage - 1);
-      console.log("Setting page to:", currentPage - 1);
+      // Set the new page as a number
+      const newPage = Number(currentPage - 1);
+      instance.currentPage.set(newPage);
+      console.log("Setting page to:", newPage);
+      
+      // Explicitly fetch the new page data and display it
+      const documentId = instance.currentDocument.get();
+      if (documentId) {
+        const doc = Documents.findOne({_id: documentId});
+        if (doc && doc.pages && doc.pages[newPage]) {
+          const page = doc.pages[newPage];
+          console.log("Navigating to page:", page);
+          
+          // Update the image manually
+          if (page.pageId) {
+            const file = Files.findOne({_id: page.pageId});
+            if (file) {
+              $('#pageImage').attr('src', file.link());
+              console.log("Image updated to:", file.link());
+            } else {
+              console.error("File not found for pageId:", page.pageId);
+            }
+          } else {
+            console.error("No pageId found for page:", newPage);
+          }
+        } else {
+          console.error("Page not found for index:", newPage);
+        }
+      }
     } else {
       console.log("Already at first page");
     }
   },
   'click #nextPage'(event, instance) {
     event.preventDefault();
-    const currentPage = parseInt(instance.currentPage.get());
+    // Ensure currentPage is a number
+    const currentPage = Number(instance.currentPage.get());
     const documentId = instance.currentDocument.get();
     if (documentId) {
       const doc = Documents.findOne({_id: documentId});
       const totalPages = doc.pages.length;
       if (currentPage < totalPages - 1) {
-        instance.currentPage.set(currentPage + 1);
+        // Set the new page as a number
+        instance.currentPage.set(Number(currentPage + 1));
+        console.log("Setting page to:", Number(currentPage + 1));
       }
     }
   },
   'click .changePage'(event, instance) {
     event.preventDefault();
     //get data-id attribute from the button using pure javascript
-    const page = parseInt(event.currentTarget.getAttribute('data-id'));
+    // Ensure page is a number
+    const page = Number(event.currentTarget.getAttribute('data-id'));
     console.log("changePage to " + page);
     instance.currentPage.set(page);
   },
