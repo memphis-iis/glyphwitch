@@ -1881,6 +1881,41 @@ Template.viewPage.events({
             }
         });
     }
+  },
+  'click #createElement'(event, instance) {
+    event.preventDefault();
+    resetToolbox();
+    $('#createElement').removeClass('btn-light').addClass('btn-dark');
+    instance.currentTool.set('createElement');
+
+    const pageIndex = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const lineIndex = instance.currentLine.get();
+    const wordIndex = instance.currentWord.get();
+    const phonemeIndex = instance.currentPhoneme.get();
+    const glyphIndex = instance.currentGlyph.get();
+
+    // I'm assuming initCropper is already available
+    const glyphCanvas = initCropper('glyph');
+
+    // “crop” callback
+    glyphCanvas.addEventListener('crop', function (cropEvent) {
+      const box = cropEvent.detail; // { x, y, width, height }
+      const dataURL = glyphCanvas.toDataURL('image/png');
+      Meteor.call('addElementToGlyph',
+        documentId, pageIndex, lineIndex, wordIndex, phonemeIndex, glyphIndex,
+        box.x, box.y, box.width, box.height,
+        dataURL,
+        (error, result) => {
+          if (error) {
+            console.error(error);
+            alert("Error creating element");
+          } else {
+            alert("Element created");
+          }
+        }
+      );
+    });
   }
 });
 
