@@ -1110,8 +1110,12 @@ Template.viewPage.events({
   'click #lastPage'(event, instance) {
     event.preventDefault();
     const currentPage = parseInt(instance.currentPage.get());
+    console.log("Last page clicked, current page:", currentPage);
     if (currentPage > 0) {
       instance.currentPage.set(currentPage - 1);
+      console.log("Setting page to:", currentPage - 1);
+    } else {
+      console.log("Already at first page");
     }
   },
   'click #nextPage'(event, instance) {
