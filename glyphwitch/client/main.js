@@ -1109,25 +1109,28 @@ Template.viewPage.events({
   },
   'click #lastPage'(event, instance) {
     event.preventDefault();
-    const currentPage = instance.currentPage.get();
+    const currentPage = parseInt(instance.currentPage.get());
     if (currentPage > 0) {
       instance.currentPage.set(currentPage - 1);
     }
   },
   'click #nextPage'(event, instance) {
     event.preventDefault();
-    const currentPage = instance.currentPage.get();
-    const totalPages = Template.instance().totalPages();
-    if (currentPage < totalPages - 1) {
-      instance.currentPage.set(currentPage + 1);
+    const currentPage = parseInt(instance.currentPage.get());
+    const documentId = instance.currentDocument.get();
+    if (documentId) {
+      const doc = Documents.findOne({_id: documentId});
+      const totalPages = doc.pages.length;
+      if (currentPage < totalPages - 1) {
+        instance.currentPage.set(currentPage + 1);
+      }
     }
   },
   'click .changePage'(event, instance) {
     event.preventDefault();
     //get data-id attribute from the button using pure javascript
-    const page = event.currentTarget.getAttribute('data-id');
-    console.log("changePage to " + 
-    page);
+    const page = parseInt(event.currentTarget.getAttribute('data-id'));
+    console.log("changePage to " + page);
     instance.currentPage.set(page);
   },
   'dblclick .page-title': function(event, template) {
