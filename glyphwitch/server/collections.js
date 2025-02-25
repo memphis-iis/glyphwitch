@@ -33,6 +33,7 @@ Phonemes = new Meteor.Collection("phonemes");
 Fonts = new Meteor.Collection("fonts");
 Glyphs = new Meteor.Collection("glyphs");
 Discussion = new Meteor.Collection("discussion");
+Elements = new Meteor.Collection("elements");
 Files = new FilesCollection({
     collectionName: 'files',
     storagePath: storagePath,
@@ -742,7 +743,53 @@ Meteor.methods({
         } else {
             throw new Meteor.Error('invalid-arguments', 'Invalid page indices or document not found');
         }
-    }
+    },
+    addElementToGlyph(documentId, pageIndex, lineIndex, wordIndex, phonemeIndex, glyphIndex, x, y, width, height, imageData) {
+        check(documentId, String);
+        check(pageIndex, Number);
+        check(lineIndex, Number);
+        check(wordIndex, Number);
+        check(phonemeIndex, Number);
+        check(glyphIndex, Number);
+        check(x, Number);
+        check(y, Number);
+        check(width, Number);
+        check(height, Number);
+        check(imageData, String);
+    
+        const doc = Documents.findOne(documentId);
+        if (!doc) {
+          throw new Meteor.Error("Document not found");
+        }
+        const glyph = doc.pages[pageIndex].lines[lineIndex].words[wordIndex].phonemes[phonemeIndex].glyphs[glyphIndex];
+        if (!glyph) {
+          throw new Meteor.Error("Glyph not found");
+        }
+    
+        const elementId = Elements.insert({
+          createdAt: new Date(),
+          imageData,
+          boundingBox: { x, y, width, height },
+          glyphId: glyph._id || null,
+          addedBy: Meteor.userId()
+        });
+    
+        if (!glyph.elements) {
+          glyph.elements = [];
+        }
+        glyph.elements.push({
+          elementId,
+          x,
+          y,
+          width,
+          height
+        });
+    
+        // Reassign in doc structure and update the whole doc
+        doc.pages[pageIndex].lines[lineIndex].words[wordIndex].phonemes[phonemeIndex].glyphs[glyphIndex] = glyph;
+        Documents.update(documentId, { $set: { pages: doc.pages } });
+        return elementId;
+      }
 });
 
 //Define Publications for the collections. They must be exported to be used in the main server file. 
