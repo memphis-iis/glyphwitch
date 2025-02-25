@@ -1016,16 +1016,8 @@ Template.viewPage.helpers({
     const instance = Template.instance();
     return instance.currentLine.get();
   },
-  totalPages() {
-    const instance = Template.instance();
-    const documentId = instance.currentDocument.get();
-    if (documentId) {
-      const doc = Documents.findOne({_id: documentId});
-      return doc.pages.length;
-    } else {
-      return 0;
-    }
-  },
+  // Remove the first totalPages helper function to avoid duplication
+  
   toolOptions() {
     const instance = Template.instance();
     const tool = instance.currentTool.get();
@@ -1082,9 +1074,18 @@ Template.viewPage.helpers({
     const instance = Template.instance();
     return instance.currentDiscussion.get();
   },
+  // Keep only one totalPages helper and make sure it's correct
   totalPages() {
-    const currentDocument = Template.instance().currentDocument.get();
-    return currentDocument && currentDocument.pages ? currentDocument.pages.length : 0;
+    const instance = Template.instance();
+    const documentId = instance.currentDocument.get();
+    if (documentId) {
+      const doc = Documents.findOne({_id: documentId});
+      if (doc && doc.pages) {
+        console.log("Total pages found:", doc.pages.length);
+        return doc.pages.length;
+      }
+    }
+    return 0;
   },
 });
 
