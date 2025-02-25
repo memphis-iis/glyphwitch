@@ -1916,6 +1916,11 @@ Template.viewPage.events({
         }
       );
     });
+  },
+  'click .glyphButton'(event, instance) {
+    const glyphIndex = event.target.getAttribute('data-glyph-index');
+    instance.currentGlyph.set(parseInt(glyphIndex, 10));
+    $('#createGlyphModal').modal('show');
   }
 });
 
