@@ -988,17 +988,12 @@ Template.viewPage.helpers({
   },
   totalPages() {
     const instance = Template.instance();
-    documentId = instance.currentDocument.get();
-    console.log("currentDocument is " + documentId);
+    const documentId = instance.currentDocument.get();
     if (documentId) {
-      doc = Documents.findOne({_id: documentId});
-      //for each pages, get the images from the files collection
-      console.log("doc.pages.length is " + doc.pages.length);
-      console.log(doc);
+      const doc = Documents.findOne({_id: documentId});
       return doc.pages.length;
-
     } else {
-      return false;
+      return 0;
     }
   },
   toolOptions() {
@@ -1122,8 +1117,8 @@ Template.viewPage.events({
   'click #nextPage'(event, instance) {
     event.preventDefault();
     const currentPage = instance.currentPage.get();
-    const totalPages = instance.totalPages.get();
-    if (currentPage < totalPages) {
+    const totalPages = Template.instance().totalPages();
+    if (currentPage < totalPages - 1) {
       instance.currentPage.set(currentPage + 1);
     }
   },
