@@ -973,10 +973,11 @@ Template.viewPage.helpers({
   },
   currentPageNumber() {
     const instance = Template.instance();
-    currentPage = instance.currentPage.get();
+    const currentPage = parseInt(instance.currentPage.get());
     console.log("currentPage is " + currentPage);
-    if (currentPage) {
-      return currentPage;
+    if (currentPage !== null && currentPage !== undefined) {
+      // Add 1 to convert from 0-based index to 1-based page number for display
+      return currentPage + 1;
     } else {
       return 1;
     }
