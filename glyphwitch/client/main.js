@@ -1596,6 +1596,27 @@ Template.viewPage.events({
 
     } else if(currentTool == 'createElement') {
       // Similar approach to the other tools - call the server method to add the element
+      const glyphImage = document.getElementById('glyphImage');
+      const canvas = document.createElement('canvas');
+      canvas.width = instance.selectwidth.get();
+      canvas.height = instance.selectheight.get();
+      const context = canvas.getContext('2d');
+      
+      // Extract the element image from the glyph
+      context.drawImage(
+        glyphImage, 
+        instance.selectx1.get(), 
+        instance.selecty1.get(), 
+        instance.selectwidth.get(), 
+        instance.selectheight.get(), 
+        0, 0, 
+        canvas.width, canvas.height
+      );
+      
+      // Get image data
+      const elementImageData = canvas.toDataURL('image/png');
+      
+      // Call modified server method with image data
       ret = Meteor.callAsync('addElementToGlyph', 
         instance.currentDocument.get(), 
         instance.currentPage.get(), 
@@ -1605,7 +1626,8 @@ Template.viewPage.events({
         instance.selectx1.get(),
         instance.selecty1.get(),
         instance.selectwidth.get(),
-        instance.selectheight.get()
+        instance.selectheight.get(),
+        elementImageData  // Pass image data
       );
       alert("element added");
       // Clean up the cropper

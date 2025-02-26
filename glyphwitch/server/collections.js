@@ -827,8 +827,16 @@ Meteor.methods({
           throw new Meteor.Error('invalid-parameters', 'All numeric parameters must be valid numbers');
         }
         
-        // Create the element object with parsed numeric values
+        // Create the element object with parsed numeric values and explicit element ID
+        const elementId = Elements.insert({
+          createdAt: new Date(),
+          boundingBox: { x: numX, y: numY, width: numWidth, height: numHeight },
+          glyphId: document + "-" + numPage + "-" + numLine + "-" + numWord + "-" + numGlyph,
+          addedBy: this.userId || 'anonymous'
+        });
+        
         const element = {
+          elementId,  // Adding explicit element ID here
           x: numX,
           y: numY,
           width: numWidth,
@@ -889,7 +897,7 @@ Meteor.methods({
         console.log(`Element successfully added to glyph at position [${numPage}, ${numLine}, ${numWord}, ${numGlyph}]`);
         return {
           success: true,
-          elementId: glyphsArr[numGlyph].elements.length - 1
+          elementId: elementId // Return the actual element ID instead of array index
         };
       },
 });
