@@ -86,5 +86,3 @@
     message: 'Element added to glyph'
   };
 }
-
-// ...existing code...

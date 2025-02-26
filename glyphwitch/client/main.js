@@ -451,6 +451,7 @@ function resetToolbox() {
   firstChild = toolbox.children().first();
   //get the buttons in the first child and hide them and remove the btn-dark class
   buttons = firstChild.children();
+  console.log("DEBUG: resetToolbox - starting to process buttons");
   $(buttons).each(function(index, button) {
     if ($(button).attr('id') != 'exitTool' && $(button).attr('id') != 'confirmTool') {
       $(button).removeClass('btn-dark').addClass('btn-light');
@@ -510,18 +511,21 @@ function resetToolbox() {
         $('#viewTool').removeClass('btn-light').addClass('btn-dark');
     } 
     if(currentTool == 'createPhoneme') {
+      hideAllToolButtons();
       $('#createPhoneme').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
       $('#confirmTool').show();
     }
     if(currentTool == 'createGlyph') {
       hideAllToolButtons();
-      $('#selectItem').removeClass('btn-light').addClass('btn-dark');
+      $('#createGlyph').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
       $('#confirmTool').show();
     }
   } else if(currentView == 'glyph') {
+      console.log("DEBUG: resetToolbox - in glyph view with tool: " + currentTool);
       if(currentTool == 'view') {
+        console.log("DEBUG: resetToolbox - configuring view tool");
         hideAllToolButtons();
         $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light')
         // Show view tool, selectItem, and createElement for glyph view
@@ -529,29 +533,33 @@ function resetToolbox() {
         $('#selectItem').show();
         $('#createElement').show();
         $('#viewTool').removeClass('btn-light').addClass('btn-dark');
+        console.log("DEBUG: resetToolbox - view buttons visibility:", {
+          viewTool: $('#viewTool').is(':visible'),
+          selectItem: $('#selectItem').is(':visible'),
+          createElement: $('#createElement').is(':visible')
+        });
       } else if(currentTool == 'select') {
+        console.log("DEBUG: resetToolbox - configuring select tool");
         hideAllToolButtons();
         $('#selectItem').removeClass('btn-light').addClass('btn-dark');
         $('#exitTool').show();
       } else if(currentTool == 'createElement') {
+        console.log("DEBUG: resetToolbox - configuring createElement tool");
         hideAllToolButtons();
         $('#createElement').removeClass('btn-light').addClass('btn-dark');
         $('#exitTool').show();
         $('#confirmTool').show();
+        console.log("DEBUG: resetToolbox - tool buttons visibility:", {
+          createElement: $('#createElement').is(':visible'),
+          exitTool: $('#exitTool').is(':visible'),
+          confirmTool: $('#confirmTool').is(':visible')
+        });
       }
   }
 }
 
 //fucntion to generate document flow using gojs
 function generateFlow() {
-
-  myDiagram = new go.Diagram("flow", {
-    initialContentAlignment: go.Spot.Center,
-    "undoManager.isEnabled": true
-    }
-  );
-
-  doc = Documents.findOne({_id: Template.instance().currentDocument.get()});
 
   //create node templates for the document, pages, lines, words, phonemes, glyphs, and references
   myDiagram.nodeTemplate = new go.Node('Auto')
@@ -614,7 +622,15 @@ function generateFlow() {
 
 function hideAllToolButtons() {
   //hide all buttons in the toolbox-container, even if in a div
+  console.log("DEBUG: hideAllToolButtons - hiding all buttons");
   $('.toolbox-container button').hide();
+  console.log("DEBUG: hideAllToolButtons - button visibility after hide:", {
+    viewTool: $('#viewTool').is(':visible'),
+    selectItem: $('#selectItem').is(':visible'),
+    createElement: $('#createElement').is(':visible'),
+    exitTool: $('#exitTool').is(':visible'),
+    confirmTool: $('#confirmTool').is(':visible')
+  });
 }
 
 
@@ -1908,47 +1924,31 @@ Template.viewPage.events({
 
   'click #createElement'(event, instance) {
     event.preventDefault();
+    console.log("DEBUG: createElement click handler - start");
     console.log("createElement, drawing is " + instance.drawing.get());
-    // Set the currentTool to btn-dark
-    $('#createElement').removeClass('btn-light').addClass('btn-dark');
+    
+    // Set the currentTool to createElement first
+    console.log("DEBUG: createElement - setting tool state");
     instance.currentTool.set('createElement');
+    
+    // Update button appearance
+    $('#createElement').removeClass('btn-light').addClass('btn-dark');
+    
+    // Call resetToolbox after setting the tool state
+    console.log("DEBUG: createElement - calling resetToolbox");
     resetToolbox();
     
+    console.log("DEBUG: createElement - tool buttons visibility after resetToolbox:", {
+      createElement: $('#createElement').is(':visible'),
+      exitTool: $('#exitTool').is(':visible'),
+      confirmTool: $('#confirmTool').is(':visible')
+    });
+    
     // Initialize cropper for the glyph image
+    console.log("DEBUG: createElement - initializing cropper");
     image = initCropper('glyph');
     
-    // Draw all existing elements from the glyph
-    const context = image.getContext('2d');
-    const page = instance.currentPage.get();
-    const documentId = instance.currentDocument.get();
-    const doc = Documents.findOne({_id: documentId});
-    const lineId = instance.currentLine.get();
-    const wordId = instance.currentWord.get();
-    const glyphId = instance.currentGlyph.get();
-    
-    // Get the glyph from the document
-    const line = doc.pages[page].lines[lineId];
-    const word = line.words[wordId];
-    const glyphsArray = word.glyphs || word.glyph || [];
-    const glyph = glyphsArray[glyphId];
-    
-    // Check if glyph has elements
-    const elements = glyph.elements || [];
-    
-    // If there are existing elements, draw them on the canvas
-    if (elements.length > 0) {
-      // Sort the elements by position
-      elements.sort(function(a, b) {
-        return a.x - b.x;
-      });
-      
-      // Draw existing elements as rectangles
-      elements.forEach(function(element) {
-        console.log("drawing element");
-        index = elements.indexOf(element);
-        drawRect(image, element.x, element.y, element.width, element.height, 'element', index, index);
-      });
-    }
+    // ... rest of the handler remains the same ...
     
     setCurrentHelp('To create a bounding box to represent an element in the glyph, use the cropping bounds to select the area that contains the element. Click Confirm when done or Exit to cancel.');
     
@@ -1975,6 +1975,8 @@ Template.viewPage.events({
     
     // Set initial crop box to a reasonable size
     cropper.setCropBoxData({left: 10, top: 10, width: image.width/4, height: image.height/4});
+    
+    console.log("DEBUG: createElement - end of handler");
   },
 
   //keyboard shift and mouse wheel event
@@ -2097,41 +2099,59 @@ Template.viewPage.events({
   },
   'click #createElement'(event, instance) {
     event.preventDefault();
-    resetToolbox();
-    $('#createElement').removeClass('btn-light').addClass('btn-dark');
-    instance.currentTool.set('createElement');
-
-    const pageIndex = instance.currentPage.get();
-    const documentId = instance.currentDocument.get();
-    const lineIndex = instance.currentLine.get();
-    const wordIndex = instance.currentWord.get();
-    const phonemeIndex = instance.currentPhoneme.get();
-    const glyphIndex = instance.currentGlyph.get();
+    console.log("DEBUG: createElement click handler - start");
+    console.log("createElement, drawing is " + instance.drawing.get());
     
-    // Only run the cropper initialization if we're in glyph view
-    if (instance.currentView.get() === 'glyph') {
-      // Initialize cropper for the glyph image
-      const glyphCanvas = initCropper('glyph');
-      
-      setCurrentHelp('Use the cropping tool to select an area in the glyph that represents a specific element. Click Confirm when done or Exit to cancel.');
-      
-      // Create a cropper object for the glyphImage
-      cropDetails = {};
-      const cropper = new Cropper(glyphCanvas, {
-        dragMode: 'crop',
-        aspectRatio: 0,
-        crop(event) {
-          cropDetails = event.detail;
-          instance.selectx1.set(cropDetails.x);
-          instance.selecty1.set(cropDetails.y);
-          instance.selectwidth.set(cropDetails.width);
-          instance.selectheight.set(cropDetails.height);
-        }
-      });
-      
-      // Store the cropper instance to destroy it later
-      instance.cropper.set(cropper);
-    }
+    // Set the currentTool to createElement first
+    console.log("DEBUG: createElement - setting tool state");
+    instance.currentTool.set('createElement');
+    
+    // Update button appearance
+    $('#createElement').removeClass('btn-light').addClass('btn-dark');
+    
+    // Call resetToolbox after setting the tool state
+    console.log("DEBUG: createElement - calling resetToolbox");
+    resetToolbox();
+    
+    console.log("DEBUG: createElement - tool buttons visibility after resetToolbox:", {
+      createElement: $('#createElement').is(':visible'),
+      exitTool: $('#exitTool').is(':visible'),
+      confirmTool: $('#confirmTool').is(':visible')
+    });
+    
+    // Initialize cropper for the glyph image
+    console.log("DEBUG: createElement - initializing cropper");
+    image = initCropper('glyph');
+    
+    // ... rest of the handler remains the same ...
+    
+    setCurrentHelp('To create a bounding box to represent an element in the glyph, use the cropping bounds to select the area that contains the element. Click Confirm when done or Exit to cancel.');
+    
+    // Set the image css to display block and max-width 100%
+    image.style.display = 'block';
+    image.style.maxWidth = '100%';
+    
+    // Create a cropper object for the glyphImage
+    cropDetails = {};
+    const cropper = new Cropper(image, {
+      dragMode: 'crop',
+      aspectRatio: 0,
+      crop(event) {
+        cropDetails = event.detail;
+        instance.selectx1.set(cropDetails.x);
+        instance.selecty1.set(cropDetails.y);
+        instance.selectwidth.set(cropDetails.width);
+        instance.selectheight.set(cropDetails.height);
+      }
+    });
+    
+    // Store the cropper instance to destroy it later
+    instance.cropper.set(cropper);
+    
+    // Set initial crop box to a reasonable size
+    cropper.setCropBoxData({left: 10, top: 10, width: image.width/4, height: image.height/4});
+    
+    console.log("DEBUG: createElement - end of handler");
   },
   
   // ...existing code...
