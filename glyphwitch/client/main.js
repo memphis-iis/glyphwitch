@@ -2154,7 +2154,6 @@ Template.viewPage.events({
     console.log("DEBUG: createElement - end of handler");
   },
   
-  // ...existing code...
 });
 
 //upload document onCreated function
