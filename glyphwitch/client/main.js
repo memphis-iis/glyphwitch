@@ -2344,6 +2344,26 @@ function setCurrentHelp(help) {
 function handleElementSelection(type, id, instance) {
   console.log("Processing element selection, type is " + type + " and id is " + id);
   
+  // Clean up all overlay buttons before proceeding
+  // This ensures previous selection elements don't remain on screen
+  $('.selectElement').remove();
+  $('.showReferences').remove();
+  
+  // Also clean up any cropper instances
+  const cropper = instance.cropper.get();
+  if (cropper) {
+    cropper.destroy();
+    instance.cropper.set(false);
+  }
+  
+  // Clean up any canvas elements that might be lingering
+  $('canvas#pageImage, canvas#lineImage, canvas#wordImage, canvas#glyphImage').each(function() {
+    // Only remove canvas duplicates, not the original images
+    if ($(this).siblings('img#' + this.id).length) {
+      $(this).remove();
+    }
+  });
+  
   //simulate clicking the exitTool button
   $('#exitTool').click();
   
@@ -2397,6 +2417,15 @@ function handleElementSelection(type, id, instance) {
   instance.currentView.set(type);
   resetToolbox();
   setImage(type, id);
+  
+  // Final cleanup - ensure no selection buttons remain
+  // This redundant check helps catch any buttons that might have been created 
+  // during the setImage or other operations above
+  setTimeout(() => {
+    $('.selectElement').remove();
+    $('.showReferences').remove();
+    console.log(`Selection cleanup complete for ${type} ${id}`);
+  }, 100);
 }
 
 //function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index.
