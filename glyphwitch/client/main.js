@@ -1621,6 +1621,23 @@ Template.viewPage.events({
       //set the src of the glyphImage to the dataURL of the glyphCanvas
       $('#glyphImage').attr('src', glyphCanvas.toDataURL('image/png'));
 
+    } else if(currentTool == 'createElement') {
+      // Similar approach to the other tools - call the server method to add the element
+      ret = Meteor.callAsync('addElementToGlyph', 
+        instance.currentDocument.get(), 
+        instance.currentPage.get(), 
+        instance.currentLine.get(),
+        instance.currentWord.get(),
+        instance.currentGlyph.get(),
+        instance.selectx1.get(),
+        instance.selecty1.get(),
+        instance.selectwidth.get(),
+        instance.selectheight.get()
+      );
+      alert("element added");
+      // Clean up the cropper
+      $('.cropper-container').remove();
+      $('#pageImage').removeClass('cropper-hidden');
     }
 
   },
@@ -1887,6 +1904,77 @@ Template.viewPage.events({
       }
     });
     cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
+  },
+
+  'click #createElement'(event, instance) {
+    event.preventDefault();
+    console.log("createElement, drawing is " + instance.drawing.get());
+    // Set the currentTool to btn-dark
+    $('#createElement').removeClass('btn-light').addClass('btn-dark');
+    instance.currentTool.set('createElement');
+    resetToolbox();
+    
+    // Initialize cropper for the glyph image
+    image = initCropper('glyph');
+    
+    // Draw all existing elements from the glyph
+    const context = image.getContext('2d');
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const doc = Documents.findOne({_id: documentId});
+    const lineId = instance.currentLine.get();
+    const wordId = instance.currentWord.get();
+    const glyphId = instance.currentGlyph.get();
+    
+    // Get the glyph from the document
+    const line = doc.pages[page].lines[lineId];
+    const word = line.words[wordId];
+    const glyphsArray = word.glyphs || word.glyph || [];
+    const glyph = glyphsArray[glyphId];
+    
+    // Check if glyph has elements
+    const elements = glyph.elements || [];
+    
+    // If there are existing elements, draw them on the canvas
+    if (elements.length > 0) {
+      // Sort the elements by position
+      elements.sort(function(a, b) {
+        return a.x - b.x;
+      });
+      
+      // Draw existing elements as rectangles
+      elements.forEach(function(element) {
+        console.log("drawing element");
+        index = elements.indexOf(element);
+        drawRect(image, element.x, element.y, element.width, element.height, 'element', index, index);
+      });
+    }
+    
+    setCurrentHelp('To create a bounding box to represent an element in the glyph, use the cropping bounds to select the area that contains the element. Click Confirm when done or Exit to cancel.');
+    
+    // Set the image css to display block and max-width 100%
+    image.style.display = 'block';
+    image.style.maxWidth = '100%';
+    
+    // Create a cropper object for the glyphImage
+    cropDetails = {};
+    const cropper = new Cropper(image, {
+      dragMode: 'crop',
+      aspectRatio: 0,
+      crop(event) {
+        cropDetails = event.detail;
+        instance.selectx1.set(cropDetails.x);
+        instance.selecty1.set(cropDetails.y);
+        instance.selectwidth.set(cropDetails.width);
+        instance.selectheight.set(cropDetails.height);
+      }
+    });
+    
+    // Store the cropper instance to destroy it later
+    instance.cropper.set(cropper);
+    
+    // Set initial crop box to a reasonable size
+    cropper.setCropBoxData({left: 10, top: 10, width: image.width/4, height: image.height/4});
   },
 
   //keyboard shift and mouse wheel event
