@@ -520,7 +520,15 @@ function resetToolbox() {
       $('#exitTool').show();
       $('#confirmTool').show();
     }
-  } 
+  } else if(currentView == 'glyph') {
+      if(currentTool == 'view') {
+        hideAllToolButtons();
+        $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light')
+        // Limited functionality for glyph view, just show the view tool
+        $('#viewTool').show();
+        $('#viewTool').removeClass('btn-light').addClass('btn-dark');
+      }
+  }
 }
 
 //fucntion to generate document flow using gojs
@@ -696,6 +704,56 @@ function setImage(type, id) {
       //set the currentLine to the line
 
       Template.instance().currentWord.set(id);
+  }
+  if(type == 'glyph') {
+      wordImg = $('#wordImage');
+      imagesrc = $('#wordImage').attr('src');
+      //get the dom element with the id 'wordImage'
+      const image = new Image();
+      image.src = imagesrc;
+      //get the image width and height
+      imageWidth = image.width;
+      imageHeight = image.height;
+      //get the currentDocument
+      //get the word from the currentDocument
+      wordImage = $('#wordImage');
+      currentLine = Template.instance().currentLine.get();
+      currentWord = Template.instance().currentWord.get();
+      line = doc.pages[currentPage].lines[currentLine];
+      word = line.words[currentWord];
+      // Check if we should use glyphs or glyph property
+      const glyphsArray = word.glyphs || word.glyph || [];
+      glyph = glyphsArray[id];
+      canvas = document.createElement('canvas');
+      //set the canvas width and height to the glyph width and height
+      canvas.width = glyph.width;
+      canvas.height = line.height;
+      //get the context of the canvas
+      context = canvas.getContext('2d');
+      //draw the glyph on the canvas
+      context.drawImage(image, glyph.x, 0, glyph.width, line.height, 0, 0, glyph.width, line.height);
+      //get the dataURL of the canvas
+      dataURL = canvas.toDataURL('image/png');
+      //clone the pageImage
+      clone = pageImage.clone();
+      clone.attr('id', 'glyphImage');
+      //set the clone src to the dataURL
+      clone.attr('src', dataURL);
+      //remove all classes from the clone
+      clone.removeClass();
+      //add img-fluid class to the clone
+      clone.addClass('img-fluid');
+      //remove all styles from the clone
+      clone.removeAttr('style');
+      //append the clone to the parent of the pageImage
+      pageImage.parent().append(clone);
+      //show the clone
+      clone.show();
+      //hide the pageImage
+      pageImage.hide();
+      wordImage.hide();
+      //set the currentGlyph to the glyph
+      Template.instance().currentGlyph.set(id);
   }
 }
 
@@ -1169,6 +1227,7 @@ Template.viewPage.events({
   $('#selectItem').removeClass('btn-light').addClass('btn-dark');
   selectedLine = instance.currentLine.get();
   selectedWord = instance.currentWord.get();
+  selectedGlyph = instance.currentGlyph.get();
   currentView = instance.currentView.get();
   console.log("selectedLine is " + selectedLine);
   if (currentView == 'simple') {
@@ -1283,6 +1342,10 @@ Template.viewPage.events({
     //hide the original image with display none
     setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph. To cancel, click the close tool button.');
   }
+  if(currentView == 'glyph') {
+    // Similar to word view but for elements within a glyph if needed
+    $('#exitTool').click(); // No additional elements within a glyph for now
+  }
 },
 
   'click .selectElement'(event, instance) {
@@ -1311,6 +1374,11 @@ Template.viewPage.events({
     if (type == 'word') {
       parentId = instance.currentLine.get();
       parenttab = "view-tab-element-line-" + parentId;
+    }
+    if (type == 'glyph') {
+      parentId = instance.currentWord.get();
+      lineId = instance.currentLine.get();
+      parenttab = "view-tab-element-word-" + parentId;
     }
 
     //set the data-parent of the clone to the parent's expected tab id
@@ -1381,6 +1449,18 @@ Template.viewPage.events({
       //get the currentWord
       currentWord = instance.currentWord.get();
       setImage('word', currentWord);
+    }
+    if(tabId == 'glyph') {
+      instance.currentView.set('glyph');
+      instance.currentTool.set('view');
+      resetToolbox();
+      //get the currentLine
+      currentLine = instance.currentLine.get();
+      //get the currentWord
+      currentWord = instance.currentWord.get();
+      //get the currentGlyph
+      currentGlyph = instance.currentGlyph.get();
+      setImage('glyph', currentGlyph);
     }
     if(tabId == 'simple'){
       instance.currentView.set('simple');
