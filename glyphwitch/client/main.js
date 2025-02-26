@@ -803,6 +803,10 @@ function initCropper(type) {
   if (type == 'phoneme') {
     divId = document.getElementById('phonemeImage');
   }
+  if (type == 'glyph') {
+    divId = document.getElementById('glyphImage');
+  }
+  
   //get calculated width and height of the div
   height = window.getComputedStyle(divId).height;
   width = window.getComputedStyle(divId).width;
@@ -818,19 +822,30 @@ function initCropper(type) {
   const image = new Image();
   image.src = src;
   const canvas = document.createElement('canvas');
+  
+  // For glyph view, ensure we're using the exact dimensions of the glyph
+  if (type === 'glyph') {
+    console.log("Setting up cropper specifically for glyph view");
+    // Set the canvas dimensions to match the actual image dimensions
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+  } else {
+    // For other types, use the standard approach
+    canvas.width = image.width;
+    canvas.height = image.height;
+  }
+  
   // Set the height on the canvas style
   canvas.style.height = height;
-  canvas.width = image.width;
-  canvas.height = image.height;
+  
   const context = canvas.getContext('2d');
-  context.drawImage(image, 0, 0);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-
-  xScaling = image.width / divId.width;
-  yScaling = image.height / divId.height;
+  xScaling = canvas.width / divId.width;
+  yScaling = canvas.height / divId.height;
   console.log("xScaling is " + xScaling + ". yScaling is " + yScaling);
-  Template.instance().yScaling.set(image.height / divId.height);
-  Template.instance().xScaling.set(image.width / divId.width);
+  Template.instance().yScaling.set(canvas.height / divId.height);
+  Template.instance().xScaling.set(canvas.width / divId.width);
 
   //set the width and height of the canvas to the width and height of the div
   canvas.style.width = divId.style.width;
@@ -850,153 +865,7 @@ function initCropper(type) {
   divId.parentNode.appendChild(canvas);
   divId.style.display = 'none';
   return canvas;
-  
 }
-
-
-
-//function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index.
-// We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
-function drawButton(image, x, y, width, height, type, text, id) {
-
-  //round the x, y, width, and height to the nearest integer
-  x = Math.round(x);
-  y = Math.round(y);
-  width = Math.round(width);
-  height = Math.round(height);
-
-  //get the canvas' context
-  const context = image.getContext('2d');
-
-
-  //create button element
-  const button = document.createElement('button');
-  button.setAttribute('data-id', id);
-  button.setAttribute('data-type', type);
-
-
-  //get the canvas' container
-  const parent = context.canvas.parentNode;
-
-  //get the canvas' computed offset relative to the parent
-  const canvasOffset = context.canvas.getBoundingClientRect();
-
-  //get the canvas' data-url
-  const src = context.canvas.toDataURL('image/png');
-
-  //create a new image
-  const img = new Image();
-  img.src = src;
-
-  //calculate the scale factor
-  const xScaling =  canvasOffset.width / context.canvas.width;
-
-  
-  let defaultClass = 'selectElement';
-  
-  //draw the button at the x, y, width, and height 
-  button.style.position = 'absolute';
-  button.style.left = (x * xScaling) + 'px';
-  button.style.top = (y * xScaling) + 'px';
-  button.style.width = (width * xScaling) + 'px';
-  button.style.height = (height * xScaling) + 'px';
-
-  //add a label on the bottom left corner of the button that says the type and index
-  const label = document.createElement('label');
-  label.textContent = type + ' ' + text;
-  label.style.position = 'absolute';
-  label.style.bottom = '0';
-  label.style.left = '0';
-
-  //label width is only 10 percent of the width of the button
-  label.style.width = '10%';
-  label.style.height = '15px';
-
-  //label font size is 10px
-  label.style.fontSize = '10px';
-
-
-  //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
-  if (type == 'line') {
-    button.style.backgroundColor = 'rgba(0, 255, 0, 0.2)';
-    button.style.border = '1px solid green';
-    label.style.backgroundColor = 'green';
-    label.style.color = 'white';
-  }
-
-  if (type == 'word') {
-    button.style.backgroundColor = 'rgba(0, 0, 255, 0.2)';
-    button.style.border = '1px solid blue';
-    label.style.backgroundColor = 'blue';
-    label.style.color = 'white';
-  }
-
-  if (type == 'phoneme') {
-    button.style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
-    button.style.border = '1px solid red';
-    label.style.backgroundColor = 'red';
-    label.style.color = 'white';
-    defaultClass = 'showReferences';
-  }
-
-  if (type == 'glyph') {
-    button.style.backgroundColor = 'rgba(255, 255, 0, 0.2)';
-    button.style.border = '1px solid yellow';
-    label.style.backgroundColor = 'yellow';
-    label.style.color = 'black';
-    defaultClass = 'showReferences';
-    
-    // Debug each glyph button as it's created
-    console.log(`Creating glyph button: ID=${id}, X=${x}, Width=${width}, Class=${defaultClass}`);
-  }
-
-
-  //set the button class to 'select-element'
-  button.className = defaultClass;
-  
-  button.appendChild(label);
-
-
-  //append the button to the parent
-  parent.appendChild(button);
-  
-  // Add a click event listener directly to the button for debugging
-  if (type === 'glyph') {
-    button.addEventListener('click', function(e) {
-      console.log(`Direct glyph button click detected: ID=${id}`);
-      debugGlyphButton(this, 'direct click listener');
-    });
-  }
-  
-}
-
-//function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index.
-// We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
-function drawRect(image, x, y, width, height, type, text, id) {
-
-  //get the canvas' context
-  const context = image.getContext('2d');
-
-  
-
-
-  //draw a rectangle at the x, y, width, and height
-  //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
-  if (type == 'line') {
-    context.fillStyle = 'rgba(0, 255, 0, 0.2)';
-    context.strokeStyle = 'green';
-    context.lineWidth = 1;
-  }
-  if (type == 'word') {
-    context.fillStyle = 'rgba(0, 0, 255, 0.2)';
-    context.strokeStyle = 'blue';
-    context.lineWidth = 1;
-  }
-  context.fillRect(x, y, width, height);
-  
-}
-
-
 
 //replace the image with a canvas that has the same dimensions and source
 function replaceWithOriginalImage() {
@@ -1966,7 +1835,28 @@ Template.viewPage.events({
     console.log("DEBUG: createElement - initializing cropper");
     image = initCropper('glyph');
     
-    // ... rest of the handler remains the same ...
+    // Get the glyph data to set appropriate crop boundaries
+    const documentId = instance.currentDocument.get();
+    const page = instance.currentPage.get();
+    const lineId = instance.currentLine.get();
+    const wordId = instance.currentWord.get();
+    const glyphId = instance.currentGlyph.get();
+    
+    const doc = Documents.findOne({_id: documentId});
+    if (doc) {
+      console.log("DEBUG: createElement - found document");
+      const line = doc.pages[page].lines[lineId];
+      const word = line.words[wordId];
+      const glyphsArray = word.glyphs || word.glyph || [];
+      const glyph = glyphsArray[glyphId];
+      
+      if (glyph) {
+        console.log("DEBUG: createElement - found glyph with dimensions:", {
+          width: glyph.width,
+          height: line.height
+        });
+      }
+    }
     
     setCurrentHelp('To create a bounding box to represent an element in the glyph, use the cropping bounds to select the area that contains the element. Click Confirm when done or Exit to cancel.');
     
@@ -1974,29 +1864,81 @@ Template.viewPage.events({
     image.style.display = 'block';
     image.style.maxWidth = '100%';
     
-    // Create a cropper object for the glyphImage
+    // Create a cropper object for the glyphImage with strict constraints
     cropDetails = {};
     const cropper = new Cropper(image, {
       dragMode: 'crop',
       aspectRatio: 0,
+      viewMode: 1,        // Restrict the crop box to not exceed the size of the canvas
+      autoCropArea: 1,    // Make the crop box cover the entire canvas by default
+      movable: false,     // Prevent the image from being moved inside the canvas
+      zoomable: false,    // Disable zooming
+      rotatable: false,   // Disable rotation
+      scalable: false,    // Disable scaling
+      zoomOnTouch: false, // Disable zoom on touch
+      zoomOnWheel: false, // Disable zoom on wheel
+      minCropBoxWidth: 10,
+      minCropBoxHeight: 10,
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
         instance.selecty1.set(cropDetails.y);
         instance.selectwidth.set(cropDetails.width);
         instance.selectheight.set(cropDetails.height);
+        
+        // Log the crop details for debugging
+        console.log("Crop details:", {
+          x: cropDetails.x,
+          y: cropDetails.y,
+          width: cropDetails.width,
+          height: cropDetails.height,
+          canvasWidth: image.width,
+          canvasHeight: image.height
+        });
       }
     });
     
     // Store the cropper instance to destroy it later
     instance.cropper.set(cropper);
     
-    // Set initial crop box to a reasonable size
-    cropper.setCropBoxData({left: 10, top: 10, width: image.width/4, height: image.height/4});
+    // Set initial crop box to a reasonable size in the center of the glyph
+    // We want to start with something smaller than the full glyph
+    cropper.setCropBoxData({
+      left: image.width * 0.25,     // Start at 25% from left
+      top: image.height * 0.25,     // Start at 25% from top
+      width: image.width * 0.5,     // Width is 50% of glyph width
+      height: image.height * 0.5    // Height is 50% of glyph height
+    });
+    
+    // Add a check to ensure the container is properly sized
+    setTimeout(() => {
+      const container = $('.cropper-container');
+      const canvas = $('.cropper-canvas');
+      const dragBox = $('.cropper-drag-box');
+      
+      console.log("Cropper dimensions:", {
+        container: {
+          width: container.width(),
+          height: container.height()
+        },
+        canvas: {
+          width: canvas.width(),
+          height: canvas.height()
+        },
+        dragBox: {
+          width: dragBox.width(),
+          height: dragBox.height()
+        },
+        image: {
+          width: image.width,
+          height: image.height
+        }
+      });
+    }, 500);
     
     console.log("DEBUG: createElement - end of handler");
   },
-
+  
   //keyboard shift and mouse wheel event
   'wheel #pageImage'(event, instance) {
     if(event.shiftKey) {
@@ -2141,7 +2083,28 @@ Template.viewPage.events({
     console.log("DEBUG: createElement - initializing cropper");
     image = initCropper('glyph');
     
-    // ... rest of the handler remains the same ...
+    // Get the glyph data to set appropriate crop boundaries
+    const documentId = instance.currentDocument.get();
+    const page = instance.currentPage.get();
+    const lineId = instance.currentLine.get();
+    const wordId = instance.currentWord.get();
+    const glyphId = instance.currentGlyph.get();
+    
+    const doc = Documents.findOne({_id: documentId});
+    if (doc) {
+      console.log("DEBUG: createElement - found document");
+      const line = doc.pages[page].lines[lineId];
+      const word = line.words[wordId];
+      const glyphsArray = word.glyphs || word.glyph || [];
+      const glyph = glyphsArray[glyphId];
+      
+      if (glyph) {
+        console.log("DEBUG: createElement - found glyph with dimensions:", {
+          width: glyph.width,
+          height: line.height
+        });
+      }
+    }
     
     setCurrentHelp('To create a bounding box to represent an element in the glyph, use the cropping bounds to select the area that contains the element. Click Confirm when done or Exit to cancel.');
     
@@ -2149,25 +2112,77 @@ Template.viewPage.events({
     image.style.display = 'block';
     image.style.maxWidth = '100%';
     
-    // Create a cropper object for the glyphImage
+    // Create a cropper object for the glyphImage with strict constraints
     cropDetails = {};
     const cropper = new Cropper(image, {
       dragMode: 'crop',
       aspectRatio: 0,
+      viewMode: 1,        // Restrict the crop box to not exceed the size of the canvas
+      autoCropArea: 1,    // Make the crop box cover the entire canvas by default
+      movable: false,     // Prevent the image from being moved inside the canvas
+      zoomable: false,    // Disable zooming
+      rotatable: false,   // Disable rotation
+      scalable: false,    // Disable scaling
+      zoomOnTouch: false, // Disable zoom on touch
+      zoomOnWheel: false, // Disable zoom on wheel
+      minCropBoxWidth: 10,
+      minCropBoxHeight: 10,
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
         instance.selecty1.set(cropDetails.y);
         instance.selectwidth.set(cropDetails.width);
         instance.selectheight.set(cropDetails.height);
+        
+        // Log the crop details for debugging
+        console.log("Crop details:", {
+          x: cropDetails.x,
+          y: cropDetails.y,
+          width: cropDetails.width,
+          height: cropDetails.height,
+          canvasWidth: image.width,
+          canvasHeight: image.height
+        });
       }
     });
     
     // Store the cropper instance to destroy it later
     instance.cropper.set(cropper);
     
-    // Set initial crop box to a reasonable size
-    cropper.setCropBoxData({left: 10, top: 10, width: image.width/4, height: image.height/4});
+    // Set initial crop box to a reasonable size in the center of the glyph
+    // We want to start with something smaller than the full glyph
+    cropper.setCropBoxData({
+      left: image.width * 0.25,     // Start at 25% from left
+      top: image.height * 0.25,     // Start at 25% from top
+      width: image.width * 0.5,     // Width is 50% of glyph width
+      height: image.height * 0.5    // Height is 50% of glyph height
+    });
+    
+    // Add a check to ensure the container is properly sized
+    setTimeout(() => {
+      const container = $('.cropper-container');
+      const canvas = $('.cropper-canvas');
+      const dragBox = $('.cropper-drag-box');
+      
+      console.log("Cropper dimensions:", {
+        container: {
+          width: container.width(),
+          height: container.height()
+        },
+        canvas: {
+          width: canvas.width(),
+          height: canvas.height()
+        },
+        dragBox: {
+          width: dragBox.width(),
+          height: dragBox.height()
+        },
+        image: {
+          width: image.width,
+          height: image.height
+        }
+      });
+    }, 500);
     
     console.log("DEBUG: createElement - end of handler");
   },
@@ -2382,4 +2397,132 @@ function handleElementSelection(type, id, instance) {
   instance.currentView.set(type);
   resetToolbox();
   setImage(type, id);
+}
+
+//function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index.
+// We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
+function drawButton(image, x, y, width, height, type, text, id) {
+  //round the x, y, width, and height to the nearest integer
+  x = Math.round(x);
+  y = Math.round(y);
+  width = Math.round(width);
+  height = Math.round(height);
+
+  //get the canvas' context
+  const context = image.getContext('2d');
+
+  //create button element
+  const button = document.createElement('button');
+  button.setAttribute('data-id', id);
+  button.setAttribute('data-type', type);
+
+  //get the canvas' container
+  const parent = context.canvas.parentNode;
+
+  //get the canvas' computed offset relative to the parent
+  const canvasOffset = context.canvas.getBoundingClientRect();
+
+  //get the canvas' data-url
+  const src = context.canvas.toDataURL('image/png');
+
+  //create a new image
+  const img = new Image();
+  img.src = src;
+
+  //calculate the scale factor
+  const xScaling = canvasOffset.width / context.canvas.width;
+  
+  let defaultClass = 'selectElement';
+  
+  //draw the button at the x, y, width, and height 
+  button.style.position = 'absolute';
+  button.style.left = (x * xScaling) + 'px';
+  button.style.top = (y * xScaling) + 'px';
+  button.style.width = (width * xScaling) + 'px';
+  button.style.height = (height * xScaling) + 'px';
+
+  //add a label on the bottom left corner of the button that says the type and index
+  const label = document.createElement('label');
+  label.textContent = type + ' ' + text;
+  label.style.position = 'absolute';
+  label.style.bottom = '0';
+  label.style.left = '0';
+
+  //label width is only 10 percent of the width of the button
+  label.style.width = '10%';
+  label.style.height = '15px';
+
+  //label font size is 10px
+  label.style.fontSize = '10px';
+
+  //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
+  if (type == 'line') {
+    button.style.backgroundColor = 'rgba(0, 255, 0, 0.2)';
+    button.style.border = '1px solid green';
+    label.style.backgroundColor = 'green';
+    label.style.color = 'white';
+  }
+
+  if (type == 'word') {
+    button.style.backgroundColor = 'rgba(0, 0, 255, 0.2)';
+    button.style.border = '1px solid blue';
+    label.style.backgroundColor = 'blue';
+    label.style.color = 'white';
+  }
+
+  if (type == 'phoneme') {
+    button.style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
+    button.style.border = '1px solid red';
+    label.style.backgroundColor = 'red';
+    label.style.color = 'white';
+    defaultClass = 'showReferences';
+  }
+
+  if (type == 'glyph') {
+    button.style.backgroundColor = 'rgba(255, 255, 0, 0.2)';
+    button.style.border = '1px solid yellow';
+    label.style.backgroundColor = 'yellow';
+    label.style.color = 'black';
+    defaultClass = 'showReferences';
+    
+    // Debug each glyph button as it's created
+    console.log(`Creating glyph button: ID=${id}, X=${x}, Width=${width}, Class=${defaultClass}`);
+  }
+
+  //set the button class to 'select-element'
+  button.className = defaultClass;
+  
+  button.appendChild(label);
+
+  //append the button to the parent
+  parent.appendChild(button);
+  
+  // Add a click event listener directly to the button for debugging
+  if (type === 'glyph') {
+    button.addEventListener('click', function(e) {
+      console.log(`Direct glyph button click detected: ID=${id}`);
+      debugGlyphButton(this, 'direct click listener');
+    });
+  }
+}
+
+//function to draw a rectangle on the canvas at a particular location
+function drawRect(image, x, y, width, height, type, text, id) {
+  //get the canvas' context
+  const context = image.getContext('2d');
+
+  //draw a rectangle at the x, y, width, and height
+  //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
+  if (type == 'line') {
+    context.fillStyle = 'rgba(0, 255, 0, 0.2)';
+    context.strokeStyle = 'green';
+    context.lineWidth = 1;
+  }
+  if (type == 'word') {
+    context.fillStyle = 'rgba(0, 0, 255, 0.2)';
+    context.strokeStyle = 'blue';
+    context.lineWidth = 1;
+  }
+  context.fillRect(x, y, width, height);
+  context.strokeRect(x, y, width, height);
 }
