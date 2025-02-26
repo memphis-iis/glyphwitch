@@ -524,9 +524,20 @@ function resetToolbox() {
       if(currentTool == 'view') {
         hideAllToolButtons();
         $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light')
-        // Limited functionality for glyph view, just show the view tool
+        // Show view tool, selectItem, and createElement for glyph view
         $('#viewTool').show();
+        $('#selectItem').show();
+        $('#createElement').show();
         $('#viewTool').removeClass('btn-light').addClass('btn-dark');
+      } else if(currentTool == 'select') {
+        hideAllToolButtons();
+        $('#selectItem').removeClass('btn-light').addClass('btn-dark');
+        $('#exitTool').show();
+      } else if(currentTool == 'createElement') {
+        hideAllToolButtons();
+        $('#createElement').removeClass('btn-light').addClass('btn-dark');
+        $('#exitTool').show();
+        $('#confirmTool').show();
       }
   }
 }
@@ -2008,56 +2019,35 @@ Template.viewPage.events({
     const wordIndex = instance.currentWord.get();
     const phonemeIndex = instance.currentPhoneme.get();
     const glyphIndex = instance.currentGlyph.get();
-
-    // I'm assuming initCropper is already available
-    const glyphCanvas = initCropper('glyph');
-
-    // “crop” callback
-    glyphCanvas.addEventListener('crop', function (cropEvent) {
-      const box = cropEvent.detail; // { x, y, width, height }
-      const dataURL = glyphCanvas.toDataURL('image/png');
-      Meteor.call('addElementToGlyph',
-        documentId, pageIndex, lineIndex, wordIndex, phonemeIndex, glyphIndex,
-        box.x, box.y, box.width, box.height,
-        dataURL,
-        (error, result) => {
-          if (error) {
-            console.error(error);
-            alert("Error creating element");
-          } else {
-            alert("Element created");
-          }
-        }
-      );
-    });
-  },
-  'click .glyphButton'(event, instance) {
-    const glyphIndex = event.target.getAttribute('data-glyph-index');
-    instance.currentGlyph.set(parseInt(glyphIndex, 10));
-    $('#createGlyphModal').modal('show');
-  },
-  'click .showReferences'(event, instance) {
-    event.preventDefault();
-    const target = event.currentTarget;
-    debugGlyphButton(target, 'showReferences click');
     
-    // Check if this is a glyph button
-    const type = target.getAttribute('data-type');
-    if (type === 'glyph') {
-      console.log('Glyph button clicked (showReferences class):', 
-        'ID:', target.getAttribute('data-id'),
-        'Element:', target);
+    // Only run the cropper initialization if we're in glyph view
+    if (instance.currentView.get() === 'glyph') {
+      // Initialize cropper for the glyph image
+      const glyphCanvas = initCropper('glyph');
       
-      // Get the id
-      const id = target.getAttribute('data-id');
+      setCurrentHelp('Use the cropping tool to select an area in the glyph that represents a specific element. Click Confirm when done or Exit to cancel.');
       
-      // Call the same element selection logic used by selectElement
-      handleElementSelection(type, id, instance);
+      // Create a cropper object for the glyphImage
+      cropDetails = {};
+      const cropper = new Cropper(glyphCanvas, {
+        dragMode: 'crop',
+        aspectRatio: 0,
+        crop(event) {
+          cropDetails = event.detail;
+          instance.selectx1.set(cropDetails.x);
+          instance.selecty1.set(cropDetails.y);
+          instance.selectwidth.set(cropDetails.width);
+          instance.selectheight.set(cropDetails.height);
+        }
+      });
+      
+      // Store the cropper instance to destroy it later
+      instance.cropper.set(cropper);
     }
-  }
+  },
+  
+  // ...existing code...
 });
-
-
 
 //upload document onCreated function
 Template.uploadDocument.onCreated(function() {
