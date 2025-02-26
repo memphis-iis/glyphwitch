@@ -1001,15 +1001,30 @@ function drawRect(image, x, y, width, height, type, text, id) {
 //replace the image with a canvas that has the same dimensions and source
 function replaceWithOriginalImage() {
   //remove the cropper from the DOM
-  cropper = Template.instance().cropper.get();
+  const cropper = Template.instance().cropper.get();
+  const currentView = Template.instance().currentView.get();
+  
   if (cropper) {
     cropper.destroy();
-    $('.cropper-container').remove();
-    
+    Template.instance().cropper.set(false);
   }
-  //unhide the original image
-  $('#pageImage').show();
+  
+  //Only show the original page image if we're in simple view
+  //This prevents the pageImage from reappearing when exiting the cropper in glyph view
+  if (currentView === 'simple') {
+    $('#pageImage').show();
+  } else {
+    // Keep the pageImage hidden in other views like glyph
+    $('#pageImage').hide();
+  }
+  
+  // Remove any canvas elements that were created for the cropper
   $('#pageImage').parent().children('canvas').remove();
+  
+  // Remove any selectElement buttons that might be lingering
+  $('.selectElement').remove();
+  
+  console.log("replaceWithOriginalImage: Cleaned up canvas and button elements");
 }
 
 function debugGlyphButton(element, eventType) {
@@ -1197,30 +1212,33 @@ Template.viewPage.events({
   },
 
   'click #exitTool'(event, instance) {
-    //set the currentTool to view
+    // Log the current state
+    const currentView = instance.currentView.get();
+    console.log(`Exiting tool in view: ${currentView}`);
+    
+    // Reset tool state
     instance.currentTool.set('view');
-    hideAllToolButtons();
     resetToolbox();
-    $('.cropper-container').remove();
-    $('#pageImage').removeClass('cropper-hidden');
-    //delete all buttons from the pageImage's parent
-    $('#pageImage').parent().children('button').remove();
-    setCurrentHelp(false);
-    if (instance.currentView.get() != 'line') {
-      replaceWithOriginalImage();
-    } else {
-      $('#originalImage').show();
-      //change the originalImage id to pageImage
-      $('#originalImage').attr('id', 'pageImage');
-      //delete the cropper container
-      $('.cropper-container').remove();
-      //delete any canvas with the class 'cropper-hidden'
-      $('canvas.cropper-hidden').remove();
-      //switch the pageImage to the originalImage
-      $('#lineImage').show();
+    replaceWithOriginalImage();
+    
+    // Make sure appropriate images are visible based on current view
+    if (currentView !== 'simple') {
+      // If we're in a specialized view (like glyph), make sure pageImage stays hidden
+      $('#pageImage').hide();
       
+      // Also ensure we're showing the right image (lineImage, wordImage, or glyphImage)
+      if (currentView === 'line') {
+        $('#lineImage').show();
+      } else if (currentView === 'word') {
+        $('#wordImage').show();
+      } else if (currentView === 'glyph') {
+        $('#glyphImage').show();
+      }
     }
+    
+    setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
   },
+  
   'click #lastPage'(event, instance) {
     event.preventDefault();
     const currentPage = instance.currentPage.get();
