@@ -76,12 +76,16 @@ Template.registerHelper('version', function() {
   return ver;
 });
 
-//Templat helper to display current year
+//Template Helper to display current year
 Template.registerHelper('currentYear', function() {
   //return the current year
   return new Date().getFullYear();
 });
 
+// Helper to add numbers - used for incrementing page numbers in display
+Template.registerHelper('add', function(a, b) {
+  return Number(a) + Number(b);
+});
 
 //login template (handles login and signup)
 Template.login.events({

@@ -359,9 +359,9 @@
           <div class="page-title" data-id="{{@index}}">
             <a href="#" class="changePage" data-id="{{@index}}">
               {{#if this.title}} 
-                <span class="title-text">{{this.title}} #{{@index}}</span>
+                <span class="title-text">{{this.title}} #{{add @index 1}}</span>
               {{else}} 
-                <span class="title-text">Untitled Page #{{@index}}</span>
+                <span class="title-text">Untitled Page #{{add @index 1}}</span>
               {{/if}}
             </a>
             <input type="text" class="title-input" value="{{this.title}}" style="display: none;">
