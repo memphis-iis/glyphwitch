@@ -490,7 +490,7 @@ function resetToolbox() {
     } 
     if(currentTool == 'select') {
       hideAllToolButtons();
-      $('selectTool').removeClass('btn-light').addClass('btn-dark');
+      $('#selectItem').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
     }
     if(currentTool == 'createWord') {
@@ -510,6 +510,11 @@ function resetToolbox() {
         $('#viewTool').show();
         $('#viewTool').removeClass('btn-light').addClass('btn-dark');
     } 
+    if(currentTool == 'select') {
+      hideAllToolButtons();
+      $('#selectItem').removeClass('btn-light').addClass('btn-dark');
+      $('#exitTool').show();
+    }
     if(currentTool == 'createPhoneme') {
       hideAllToolButtons();
       $('#createPhoneme').removeClass('btn-light').addClass('btn-dark');
