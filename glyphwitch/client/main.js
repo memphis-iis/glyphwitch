@@ -918,6 +918,9 @@ function drawButton(image, x, y, width, height, type, text, id) {
     label.style.backgroundColor = 'yellow';
     label.style.color = 'black';
     defaultClass = 'showReferences';
+    
+    // Debug each glyph button as it's created
+    console.log(`Creating glyph button: ID=${id}, X=${x}, Width=${width}, Class=${defaultClass}`);
   }
 
 
@@ -930,7 +933,13 @@ function drawButton(image, x, y, width, height, type, text, id) {
   //append the button to the parent
   parent.appendChild(button);
   
-  
+  // Add a click event listener directly to the button for debugging
+  if (type === 'glyph') {
+    button.addEventListener('click', function(e) {
+      console.log(`Direct glyph button click detected: ID=${id}`);
+      debugGlyphButton(this, 'direct click listener');
+    });
+  }
   
 }
 
@@ -976,10 +985,25 @@ function replaceWithOriginalImage() {
   $('#pageImage').parent().children('canvas').remove();
 }
 
-
-
-
-
+function debugGlyphButton(element, eventType) {
+  const type = element.getAttribute('data-type');
+  const id = element.getAttribute('data-id');
+  if (type === 'glyph') {
+    console.group('Glyph Button Debug - ' + eventType);
+    console.log('Event type:', eventType);
+    console.log('Button type:', type);
+    console.log('Button ID:', id);
+    console.log('Element:', element);
+    console.log('CSS classes:', element.className);
+    console.log('Position:', {
+      left: element.style.left,
+      top: element.style.top,
+      width: element.style.width,
+      height: element.style.height
+    });
+    console.groupEnd();
+  }
+}
 
 Template.viewPage.helpers({
   currentDocument() {
@@ -1331,12 +1355,23 @@ Template.viewPage.events({
       glyphs.sort(function(a, b) {
         return a.x - b.x;
       });
+      console.log(`Found ${glyphs.length} glyphs to display in word view`);
+      
       //split the canvas into multiple canvases by glyph
       glyphs.forEach(function(glyph) {
         index = glyphs.indexOf(glyph);
         console.log("Drawing glyph button at:", glyph.x, 0, glyph.width, image.height);
         drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
       });
+      
+      // After creating all the glyph buttons, add a debug message
+      setTimeout(() => {
+        const glyphButtons = document.querySelectorAll('button[data-type="glyph"]');
+        console.log(`Glyph buttons created: ${glyphButtons.length}`);
+        glyphButtons.forEach(btn => {
+          console.log(`Glyph button: ID=${btn.getAttribute('data-id')}, Classes=${btn.className}`);
+        });
+      }, 100);
     }
     
     //hide the original image with display none
@@ -1353,8 +1388,21 @@ Template.viewPage.events({
     //simulate clicking the exitTool button
     $('#exitTool').click();
     //get the data-type and data-id from the button
-    const type = event.target.getAttribute('data-type');
-    const id = event.target.getAttribute('data-id');
+    const target = event.currentTarget; // Use currentTarget instead of target to get the button, not its children
+    const type = target.getAttribute('data-type');
+    const id = target.getAttribute('data-id');
+    
+    // Debug logging specifically for glyphs
+    if (type === 'glyph') {
+      console.group('Glyph Selection Debug');
+      console.log('Glyph button clicked (selectElement handler):', 
+        'ID:', id,
+        'Element:', target);
+      console.log('Event target:', event.target);
+      console.log('Event currentTarget:', event.currentTarget);
+      console.groupEnd();
+    }
+    
     console.log("selectElement, type is " + type + " and id is " + id);
     //copy view-tab-template to it's parent
     viewTemplate = $('#view-tab-template');
@@ -2017,6 +2065,30 @@ Template.viewPage.events({
     const glyphIndex = event.target.getAttribute('data-glyph-index');
     instance.currentGlyph.set(parseInt(glyphIndex, 10));
     $('#createGlyphModal').modal('show');
+  },
+  'click .showReferences'(event, instance) {
+    event.preventDefault();
+    const target = event.currentTarget;
+    debugGlyphButton(target, 'showReferences click');
+    
+    // Check if this is a glyph button
+    const type = target.getAttribute('data-type');
+    if (type === 'glyph') {
+      console.log('Glyph button clicked (showReferences class):', 
+        'ID:', target.getAttribute('data-id'),
+        'Element:', target);
+      
+      // Process the glyph selection similar to selectElement
+      // This ensures glyph clicks are handled regardless of the class
+      const id = target.getAttribute('data-id');
+      
+      // The rest would be the same as in selectElement handler
+      // For now just highlight this was detected
+      alert(`Glyph ${id} clicked (showReferences handler)`);
+      
+      // Optionally, trigger the selectElement behavior
+      // You could dispatch a custom event or refactor the code to call a shared function
+    }
   }
 });
 
