@@ -1385,10 +1385,7 @@ Template.viewPage.events({
 
   'click .selectElement'(event, instance) {
     event.preventDefault();
-    //simulate clicking the exitTool button
-    $('#exitTool').click();
-    //get the data-type and data-id from the button
-    const target = event.currentTarget; // Use currentTarget instead of target to get the button, not its children
+    const target = event.currentTarget;
     const type = target.getAttribute('data-type');
     const id = target.getAttribute('data-id');
     
@@ -1404,58 +1401,31 @@ Template.viewPage.events({
     }
     
     console.log("selectElement, type is " + type + " and id is " + id);
-    //copy view-tab-template to it's parent
-    viewTemplate = $('#view-tab-template');
-    clone = viewTemplate.clone(); 
-    //append the clone to the parent
-    viewTemplate.parent().append(clone);
-    //set the id of the clone to view-tab-element-<type>-<id>
-    clone.attr('id', 'view-tab-element-' + type + '-' + id);
-    //set the data-type and data-id of the clone to the type and id
-    clone.attr('data-type', type);
-    clone.attr('data-id', id);
-    //get the parent element type using cases
-    if (type == 'line') {
-      parent = 'simple';
-      parenttab = 'simple';
-    }
-    if (type == 'word') {
-      parentId = instance.currentLine.get();
-      parenttab = "view-tab-element-line-" + parentId;
-    }
-    if (type == 'glyph') {
-      parentId = instance.currentWord.get();
-      lineId = instance.currentLine.get();
-      parenttab = "view-tab-element-word-" + parentId;
-    }
-
-    //set the data-parent of the clone to the parent's expected tab id
-    clone.attr('data-parent', parenttab);
-    clone.attr('id', 'view-tab-element-' + type + '-' + id);
-
-
-    //get the ammount of tabs open
-    tabs = $('#view-tab-template').parent().children().length;
-    //set the clone's data tab index to the number of tabs open
-    clone.attr('data-tab-index', tabs);
-    $(clone).children().attr('data-tab-id', type);
-    //show the clone
-    clone.show();
-    //make all parent's siblings buttons inactive
-    $('#view-tab-template').parent().children().children().removeClass('active');
-    //change all button's aria-selected to false
-    $('#view-tab-template').parent().children().children().attr('aria-selected', 'false');
-    //change the clone's button aria-selected to true
-    clone.children().attr('aria-selected', 'true');
-    clone.children().addClass('active');
-    //prepent <type> uppercase and id to the clone's button text
-    clone.children().prepend(type.charAt(0).toUpperCase() + type.slice(1) + ' ' + id + ' ');
-    //set the current view to the type
-    instance.currentView.set(type);
-    resetToolbox();
-    setImage(type, id);
-  
+    
+    // Call the shared function
+    handleElementSelection(type, id, instance);
   },
+  
+  'click .showReferences'(event, instance) {
+    event.preventDefault();
+    const target = event.currentTarget;
+    debugGlyphButton(target, 'showReferences click');
+    
+    // Check if this is a glyph button
+    const type = target.getAttribute('data-type');
+    if (type === 'glyph') {
+      console.log('Glyph button clicked (showReferences class):', 
+        'ID:', target.getAttribute('data-id'),
+        'Element:', target);
+      
+      // Get the id
+      const id = target.getAttribute('data-id');
+      
+      // Call the same element selection logic used by selectElement
+      handleElementSelection(type, id, instance);
+    }
+  },
+  
   'click .open-tab'(event, instance) {
     event.preventDefault();
     //get the clicked tab data-tab-id
@@ -2078,16 +2048,11 @@ Template.viewPage.events({
         'ID:', target.getAttribute('data-id'),
         'Element:', target);
       
-      // Process the glyph selection similar to selectElement
-      // This ensures glyph clicks are handled regardless of the class
+      // Get the id
       const id = target.getAttribute('data-id');
       
-      // The rest would be the same as in selectElement handler
-      // For now just highlight this was detected
-      alert(`Glyph ${id} clicked (showReferences handler)`);
-      
-      // Optionally, trigger the selectElement behavior
-      // You could dispatch a custom event or refactor the code to call a shared function
+      // Call the same element selection logic used by selectElement
+      handleElementSelection(type, id, instance);
     }
   }
 });
@@ -2243,4 +2208,63 @@ function isContainedBy(point, x1, y1, x2, y2) {
 function setCurrentHelp(help) {
   const instance = Template.instance();
   instance.currentHelp.set(help);
+}
+
+// Create a shared function that both handlers can use
+function handleElementSelection(type, id, instance) {
+  console.log("Processing element selection, type is " + type + " and id is " + id);
+  
+  //simulate clicking the exitTool button
+  $('#exitTool').click();
+  
+  //copy view-tab-template to it's parent
+  viewTemplate = $('#view-tab-template');
+  clone = viewTemplate.clone(); 
+  //append the clone to the parent
+  viewTemplate.parent().append(clone);
+  //set the id of the clone to view-tab-element-<type>-<id>
+  clone.attr('id', 'view-tab-element-' + type + '-' + id);
+  //set the data-type and data-id of the clone to the type and id
+  clone.attr('data-type', type);
+  clone.attr('data-id', id);
+  //get the parent element type using cases
+  let parent, parenttab;
+  if (type == 'line') {
+    parent = 'simple';
+    parenttab = 'simple';
+  }
+  if (type == 'word') {
+    parentId = instance.currentLine.get();
+    parenttab = "view-tab-element-line-" + parentId;
+  }
+  if (type == 'glyph') {
+    parentId = instance.currentWord.get();
+    lineId = instance.currentLine.get();
+    parenttab = "view-tab-element-word-" + parentId;
+  }
+
+  //set the data-parent of the clone to the parent's expected tab id
+  clone.attr('data-parent', parenttab);
+  clone.attr('id', 'view-tab-element-' + type + '-' + id);
+
+  //get the amount of tabs open
+  tabs = $('#view-tab-template').parent().children().length;
+  //set the clone's data tab index to the number of tabs open
+  clone.attr('data-tab-index', tabs);
+  $(clone).children().attr('data-tab-id', type);
+  //show the clone
+  clone.show();
+  //make all parent's siblings buttons inactive
+  $('#view-tab-template').parent().children().children().removeClass('active');
+  //change all button's aria-selected to false
+  $('#view-tab-template').parent().children().children().attr('aria-selected', 'false');
+  //change the clone's button aria-selected to true
+  clone.children().attr('aria-selected', 'true');
+  clone.children().addClass('active');
+  //prepend <type> uppercase and id to the clone's button text
+  clone.children().prepend(type.charAt(0).toUpperCase() + type.slice(1) + ' ' + id + ' ');
+  //set the current view to the type
+  instance.currentView.set(type);
+  resetToolbox();
+  setImage(type, id);
 }
