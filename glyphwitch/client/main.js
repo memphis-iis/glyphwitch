@@ -1238,34 +1238,50 @@ Template.viewPage.events({
     const context = image.getContext('2d');
     const page = instance.currentPage.get();
     const documentId = instance.currentDocument.get();
-    const phonemes = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words[selectedWord].phonemes;
-    const glyphs = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words[selectedWord].glyph;
-    //if there are no phonemes or words, simulate clicking the exitTool button
-    if (phonemes.length == 0 && glyphs.length == 0) {
+    const doc = Documents.findOne({_id: documentId});
+    const lineId = instance.currentLine.get();
+    const wordId = instance.currentWord.get();
+    const word = doc.pages[page].lines[lineId].words[wordId];
+    const phonemes = word.phonemes || [];
+    const glyphs = word.glyphs || word.glyph || []; // Handle both possible property names
+    
+    console.log("Found phonemes:", phonemes.length);
+    console.log("Found glyphs:", glyphs.length);
+    
+    // Check if there are no elements to display
+    if (phonemes.length === 0 && glyphs.length === 0) {
       alert("No phonemes or glyphs to display. Use the Create Phoneme or Create Glyph tool to create a phoneme or glyph.");
       $('#exitTool').click();
       return;
     }
-    //sort the phonemes by x1
-    phonemes.sort(function(a, b) {
-      return a.x - b.x;
-    });
-    //sort the glyphs by x1
-    glyphs.sort(function(a, b) {
-      return a.x - b.x;
-    });
-    //split the canvas into multiple canvases by phoneme
-    phonemes.forEach(function(phoneme) {
-      index = phonemes.indexOf(phoneme);
-      drawButton(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
-    });
-    //split the canvas into multiple canvases by glyph, these buttons appear over the phoneme buttons
-    glyphs.forEach(function(glyph) {
-      index = glyphs.indexOf(glyph);
-      drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
-    });
+    
+    //sort the phonemes by x
+    if (phonemes.length > 0) {
+      phonemes.sort(function(a, b) {
+        return a.x - b.x;
+      });
+      //split the canvas into multiple canvases by phoneme
+      phonemes.forEach(function(phoneme) {
+        index = phonemes.indexOf(phoneme);
+        drawButton(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
+      });
+    }
+    
+    //sort the glyphs by x
+    if (glyphs.length > 0) {
+      glyphs.sort(function(a, b) {
+        return a.x - b.x;
+      });
+      //split the canvas into multiple canvases by glyph
+      glyphs.forEach(function(glyph) {
+        index = glyphs.indexOf(glyph);
+        console.log("Drawing glyph button at:", glyph.x, 0, glyph.width, image.height);
+        drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
+      });
+    }
+    
     //hide the original image with display none
-    setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph.  To cancel, click the close tool button.');
+    setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph. To cancel, click the close tool button.');
   }
 },
 
