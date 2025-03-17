@@ -304,7 +304,7 @@
 <template name="viewPage">
   <div class="container-fluid d-flex flex-nowrap">
     
-    <div class="col-md-2 bg-light collapse show text-center border" id="sidebar">
+    <div class="sidebar-resizable bg-light collapse show text-center border" id="sidebar">
       {{#if currentDocument}}
       <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -396,47 +396,79 @@
           <button type="button" class="btn rounded border" id="collapseAll"><i class="bi bi-arrow-up"></i></button>
           <!-- delete button -->
           <button type="button" class="btn rounded border" id="deleteDocument"><i class="bi bi-x"></i></button>
+          <button type="button" class="btn rounded border" id="searchTree"><i class="bi bi-search"></i></button>
         </div>
         </div>
         <div class="col-12">
+        <div class="input-group mb-3" id="treeSearchContainer" style="display: none;">
+          <input type="text" class="form-control" id="treeSearchInput" placeholder="Search in document...">
+          <button class="btn btn-outline-secondary" type="button" id="treeSearchClear">Clear</button>
+        </div>
         <ul class="file-tree">
           {{#each currentDocument.pages}}
-          <li>
-          <a data-bs-toggle="collapse" href="#page-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{@index}}">
-            <i class="bi bi-folder-fill"></i> Page {{@index}}
-          </a>
-          <div class="collapse" id="page-{{@index}}">
-            <ul>
-            {{#each this.lines}}
-            <li>
-            <a data-bs-toggle="collapse" href="#line-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="line-{{../@index}}-{{@index}}">
-              <i class="bi bi-list"></i> Line {{@index}}
+          <li class="page-item">
+            <a data-bs-toggle="collapse" href="#page-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{@index}}" class="page-link">
+              <i class="bi bi-folder-fill"></i> Page {{add @index 1}}{{#if this.title}} - {{this.title}}{{/if}}
             </a>
-            <div class="collapse" id="line-{{../@index}}-{{@index}}">
+            <div class="collapse" id="page-{{@index}}">
               <ul>
-              {{#each this.words}}
-              <li>
-              <a data-bs-toggle="collapse" href="#word-{{../../@index}}-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="word-{{../../@index}}-{{../@index}}-{{@index}}">
-                <i class="bi bi-file-word-fill"></i>Word {{@index}}
-              </a>
-              <div class="collapse" id="word-{{../../@index}}-{{../@index}}-{{@index}}">
-                <ul class="d-flex">
-                {{#each this.phonemes}}
-                <li><i class="bi bi-soundwave"></i> {{this.ipa}}<br></li>
+                {{#each this.lines}}
+                <li class="line-item">
+                  <a data-bs-toggle="collapse" href="#line-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="line-{{../@index}}-{{@index}}" class="line-link">
+                    <i class="bi bi-list"></i> Line {{add @index 1}}
+                  </a>
+                  <div class="collapse" id="line-{{../@index}}-{{@index}}">
+                    <ul>
+                      {{#each this.words}}
+                      <li class="word-item">
+                        <a data-bs-toggle="collapse" href="#word-{{../../@index}}-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="word-{{../../@index}}-{{../@index}}-{{@index}}" class="word-link">
+                          <i class="bi bi-file-word-fill"></i> Word {{add @index 1}}
+                        </a>
+                        <div class="collapse" id="word-{{../../@index}}-{{../@index}}-{{@index}}">
+                          <ul class="d-flex">
+                            {{#each this.phonemes}}
+                            <li><i class="bi bi-soundwave"></i> {{this.ipa}}<br></li>
+                            {{/each}}
+                            {{#each this.glyphs}}
+                            <li>
+                              <i class="bi bi-wikipedia"></i> Glyph {{@index}}
+                              <!-- Add elements display under glyphs -->
+                              {{#if this.elements}}
+                                <ul>
+                                  {{#each this.elements}}
+                                    <li class="element-item" data-page="{{../../../../@index}}" data-line="{{../../../@index}}" data-word="{{../../@index}}" data-glyph="{{../@index}}" data-element="{{@index}}">
+                                      <i class="bi bi-bounding-box"></i> Element {{add @index 1}}
+                                    </li>
+                                  {{/each}}
+                                </ul>
+                              {{/if}}
+                            </li>
+                            {{/each}}
+                            {{#each this.glyph}}
+                            <li>
+                              <i class="bi bi-wikipedia"></i> Glyph {{@index}}
+                              <!-- Add elements display under glyph array -->
+                              {{#if this.elements}}
+                                <ul>
+                                  {{#each this.elements}}
+                                    <li class="element-item" data-page="{{../../../../@index}}" data-line="{{../../../@index}}" data-word="{{../../@index}}" data-glyph="{{../@index}}" data-element="{{@index}}">
+                                      <i class="bi bi-bounding-box"></i> Element {{add @index 1}}
+                                    </li>
+                                  {{/each}}
+                                </ul>
+                              {{/if}}
+                            </li>
+                            {{/each}}
+                          </ul>
+                        </div>
+                      </li>
+                      {{/each}}
+                    </ul>
+                  </div>
+                </li>
                 {{/each}}
-                {{#each this.glyphs}}
-                <li><i class="bi bi-wikipedia"></i> Glyph {{@index}}<br></li>
-                {{/each}}
-                </ul>
-              </div>
-              </li>
-              {{/each}}
               </ul>
             </div>
-            </li>
-            {{/each}}
-            </ul>
-          </div>
           </li>
           {{/each}}
           </ul>
@@ -446,6 +478,7 @@
     </div>
   </div>
     
+  <div class="resize-handle" id="sidebarResizeHandle"></div>
     
     <!-- end of tab content -->
     <div class="col position-relative border">

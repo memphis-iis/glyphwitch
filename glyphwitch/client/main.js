@@ -441,6 +441,42 @@ Template.viewPage.onRendered(function() {
     instance.currentPage.set(currentPage);
   }
   
+  // Initialize sidebar resize functionality
+  const sidebarResizeHandle = document.getElementById('sidebarResizeHandle');
+  const sidebar = document.getElementById('sidebar');
+  let isResizing = false;
+  
+  if (sidebarResizeHandle) {
+    sidebarResizeHandle.addEventListener('mousedown', function(e) {
+      isResizing = true;
+      document.body.classList.add('resizing');
+      sidebarResizeHandle.classList.add('active');
+      e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+      if (!isResizing) return;
+      
+      // Calculate new width based on mouse position
+      const newWidth = e.clientX;
+      
+      // Apply size constraints
+      const minWidth = 150;
+      const maxWidth = window.innerWidth * 0.5;
+      
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        sidebar.style.width = newWidth + 'px';
+      }
+    });
+    
+    document.addEventListener('mouseup', function() {
+      if (isResizing) {
+        isResizing = false;
+        document.body.classList.remove('resizing');
+        sidebarResizeHandle.classList.remove('active');
+      }
+    });
+  }
 });
 
 
@@ -2346,6 +2382,180 @@ Template.viewPage.events({
     }, 500);
     
     console.log("DEBUG: createElement - end of handler");
+  },
+  
+  'click #expandAll'(event, instance) {
+    event.preventDefault();
+    $('.file-tree .collapse').addClass('show');
+  },
+  
+  'click #collapseAll'(event, instance) {
+    event.preventDefault();
+    $('.file-tree .collapse').removeClass('show');
+  },
+  
+  'click #searchTree'(event, instance) {
+    event.preventDefault();
+    $('#treeSearchContainer').toggle();
+    if ($('#treeSearchContainer').is(':visible')) {
+      $('#treeSearchInput').focus();
+    }
+  },
+  
+  'input #treeSearchInput'(event, instance) {
+    const searchText = $(event.target).val().toLowerCase();
+    if (searchText.length > 0) {
+      // Hide all items first
+      $('.file-tree li').hide();
+      
+      // Show items that match the search and their parents
+      $('.file-tree li').each(function() {
+        const itemText = $(this).text().toLowerCase();
+        if (itemText.includes(searchText)) {
+          $(this).show();
+          $(this).parents('li').show();
+          $(this).find('.collapse').addClass('show');
+        }
+      });
+    } else {
+      // If search is empty, show everything
+      $('.file-tree li').show();
+    }
+  },
+  
+  'click #treeSearchClear'(event, instance) {
+    $('#treeSearchInput').val('').trigger('input');
+  },
+  
+  'click .phoneme-item'(event, instance) {
+    event.preventDefault();
+    const pageIndex = $(event.currentTarget).data('page');
+    const lineIndex = $(event.currentTarget).data('line');
+    const wordIndex = $(event.currentTarget).data('word');
+    const phonemeIndex = $(event.currentTarget).data('phoneme');
+    
+    // Set the current view to the phoneme level
+    instance.currentPage.set(pageIndex);
+    instance.currentLine.set(lineIndex);
+    instance.currentWord.set(wordIndex);
+    instance.currentPhoneme.set(phonemeIndex);
+    
+    // Navigate through the hierarchy
+    setImage('line', lineIndex);
+    setImage('word', wordIndex);
+    
+    // Update the view to 'word' since we're selecting a phoneme within a word
+    instance.currentView.set('word');
+    resetToolbox();
+  },
+  
+  'click .glyph-item'(event, instance) {
+    event.preventDefault();
+    const pageIndex = $(event.currentTarget).data('page');
+    const lineIndex = $(event.currentTarget).data('line');
+    const wordIndex = $(event.currentTarget).data('word');
+    const glyphIndex = $(event.currentTarget).data('glyph');
+    
+    console.log(`Navigating to glyph: Page ${pageIndex}, Line ${lineIndex}, Word ${wordIndex}, Glyph ${glyphIndex}`);
+    
+    // Set the current state
+    instance.currentPage.set(pageIndex);
+    instance.currentLine.set(lineIndex);
+    instance.currentWord.set(wordIndex);
+    instance.currentGlyph.set(glyphIndex);
+    
+    // Navigate through the hierarchy
+    setImage('line', lineIndex);
+    setImage('word', wordIndex);
+    setImage('glyph', glyphIndex);
+    
+    // Update the view to 'glyph'
+    instance.currentView.set('glyph');
+    resetToolbox();
+    
+    // Create a tab for the glyph view
+    const viewTemplate = $('#view-tab-template');
+    const clone = viewTemplate.clone();
+    viewTemplate.parent().append(clone);
+    
+    // Set up the tab properties
+    clone.attr('id', `view-tab-element-glyph-${glyphIndex}`);
+    clone.attr('data-type', 'glyph');
+    clone.attr('data-id', glyphIndex);
+    
+    // Set parent tab reference
+    const parenttab = `view-tab-element-word-${wordIndex}`;
+    clone.attr('data-parent', parenttab);
+    
+    // Get tab count for ordering
+    const tabs = $('#view-tab-template').parent().children().length;
+    clone.attr('data-tab-index', tabs);
+    $(clone).children().attr('data-tab-id', 'glyph');
+    
+    // Show and activate the tab
+    clone.show();
+    $('#view-tab-template').parent().children().children().removeClass('active');
+    $('#view-tab-template').parent().children().children().attr('aria-selected', 'false');
+    clone.children().attr('aria-selected', 'true');
+    clone.children().addClass('active');
+    clone.children().prepend(`Glyph ${glyphIndex} `);
+  },
+  
+  'click .element-item'(event, instance) {
+    event.preventDefault();
+    const pageIndex = $(event.currentTarget).data('page');
+    const lineIndex = $(event.currentTarget).data('line');
+    const wordIndex = $(event.currentTarget).data('word');
+    const glyphIndex = $(event.currentTarget).data('glyph');
+    const elementIndex = $(event.currentTarget).data('element');
+    
+    console.log(`Navigating to element: Page ${pageIndex}, Line ${lineIndex}, Word ${wordIndex}, Glyph ${glyphIndex}, Element ${elementIndex}`);
+    
+    // Set the current state
+    instance.currentPage.set(pageIndex);
+    instance.currentLine.set(lineIndex);
+    instance.currentWord.set(wordIndex);
+    instance.currentGlyph.set(glyphIndex);
+    instance.currentElement = new ReactiveVar(elementIndex);
+    
+    // Navigate through the hierarchy
+    setImage('line', lineIndex);
+    setImage('word', wordIndex);
+    setImage('glyph', glyphIndex);
+    
+    // Set the element image
+    setElementImage(elementIndex, instance);
+    
+    // Update the view to 'element'
+    instance.currentView.set('element');
+    resetToolbox();
+    
+    // Create a tab for the element view
+    const viewTemplate = $('#view-tab-template');
+    const clone = viewTemplate.clone();
+    viewTemplate.parent().append(clone);
+    
+    // Set up the tab properties
+    clone.attr('id', `view-tab-element-element-${elementIndex}`);
+    clone.attr('data-type', 'element');
+    clone.attr('data-id', elementIndex);
+    
+    // Set parent tab reference
+    const parenttab = `view-tab-element-glyph-${glyphIndex}`;
+    clone.attr('data-parent', parenttab);
+    
+    // Get tab count for ordering
+    const tabs = $('#view-tab-template').parent().children().length;
+    clone.attr('data-tab-index', tabs);
+    $(clone).children().attr('data-tab-id', 'element');
+    
+    // Show and activate the tab
+    clone.show();
+    $('#view-tab-template').parent().children().children().removeClass('active');
+    $('#view-tab-template').parent().children().children().attr('aria-selected', 'false');
+    clone.children().attr('aria-selected', 'true');
+    clone.children().addClass('active');
+    clone.children().prepend(`Element ${elementIndex} `);
   },
   
 });

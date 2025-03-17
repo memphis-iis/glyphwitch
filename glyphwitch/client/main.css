@@ -35,32 +35,35 @@ body {
 .file-tree {
   list-style-type: none;
   padding-left: 0;
+  overflow-y: auto;
+  max-height: 70vh;
 }
 
 .file-tree li {
   /* no bullets */
   list-style-type: none;
+  margin: 2px 0;
 }
 
 .file-tree a {
   text-decoration: none;
-  color: black;
-  display: flex;
-  align-items: center;
-}
-
-/* file tree icons should be blue */
-.file-tree i {
-  color: green;
-  margin-right: 10px;
+  color: #333;
+  display: block;
+  padding: 3px 5px;
+  border-radius: 3px;
 }
 
 .file-tree a:hover {
-  text-decoration: underline;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.file-tree i {
+  color: #198754;
+  margin-right: 8px;
 }
 
 .file-tree .collapse {
-  padding-left: 0px;
+  padding-left: 20px;
 }
 
 .file-tree .fa-caret-right {
@@ -104,4 +107,65 @@ body {
   justify-content: center;
   align-items: center;
   padding: 0;
+}
+
+/* Item-specific styles */
+.page-link .bi {
+  color: #0d6efd;
+}
+
+.line-link .bi {
+  color: #6c757d;
+}
+
+.word-link .bi {
+  color: #198754;
+}
+
+.phoneme-item, .glyph-item {
+  cursor: pointer;
+}
+
+.phoneme-item:hover, .glyph-item:hover {
+  background-color: #f8f9fa;
+}
+
+/* Highlight selected items */
+.file-tree .selected > a {
+  background-color: #e2f6ff;
+  font-weight: bold;
+}
+
+/* Visual feedback when items are expanded */
+.file-tree a[aria-expanded="true"] {
+  background-color: #f8f9fa;
+}
+
+.file-tree a[aria-expanded="true"] .bi {
+  transform: rotate(90deg);
+  transition: transform 0.3s;
+}
+
+/* Add resizable sidebar styles */
+.sidebar-resizable {
+  width: 16.666667%; /* col-md-2 equivalent */
+  min-width: 150px;
+  max-width: 50%;
+  transition: width 0.1s;
+  position: relative;
+}
+
+.resize-handle {
+  width: 5px;
+  cursor: ew-resize;
+  background-color: #dee2e6;
+  position: relative;
+  z-index: 100;
+  opacity: 0.5;
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+.resize-handle:hover, .resize-handle.active {
+  opacity: 1;
+  background-color: #0d6efd;
 }
