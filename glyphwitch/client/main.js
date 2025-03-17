@@ -444,29 +444,35 @@ Template.viewPage.onRendered(function() {
   // Initialize sidebar resize functionality
   const sidebarResizeHandle = document.getElementById('sidebarResizeHandle');
   const sidebar = document.getElementById('sidebar');
-  let isResizing = false;
   
-  if (sidebarResizeHandle) {
+  if (sidebarResizeHandle && sidebar) {
+    let isResizing = false;
+    
     sidebarResizeHandle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
       isResizing = true;
       document.body.classList.add('resizing');
       sidebarResizeHandle.classList.add('active');
-      e.preventDefault();
     });
     
     document.addEventListener('mousemove', function(e) {
       if (!isResizing) return;
       
-      // Calculate new width based on mouse position
-      const newWidth = e.clientX;
+      // Use clientX directly for absolute positioning
+      // This approach prevents cumulative errors in delta calculations
+      const mouseX = e.clientX;
       
       // Apply size constraints
       const minWidth = 150;
       const maxWidth = window.innerWidth * 0.5;
       
-      if (newWidth >= minWidth && newWidth <= maxWidth) {
-        sidebar.style.width = newWidth + 'px';
-      }
+      // Make sure width is within bounds
+      const newWidth = Math.max(minWidth, Math.min(maxWidth, mouseX));
+      
+      // Apply the new width directly
+      sidebar.style.width = newWidth + 'px';
+      
+      console.log(`Resizing sidebar to ${newWidth}px (mouseX: ${mouseX})`);
     });
     
     document.addEventListener('mouseup', function() {
@@ -478,8 +484,6 @@ Template.viewPage.onRendered(function() {
     });
   }
 });
-
-
 
 //function to reset all buttons in toolbox-container to btn-light
 function resetToolbox() {

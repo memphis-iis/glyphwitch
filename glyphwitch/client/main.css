@@ -37,12 +37,14 @@ body {
   padding-left: 0;
   overflow-y: auto;
   max-height: 70vh;
+  text-align: left; /* Ensure text alignment is left */
 }
 
 .file-tree li {
   /* no bullets */
   list-style-type: none;
   margin: 2px 0;
+  text-align: left; /* Ensure list items are left-aligned */
 }
 
 .file-tree a {
@@ -51,6 +53,28 @@ body {
   display: block;
   padding: 3px 5px;
   border-radius: 3px;
+  text-align: left; /* Ensure link text is left-aligned */
+  justify-content: flex-start; /* For flex containers, align to start */
+}
+
+.file-tree .collapse {
+  padding-left: 20px;
+  text-align: left; /* Ensure collapsed content is left-aligned */
+}
+
+/* Ensure all nested elements are also left-aligned */
+.file-tree ul, 
+.file-tree .collapse ul,
+.file-tree .d-flex {
+  padding-left: 20px;
+  text-align: left;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+/* Make sure flex items are properly aligned */
+.file-tree .d-flex {
+  flex-direction: column;
 }
 
 .file-tree a:hover {
@@ -151,12 +175,12 @@ body {
   width: 16.666667%; /* col-md-2 equivalent */
   min-width: 150px;
   max-width: 50%;
-  transition: width 0.1s;
+  transition: none; /* Remove transition for smoother resizing */
   position: relative;
 }
 
 .resize-handle {
-  width: 5px;
+  width: 8px;  /* Increased width for easier grabbing */
   cursor: ew-resize;
   background-color: #dee2e6;
   position: relative;
@@ -168,4 +192,13 @@ body {
 .resize-handle:hover, .resize-handle.active {
   opacity: 1;
   background-color: #0d6efd;
+}
+
+/* Add a style for the body when resizing to prevent text selection */
+body.resizing {
+  cursor: ew-resize !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
