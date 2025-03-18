@@ -72,9 +72,15 @@ body {
   align-items: flex-start;
 }
 
+/* Ensure nested elements have proper indentation */
+.file-tree ul ul {
+  padding-left: 20px;
+}
+
 /* Make sure flex items are properly aligned */
 .file-tree .d-flex {
-  flex-direction: column;
+  display: flex;
+  flex-direction: column !important; /* Force column layout */
 }
 
 .file-tree a:hover {
@@ -146,11 +152,15 @@ body {
   color: #198754;
 }
 
-.phoneme-item, .glyph-item {
+.glyph-link .bi {
+  color: #ffc107; /* Yellow for glyph icons */
+}
+
+.phoneme-item, .glyph-item, .element-item {
   cursor: pointer;
 }
 
-.phoneme-item:hover, .glyph-item:hover {
+.phoneme-item:hover, .glyph-item:hover, .element-item:hover {
   background-color: #f8f9fa;
 }
 
