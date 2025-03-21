@@ -918,6 +918,11 @@ function replaceWithOriginalImage() {
   $('.selectElement').remove();
   
   console.log("replaceWithOriginalImage: Cleaned up canvas and button elements");
+  
+  // Also remove any leftover canvas from lineImage, wordImage, or glyphImage
+  $('#lineImage').parent().children('canvas').remove();
+  $('#wordImage').parent().children('canvas').remove();
+  $('#glyphImage').parent().children('canvas').remove();
 }
 
 function debugGlyphButton(element, eventType) {
