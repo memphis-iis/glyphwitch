@@ -1662,6 +1662,18 @@ Template.viewPage.events({
       //find the cropper and destroy it
       $('.cropper-container').remove();
       $('#pageImage').removeClass('cropper-hidden');
+      
+      // Automatically exit the createWord tool and reset to view mode
+      instance.currentTool.set('view');
+      resetToolbox();
+      replaceWithOriginalImage();
+      
+      // Ensure we're in line view and the lineImage is visible
+      if (instance.currentView.get() === 'line') {
+        $('#lineImage').show();
+      }
+      
+      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
     }  else if(currentTool == 'createPhoneme') {
       //open the modal
       instance.currentTool.set('view');
