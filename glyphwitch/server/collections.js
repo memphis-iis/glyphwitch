@@ -221,9 +221,9 @@ Meteor.methods({
         Documents.update(document, { $pull: { pages: page, addedBy: Meteor.userId() } });
     },
     //modify entire Document. Must include the document id, the file collection location, the title, and the author.
-    modifyDocument: function(document) {
-        console.log("Modifying document (document: " + JSON.stringify(document) + ")");
-        Documents.update(document._id, document);
+    modifyDocument: function(documentId, docObject) {
+        console.log("Modifying document (document: " + JSON.stringify(docObject) + ")");
+        Documents.upsert(documentId, docObject);
     },
     //modify page in a document. Must include the document id, the page number, and the user who added it.
     modifyPageInDocument: function(document, page) {
