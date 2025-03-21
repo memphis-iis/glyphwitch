@@ -153,6 +153,7 @@ Template.login.events({
   }
 });
 
+
 //Template for changeEmailPassword
 Template.changeEmailPassword.events({
   //when the form is submitted
@@ -1233,7 +1234,13 @@ Template.viewPage.events({
     doc.pages[pageIndex].title = newTitle;
 
     // Call the server method to update the page title
-    Meteor.call('modifyDocument', doc);
+    Meteor.call('modifyDocument', documentId, doc, function(error, result) {
+      if (error) {
+        console.error("Error updating document:", error);
+      } else {
+        console.log("Document updated successfully:", result);
+      }
+    });
     target.hide();
     target.siblings('.title-text').text(newTitle).show();
   },
@@ -2347,7 +2354,44 @@ Template.viewPage.events({
     
     console.log("DEBUG: createElement - end of handler");
   },
-  
+  'dblclick #documentName'(event, instance) {
+    // Hide the document name and show the input box
+    $('#documentName').hide();
+    $('#documentNameInput').show().focus();
+  },
+  'keypress #documentNameInput'(event, instance) {
+    if (event.key === 'Enter') {
+      // Get the new document name
+      const newTitle = $('#documentNameInput').val().trim();
+      const documentId = instance.currentDocument.get();
+      doc = Documents.findOne({_id: documentId});
+      doc.title = newTitle;
+
+      if (newTitle) {
+        // Call the server method to update the document title
+        Meteor.call('modifyDocument', documentId, doc, function(error, result) {
+          if (error) {
+            console.error('Error updating document title:', error);
+            alert('Failed to update document title.');
+          } else {
+            console.log('Document title updated successfully.');
+            // Update the UI
+            $('#documentName').text(newTitle).show();
+            $('#documentNameInput').hide();
+          }
+        });
+      } else {
+        // If the input is empty, revert to the original title
+        $('#documentName').show();
+        $('#documentNameInput').hide();
+      }
+    }
+  },
+  'blur #documentNameInput'(event, instance) {
+    // Revert to the original title if the input loses focus
+    $('#documentName').show();
+    $('#documentNameInput').hide();
+  },
 });
 
 //upload document onCreated function

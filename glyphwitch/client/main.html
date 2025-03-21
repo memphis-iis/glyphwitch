@@ -33,16 +33,10 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         {{#if currentUser}}
-          <!-- show the openModal -->
-           <!-- Microsoft Office style ribbon -->
           <div class="ribbon">
             <button type="button" class="btn btn-light border rounded" data-bs-toggle="modal" data-bs-target="#openModal">
-              <!-- open icon using fa -->
               <i class="bi bi-folder2-open"></i>
             </button>
-      
-              
-          
           </div>
         {{/if}}
       </div>
@@ -302,9 +296,16 @@
 
 <!-- template for document viewing UI, with a left side -->
 <template name="viewPage">
+  <!-- document icon -->
   <div class="container-fluid d-flex flex-nowrap">
-    
-    <div class="col-md-2 bg-light collapse show text-center border" id="sidebar">
+
+
+
+
+
+        
+
+    <div class="col-md-3 bg-light collapse show text-center border" id="sidebar">
       {{#if currentDocument}}
       <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -317,7 +318,13 @@
       <!-- content for pagesel !-->
       <div class="tab-content" id="myTabContent">
         <div class="tab-pane fade show active" id="pagesel" role="tabpanel" aria-labelledby="pagesel-tab">     
+                <span class="document-name-container" >
+            <span class="document-name" id="documentName" contenteditable="true" style="border: 1px solid #ccc; padding: 5px; border-radius: 4px; display: inline-block; min-width: 150px;">{{currentDocument.title}}</span>
+          <input type="text" class="form-control document-name-input" id="documentNameInput" style="display: none;" placeholder="{{currentDocument.title}}">
+        </span>
           <div class="mx-auto" style="line-height: 40px;">
+        
+        <br>
             <button class="btn btn-light mb-3 me-2" id="lastPage">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L6.707 8l4.647 4.646a.5.5 0 0 1-.708.708l-5-5a.5.5 0 0 1 0-.708l5-5a.5.5 0 0 1 .708 0z"></path>
