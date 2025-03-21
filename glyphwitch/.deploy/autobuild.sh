@@ -20,6 +20,9 @@ COMMIT_MESSAGES=$(git log --pretty=format:"%s" -n 5 HEAD | sed 's/\n//g')
 #remove newlines from commit messages
 COMMIT_MESSAGES=$(echo $COMMIT_MESSAGES | tr -d '\n')
 
+#remove all double quotes from commit messages
+COMMIT_MESSAGES=$(echo $COMMIT_MESSAGES | tr -d '"')
+
 # Create a release on GitHub with datestamp (vYYYY-MM-DD-HH-MM-SS)
 RELEASE_NAME="v$(date +"%Y-%m-%d-%H-%M-%S")-$CURRENT_BRANCH-autobuild"
 RELEASE_BODY="Built and pushed image for branch: $CURRENT_BRANCH \n Last 5 Commit Messages: \n $COMMIT_MESSAGES"
@@ -36,6 +39,7 @@ JSON_DATA="{
   \"releaseName\": \"$RELEASE_NAME\"
 }"
 echo "  - JSON Data: $JSON_DATA"
+
 
 # Save the JSON data to the file
 echo "** Saving JSON data to file..."
