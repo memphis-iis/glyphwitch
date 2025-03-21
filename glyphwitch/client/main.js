@@ -879,6 +879,7 @@ function initCropper(type) {
   canvas.style.position = 'absolute';
   canvas.style.left = '0';
   canvas.style.top = '0';
+  canvas.style.zIndex = '9999'; 
 
   //center the canvas vertically
   canvas.style.marginTop = (parseInt(height) - parseInt(canvas.style.height)) / 2 + 'px';
