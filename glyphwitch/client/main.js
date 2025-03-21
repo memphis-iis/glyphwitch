@@ -903,6 +903,9 @@ function replaceWithOriginalImage() {
     Template.instance().cropper.set(false);
   }
   
+  // More thorough cleanup - remove any cropper containers that might be left
+  $('.cropper-container').remove();
+  
   //Only show the original page image if we're in simple view
   //This prevents the pageImage from reappearing when exiting the cropper in glyph view
   if (currentView === 'simple') {
@@ -912,18 +915,30 @@ function replaceWithOriginalImage() {
     $('#pageImage').hide();
   }
   
-  // Remove any canvas elements that were created for the cropper
-  $('#pageImage').parent().children('canvas').remove();
+  // We need to be more selective here - only remove canvas elements that were created
+  // for the cropper, not the ones used for drawing rectangles
+  if (currentView === 'simple') {
+    // In simple view we can clean up all canvas elements except those with specific classes
+    $('#pageImage').parent().children('canvas:not(.preserve-canvas)').remove();
+  } else {
+    // In other views, we only remove canvas elements that have the same ID as our image
+    // This ensures we don't remove canvas elements used for drawing rectangles
+    const imageId = currentView === 'line' ? 'lineImage' : 
+                    currentView === 'word' ? 'wordImage' : 
+                    currentView === 'glyph' ? 'glyphImage' : 'pageImage';
+    $(`canvas#${imageId}`).remove();
+  }
   
   // Remove any selectElement buttons that might be lingering
-  $('.selectElement').remove();
+  // but ONLY if they were created by the current tool, not others
+  const currentTool = Template.instance().currentTool.get();
+  if (currentTool === 'createWord' || currentTool === 'createLine' || 
+      currentTool === 'createGlyph' || currentTool === 'createPhoneme' ||
+      currentTool === 'createElement') {
+    $('.selectElement').remove();
+  }
   
   console.log("replaceWithOriginalImage: Cleaned up canvas and button elements");
-  
-  // Also remove any leftover canvas from lineImage, wordImage, or glyphImage
-  $('#lineImage').parent().children('canvas').remove();
-  $('#wordImage').parent().children('canvas').remove();
-  $('#glyphImage').parent().children('canvas').remove();
 }
 
 function debugGlyphButton(element, eventType) {
@@ -1161,6 +1176,8 @@ Template.viewPage.events({
       }
     }
     
+    // Ensure the selection boxes disappear
+    $('.selectElement').remove();
     setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
   },
   
@@ -1292,6 +1309,8 @@ Template.viewPage.events({
     });
     //hide the original image with display none
     setCurrentHelp('To select a line, click on the line.  To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
   }
   if(currentView == 'line') {
     //get $('#lineImage') and change it from img-fluid to a calculated width and height
@@ -1323,6 +1342,8 @@ Template.viewPage.events({
     });
     //hide the original image with display none
     setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
   }
   if(currentView == 'word') {
     //get $('#wordImage') and change it from img-fluid to a calculated width and height
@@ -1391,6 +1412,8 @@ Template.viewPage.events({
     
     //hide the original image with display none
     setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph. To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
   }
   if(currentView == 'glyph') {
     // Instead of just exiting the tool, implement element selection
@@ -1446,6 +1469,8 @@ Template.viewPage.events({
     });
     
     setCurrentHelp('To select an element, click on it. To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
   }
 },
 
@@ -1872,6 +1897,8 @@ Template.viewPage.events({
       //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
+      // Set a higher zIndex to ensure the cropper appears above other elements
+      zIndex: 9999,
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -1880,6 +1907,9 @@ Template.viewPage.events({
         instance.selectheight.set(cropDetails.height);
       }
     });
+    
+    // Store the cropper instance to properly clean it up later
+    instance.cropper.set(cropper);
     cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
   },
   'click #createPhoneme'(event, instance) {
@@ -2843,6 +2873,9 @@ function drawRect(image, x, y, width, height, type, text, id) {
   //get the canvas' context
   const context = image.getContext('2d');
 
+  // Add a class to the canvas to mark it for preservation
+  $(image).addClass('preserve-canvas');
+
   //draw a rectangle at the x, y, width, and height
   //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
   if (type == 'line') {
@@ -2855,6 +2888,22 @@ function drawRect(image, x, y, width, height, type, text, id) {
     context.strokeStyle = 'blue';
     context.lineWidth = 1;
   }
+  if (type == 'phoneme') {
+    context.fillStyle = 'rgba(255, 0, 0, 0.2)';
+    context.strokeStyle = 'red';
+    context.lineWidth = 1;
+  }
+  if (type == 'glyph') {
+    context.fillStyle = 'rgba(255, 255, 0, 0.2)';
+    context.strokeStyle = 'yellow';
+    context.lineWidth = 1;
+  }
+  if (type == 'element') {
+    context.fillStyle = 'rgba(128, 0, 128, 0.2)';
+    context.strokeStyle = 'purple';
+    context.lineWidth = 1;
+  }
+  
   context.fillRect(x, y, width, height);
   context.strokeRect(x, y, width, height);
 }
