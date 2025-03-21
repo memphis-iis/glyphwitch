@@ -819,7 +819,8 @@ function initCropper(type) {
   }
   if (type == 'line') {
     divId = document.getElementById('lineImage');
-    
+    // Store the original image in a data attribute for restoration
+    $(divId).data('original-src', divId.src);
   }
   if (type == 'word') {
     divId = document.getElementById('wordImage');
@@ -906,12 +907,17 @@ function replaceWithOriginalImage() {
   // More thorough cleanup - remove any cropper containers that might be left
   $('.cropper-container').remove();
   
-  //Only show the original page image if we're in simple view
-  //This prevents the pageImage from reappearing when exiting the cropper in glyph view
+  // Show the appropriate image based on current view
   if (currentView === 'simple') {
     $('#pageImage').show();
+  } else if (currentView === 'line') {
+    $('#lineImage').show();
+  } else if (currentView === 'word') {
+    $('#wordImage').show();
+  } else if (currentView === 'glyph') {
+    $('#glyphImage').show();
   } else {
-    // Keep the pageImage hidden in other views like glyph
+    // For any other view, keep the pageImage hidden
     $('#pageImage').hide();
   }
   
@@ -1320,6 +1326,10 @@ Template.viewPage.events({
     //add width and height to the lineImage's style
     $('#lineImage').css('width', calcWidth + 'px');
     $('#lineImage').css('height', calcHeight + 'px');
+    
+    // Store original image source and visibility state for restoration
+    const originalSrc = $('#lineImage').attr('src');
+    
     image = initCropper("line");
     const context = image.getContext('2d');
     const page = instance.currentPage.get();
@@ -1342,8 +1352,15 @@ Template.viewPage.events({
     });
     //hide the original image with display none
     setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
-    // Ensure the selection boxes appear immediately
+    
+    // Ensure the selection boxes appear immediately but also make sure lineImage is visible
     replaceWithOriginalImage();
+    
+    // Make sure lineImage is shown and has the original source
+    $('#lineImage').show();
+    if (originalSrc) {
+      $('#lineImage').attr('src', originalSrc);
+    }
   }
   if(currentView == 'word') {
     //get $('#wordImage') and change it from img-fluid to a calculated width and height
