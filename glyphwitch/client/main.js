@@ -1648,6 +1648,13 @@ Template.viewPage.events({
       //find the cropper and destroy it
       $('.cropper-container').remove();
       $('#pageImage').removeClass('cropper-hidden');
+      
+      // Automatically exit the createLine tool and reset to view mode
+      instance.currentTool.set('view');
+      resetToolbox();
+      replaceWithOriginalImage();
+      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
+      
     } else if(currentTool == 'createWord') {
       //document, page, line, x, width, wordOrder=false, word=false
       ret = Meteor.callAsync('addWordToLine', instance.currentDocument.get(), instance.currentPage.get(), instance.currentLine.get(), instance.selectx1.get(), instance.selectwidth.get());
