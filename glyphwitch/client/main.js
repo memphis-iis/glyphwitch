@@ -1184,6 +1184,7 @@ Template.viewPage.events({
     
     // Ensure the selection boxes disappear
     $('.selectElement').remove();
+    $('.showReferences').remove();
     setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
   },
   
