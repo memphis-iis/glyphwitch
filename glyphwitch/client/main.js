@@ -660,14 +660,14 @@ function hideAllToolButtons() {
 
 //function to set pageImage to a line, word, phoneme, or glyph
 function setImage(type, id) {
-  //delete any images with img-fluid class
-  $('#pageImage').parent().children('img.img-fluid').remove();
-
+  // More thorough cleanup - first remove any existing images with this ID
+  $('#pageImage').parent().find(`img#${type}Image`).remove();
+  
+  // Also remove any canvas elements with the same ID
+  $('#pageImage').parent().find(`canvas#${type}Image`).remove();
+  
   currentDocument = Template.instance().currentDocument.get();
   currentPage = Template.instance().currentPage.get();
-  doc = Documents.findOne({_id: currentDocument});
-  //delete any canvas elements
-  $('#pageImage').parent().children('canvas').remove();
   if(type == 'line') {
     pageImage = $('#pageImage');
     imagesrc = $('#pageImage').attr('src');
@@ -933,6 +933,30 @@ function replaceWithOriginalImage() {
                     currentView === 'word' ? 'wordImage' : 
                     currentView === 'glyph' ? 'glyphImage' : 'pageImage';
     $(`canvas#${imageId}`).remove();
+  }
+  
+  // We need to be more selective here - only remove canvas elements that were created
+  // for the cropper, not the ones used for drawing rectangles
+  if (currentView === 'simple') {
+    // In simple view we can clean up all canvas elements except those with specific classes
+    $('#pageImage').parent().children('canvas:not(.preserve-canvas)').remove();
+  } else {
+    // In other views, we only remove canvas elements that have the same ID as our image
+    // This ensures we don't remove canvas elements used for drawing rectangles
+    const imageId = currentView === 'line' ? 'lineImage' : 
+                    currentView === 'word' ? 'wordImage' : 
+                    currentView === 'glyph' ? 'glyphImage' : 'pageImage';
+    $(`canvas#${imageId}`).remove();
+  }
+  
+  // Fix: remove any extra #wordImage with the "img-fluid" class
+  const duplicates = document.querySelectorAll('img#wordImage.img-fluid');
+  if (duplicates.length > 1) {
+    duplicates.forEach((img, i) => {
+      if (i > 0) {
+        img.remove();
+      }
+    });
   }
   
   // Remove any selectElement buttons that might be lingering
@@ -1610,19 +1634,23 @@ Template.viewPage.events({
 
     if (type == 'line') {
       instance.currentLine.set(false);
-      $('#lineImage').remove();
+      // Remove ALL instances of lineImage, not just one
+      $('img#lineImage').remove();
     }
     if (type == 'word') {
       instance.currentWord.set(false);
-      $('#wordImage').remove();
+      // Remove ALL instances of wordImage, not just one
+      $('img#wordImage').remove();
     }
     if (type == 'phoneme') {
       instance.currentPhoneme.set(false);
-      $('#phonemeImage').remove();
+      // Remove ALL instances of phonemeImage, not just one
+      $('img#phonemeImage').remove();
     }
     if (type == 'glyph') {
       instance.currentGlyph.set(false);
-      $('#glyphImage').remove();
+      // Remove ALL instances of glyphImage, not just one
+      $('img#glyphImage').remove();
     }
 
     
@@ -2086,6 +2114,13 @@ Template.viewPage.events({
           width: glyph.width,
           height: line.height
         });
+        
+        // Show bounding boxes for existing elements
+        const elements = glyph.elements || [];
+        elements.forEach((element, index) => {
+          console.log("drawing existing element bounding box");
+          drawRect(image, element.x, element.y, element.width, element.height, 'element', index, index);
+        });
       }
     }
     
@@ -2333,6 +2368,13 @@ Template.viewPage.events({
         console.log("DEBUG: createElement - found glyph with dimensions:", {
           width: glyph.width,
           height: line.height
+        });
+        
+        // Show bounding boxes for existing elements
+        const elements = glyph.elements || [];
+        elements.forEach((element, index) => {
+          console.log("drawing existing element bounding box");
+          drawRect(image, element.x, element.y, element.width, element.height, 'element', index, index);
         });
       }
     }
