@@ -2004,13 +2004,11 @@ Template.viewPage.events({
   'click #createGlyph'(event, instance) {
     event.preventDefault();
     console.log("createGlyph, drawing is " + instance.drawing.get());
-    //disable all buttons in the toolbox-container
-    //set the currentTool to btn-dark
     $('#createGlyph').removeClass('btn-light').addClass('btn-dark');
     instance.currentTool.set('createGlyph');
     resetToolbox();
-    image = initCropper('word');
-    //draw all bounding boxes from the word
+
+    const image = initCropper('word');
     const context = image.getContext('2d');
     const page = instance.currentPage.get();
     const documentId = instance.currentDocument.get();
@@ -2018,38 +2016,30 @@ Template.viewPage.events({
     const lineId = instance.currentLine.get();
     const wordId = instance.currentWord.get();
     const word = doc.pages[page].lines[lineId].words[wordId];
-    const glyphs = word.glyph;
-    //sort the phonemes by x1
-    glyphs.sort(function(a, b) {
-      return a.x - b.x;
-    });
-    glyphs.forEach(function(glyph) {
+
+    const glyphs = word.glyphs || word.glyph || [];
+    glyphs.sort((a, b) => a.x - b.x);
+    glyphs.forEach(function(g, index) {
       console.log("drawing glyph");
-      index = glyphs.indexOf(glyph);
-      drawRect(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
+      drawRect(image, g.x, 0, g.width, image.height, 'glyph', index, index);
     });
-    setCurrentHelp('To create a bounding box to represent a glyph in the document, use the cropping bounds to select the area of the page that contains the glyph. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
-    //se the image css to display block and max-width 100%
+
+    setCurrentHelp('To create a bounding box for a new glyph, use the selection. Hit Enter to confirm or close to cancel.');
     image.style.display = 'block';
     image.style.maxWidth = '100%';
-    //create a cropper object for the pageImage
-    cropDetails = {};
-    //add a event listener for hitting the enter key, which will confirm the selection
+
     const cropper = new Cropper(image, {
-      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
       crop(event) {
-        cropDetails = event.detail;
+        const cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
         instance.selecty1.set(cropDetails.y);
         instance.selectwidth.set(cropDetails.width);
         instance.selectheight.set(cropDetails.height);
       }
     });
-    cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
   },
-
   'click #createElement'(event, instance) {
     event.preventDefault();
     console.log("DEBUG: createElement click handler - start");
