@@ -2896,41 +2896,51 @@ function drawButton(image, x, y, width, height, type, text, id) {
 }
 
 //function to draw a rectangle on the canvas at a particular location
-function drawRect(image, x, y, width, height, type, text, id) {
-  //get the canvas' context
-  const context = image.getContext('2d');
+function drawRect(canvas, x, y, width, height, type, index, subIndex) {
+  const ctx = canvas.getContext('2d');
+
+  if (type === 'phoneme') {
+    ctx.strokeStyle = 'red';
+  } else if (type === 'glyph') {
+    ctx.strokeStyle = 'yellow';
+  } else {
+    ctx.strokeStyle = '#000'; // fallback or other types
+  }
+
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, width, height);
 
   // Add a class to the canvas to mark it for preservation
-  $(image).addClass('preserve-canvas');
+  $(canvas).addClass('preserve-canvas');
 
   //draw a rectangle at the x, y, width, and height
   //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
   if (type == 'line') {
-    context.fillStyle = 'rgba(0, 255, 0, 0.2)';
-    context.strokeStyle = 'green';
-    context.lineWidth = 1;
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 1;
   }
   if (type == 'word') {
-    context.fillStyle = 'rgba(0, 0, 255, 0.2)';
-    context.strokeStyle = 'blue';
-    context.lineWidth = 1;
+    ctx.fillStyle = 'rgba(0, 0, 255, 0.2)';
+    ctx.strokeStyle = 'blue';
+    ctx.lineWidth = 1;
   }
   if (type == 'phoneme') {
-    context.fillStyle = 'rgba(255, 0, 0, 0.2)';
-    context.strokeStyle = 'red';
-    context.lineWidth = 1;
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 1;
   }
   if (type == 'glyph') {
-    context.fillStyle = 'rgba(255, 255, 0, 0.2)';
-    context.strokeStyle = 'yellow';
-    context.lineWidth = 1;
+    ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+    ctx.strokeStyle = 'yellow';
+    ctx.lineWidth = 1;
   }
   if (type == 'element') {
-    context.fillStyle = 'rgba(128, 0, 128, 0.2)';
-    context.strokeStyle = 'purple';
-    context.lineWidth = 1;
+    ctx.fillStyle = 'rgba(128, 0, 128, 0.2)';
+    ctx.strokeStyle = 'purple';
+    ctx.lineWidth = 1;
   }
   
-  context.fillRect(x, y, width, height);
-  context.strokeRect(x, y, width, height);
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeRect(x, y, width, height);
 }
