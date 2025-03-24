@@ -2869,11 +2869,14 @@ function drawButton(image, x, y, width, height, type, text, id) {
   label.style.bottom = '0';
   label.style.left = '0';
 
-  //label width is only 10 percent of the width of the button
-  label.style.width = '10%';
+  // Make label width wider for word elements to properly display both the type and the number
+  if (type === 'word') {
+    label.style.width = '30%'; // Wider for word elements
+  } else {
+    label.style.width = '10%';
+  }
+  
   label.style.height = '15px';
-
-  //label font size is 10px
   label.style.fontSize = '10px';
 
   //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
