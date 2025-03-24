@@ -660,14 +660,14 @@ function hideAllToolButtons() {
 
 //function to set pageImage to a line, word, phoneme, or glyph
 function setImage(type, id) {
-  //delete any images with img-fluid class
-  $('#pageImage').parent().children('img.img-fluid').remove();
-
+  // More thorough cleanup - first remove any existing images with this ID
+  $('#pageImage').parent().find(`img#${type}Image`).remove();
+  
+  // Also remove any canvas elements with the same ID
+  $('#pageImage').parent().find(`canvas#${type}Image`).remove();
+  
   currentDocument = Template.instance().currentDocument.get();
   currentPage = Template.instance().currentPage.get();
-  doc = Documents.findOne({_id: currentDocument});
-  //delete any canvas elements
-  $('#pageImage').parent().children('canvas').remove();
   if(type == 'line') {
     pageImage = $('#pageImage');
     imagesrc = $('#pageImage').attr('src');
@@ -819,7 +819,8 @@ function initCropper(type) {
   }
   if (type == 'line') {
     divId = document.getElementById('lineImage');
-    
+    // Store the original image in a data attribute for restoration
+    $(divId).data('original-src', divId.src);
   }
   if (type == 'word') {
     divId = document.getElementById('wordImage');
@@ -879,6 +880,7 @@ function initCropper(type) {
   canvas.style.position = 'absolute';
   canvas.style.left = '0';
   canvas.style.top = '0';
+  canvas.style.zIndex = '9999'; 
 
   //center the canvas vertically
   canvas.style.marginTop = (parseInt(height) - parseInt(canvas.style.height)) / 2 + 'px';
@@ -902,20 +904,69 @@ function replaceWithOriginalImage() {
     Template.instance().cropper.set(false);
   }
   
-  //Only show the original page image if we're in simple view
-  //This prevents the pageImage from reappearing when exiting the cropper in glyph view
+  // More thorough cleanup - remove any cropper containers that might be left
+  $('.cropper-container').remove();
+  
+  // Show the appropriate image based on current view
   if (currentView === 'simple') {
     $('#pageImage').show();
+  } else if (currentView === 'line') {
+    $('#lineImage').show();
+  } else if (currentView === 'word') {
+    $('#wordImage').show();
+  } else if (currentView === 'glyph') {
+    $('#glyphImage').show();
   } else {
-    // Keep the pageImage hidden in other views like glyph
+    // For any other view, keep the pageImage hidden
     $('#pageImage').hide();
   }
   
-  // Remove any canvas elements that were created for the cropper
-  $('#pageImage').parent().children('canvas').remove();
+  // We need to be more selective here - only remove canvas elements that were created
+  // for the cropper, not the ones used for drawing rectangles
+  if (currentView === 'simple') {
+    // In simple view we can clean up all canvas elements except those with specific classes
+    $('#pageImage').parent().children('canvas:not(.preserve-canvas)').remove();
+  } else {
+    // In other views, we only remove canvas elements that have the same ID as our image
+    // This ensures we don't remove canvas elements used for drawing rectangles
+    const imageId = currentView === 'line' ? 'lineImage' : 
+                    currentView === 'word' ? 'wordImage' : 
+                    currentView === 'glyph' ? 'glyphImage' : 'pageImage';
+    $(`canvas#${imageId}`).remove();
+  }
+  
+  // We need to be more selective here - only remove canvas elements that were created
+  // for the cropper, not the ones used for drawing rectangles
+  if (currentView === 'simple') {
+    // In simple view we can clean up all canvas elements except those with specific classes
+    $('#pageImage').parent().children('canvas:not(.preserve-canvas)').remove();
+  } else {
+    // In other views, we only remove canvas elements that have the same ID as our image
+    // This ensures we don't remove canvas elements used for drawing rectangles
+    const imageId = currentView === 'line' ? 'lineImage' : 
+                    currentView === 'word' ? 'wordImage' : 
+                    currentView === 'glyph' ? 'glyphImage' : 'pageImage';
+    $(`canvas#${imageId}`).remove();
+  }
+  
+  // Fix: remove any extra #wordImage with the "img-fluid" class
+  const duplicates = document.querySelectorAll('img#wordImage.img-fluid');
+  if (duplicates.length > 1) {
+    duplicates.forEach((img, i) => {
+      if (i > 0) {
+        img.remove();
+      }
+    });
+  }
   
   // Remove any selectElement buttons that might be lingering
-  $('.selectElement').remove();
+  // but ONLY if they were created by the current tool, not others
+  const currentTool = Template.instance().currentTool.get();
+  if (currentTool === 'createWord' || currentTool === 'createLine' || 
+      currentTool === 'createGlyph' || currentTool === 'createPhoneme' ||
+      currentTool === 'createElement') {
+    $('.selectElement').remove();
+  }
   
   console.log("replaceWithOriginalImage: Cleaned up canvas and button elements");
 }
@@ -1155,6 +1206,9 @@ Template.viewPage.events({
       }
     }
     
+    // Ensure the selection boxes disappear
+    $('.selectElement').remove();
+    $('.showReferences').remove();
     setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
   },
   
@@ -1286,6 +1340,8 @@ Template.viewPage.events({
     });
     //hide the original image with display none
     setCurrentHelp('To select a line, click on the line.  To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
   }
   if(currentView == 'line') {
     //get $('#lineImage') and change it from img-fluid to a calculated width and height
@@ -1295,6 +1351,10 @@ Template.viewPage.events({
     //add width and height to the lineImage's style
     $('#lineImage').css('width', calcWidth + 'px');
     $('#lineImage').css('height', calcHeight + 'px');
+    
+    // Store original image source and visibility state for restoration
+    const originalSrc = $('#lineImage').attr('src');
+    
     image = initCropper("line");
     const context = image.getContext('2d');
     const page = instance.currentPage.get();
@@ -1317,6 +1377,15 @@ Template.viewPage.events({
     });
     //hide the original image with display none
     setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
+    
+    // Ensure the selection boxes appear immediately but also make sure lineImage is visible
+    replaceWithOriginalImage();
+    
+    // Make sure lineImage is shown and has the original source
+    $('#lineImage').show();
+    if (originalSrc) {
+      $('#lineImage').attr('src', originalSrc);
+    }
   }
   if(currentView == 'word') {
     //get $('#wordImage') and change it from img-fluid to a calculated width and height
@@ -1385,6 +1454,8 @@ Template.viewPage.events({
     
     //hide the original image with display none
     setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph. To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
   }
   if(currentView == 'glyph') {
     // Instead of just exiting the tool, implement element selection
@@ -1440,6 +1511,8 @@ Template.viewPage.events({
     });
     
     setCurrentHelp('To select an element, click on it. To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
   }
 },
 
@@ -1561,21 +1634,47 @@ Template.viewPage.events({
 
     if (type == 'line') {
       instance.currentLine.set(false);
-      $('#lineImage').remove();
+      // Remove ALL instances of lineImage, not just one
+      $('img#lineImage').remove();
     }
     if (type == 'word') {
       instance.currentWord.set(false);
-      $('#wordImage').remove();
+      // Remove ALL instances of wordImage, not just one
+      $('img#wordImage').remove();
     }
     if (type == 'phoneme') {
       instance.currentPhoneme.set(false);
-      $('#phonemeImage').remove();
+      // Remove ALL instances of phonemeImage, not just one
+      $('img#phonemeImage').remove();
     }
     if (type == 'glyph') {
       instance.currentGlyph.set(false);
-      $('#glyphImage').remove();
+      // Remove ALL instances of glyphImage, not just one
+      $('img#glyphImage').remove();
+    }
+    if (type == 'element') {
+      // Clear the currentElement if it exists
+      if (instance.currentElement) {
+        instance.currentElement.set(false);
+      }
+      // Remove ALL instances of elementImage
+      $('img#elementImage').remove();
     }
 
+    
+    // Remove all selection boxes and overlay buttons
+    $('.selectElement').remove();
+    $('.showReferences').remove();
+    
+    // Also clean up any cropper instances that might be active
+    const cropper = instance.cropper.get();
+    if (cropper) {
+      cropper.destroy();
+      instance.cropper.set(false);
+    }
+    
+    // Clean up any lingering canvas elements for selection/cropping
+    $('.cropper-container').remove();
     
     //if the tab exists, make it active
     if (tabparent != 'simple') {
@@ -1617,6 +1716,13 @@ Template.viewPage.events({
       //find the cropper and destroy it
       $('.cropper-container').remove();
       $('#pageImage').removeClass('cropper-hidden');
+      
+      // Automatically exit the createLine tool and reset to view mode
+      instance.currentTool.set('view');
+      resetToolbox();
+      replaceWithOriginalImage();
+      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
+      
     } else if(currentTool == 'createWord') {
       //document, page, line, x, width, wordOrder=false, word=false
       ret = Meteor.callAsync('addWordToLine', instance.currentDocument.get(), instance.currentPage.get(), instance.currentLine.get(), instance.selectx1.get(), instance.selectwidth.get());
@@ -1624,6 +1730,18 @@ Template.viewPage.events({
       //find the cropper and destroy it
       $('.cropper-container').remove();
       $('#pageImage').removeClass('cropper-hidden');
+      
+      // Automatically exit the createWord tool and reset to view mode
+      instance.currentTool.set('view');
+      resetToolbox();
+      replaceWithOriginalImage();
+      
+      // Ensure we're in line view and the lineImage is visible
+      if (instance.currentView.get() === 'line') {
+        $('#lineImage').show();
+      }
+      
+      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
     }  else if(currentTool == 'createPhoneme') {
       //open the modal
       instance.currentTool.set('view');
@@ -1706,9 +1824,23 @@ Template.viewPage.events({
         elementImageData  // Pass image data
       );
       alert("element added");
+      
       // Clean up the cropper
       $('.cropper-container').remove();
       $('#pageImage').removeClass('cropper-hidden');
+      
+      // Reset to view mode at glyph level
+      instance.currentTool.set('view');
+      resetToolbox();
+      replaceWithOriginalImage();
+      
+      // Make sure we stay in glyph view and the glyphImage is visible
+      if (instance.currentView.get() === 'glyph') {
+        $('#glyphImage').show();
+      }
+      
+      // Reset help text
+      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the image.");
     }
 
   },
@@ -1866,6 +1998,8 @@ Template.viewPage.events({
       //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
+      // Set a higher zIndex to ensure the cropper appears above other elements
+      zIndex: 9999,
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -1874,6 +2008,9 @@ Template.viewPage.events({
         instance.selectheight.set(cropDetails.height);
       }
     });
+    
+    // Store the cropper instance to properly clean it up later
+    instance.cropper.set(cropper);
     cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
   },
   'click #createPhoneme'(event, instance) {
@@ -1931,13 +2068,11 @@ Template.viewPage.events({
   'click #createGlyph'(event, instance) {
     event.preventDefault();
     console.log("createGlyph, drawing is " + instance.drawing.get());
-    //disable all buttons in the toolbox-container
-    //set the currentTool to btn-dark
     $('#createGlyph').removeClass('btn-light').addClass('btn-dark');
     instance.currentTool.set('createGlyph');
     resetToolbox();
-    image = initCropper('word');
-    //draw all bounding boxes from the word
+
+    const image = initCropper('word');
     const context = image.getContext('2d');
     const page = instance.currentPage.get();
     const documentId = instance.currentDocument.get();
@@ -1945,38 +2080,30 @@ Template.viewPage.events({
     const lineId = instance.currentLine.get();
     const wordId = instance.currentWord.get();
     const word = doc.pages[page].lines[lineId].words[wordId];
-    const glyphs = word.glyph;
-    //sort the phonemes by x1
-    glyphs.sort(function(a, b) {
-      return a.x - b.x;
-    });
-    glyphs.forEach(function(glyph) {
+
+    const glyphs = word.glyphs || word.glyph || [];
+    glyphs.sort((a, b) => a.x - b.x);
+    glyphs.forEach(function(g, index) {
       console.log("drawing glyph");
-      index = glyphs.indexOf(glyph);
-      drawRect(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
+      drawRect(image, g.x, 0, g.width, image.height, 'glyph', index, index);
     });
-    setCurrentHelp('To create a bounding box to represent a glyph in the document, use the cropping bounds to select the area of the page that contains the glyph. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
-    //se the image css to display block and max-width 100%
+
+    setCurrentHelp('To create a bounding box for a new glyph, use the selection. Hit Enter to confirm or close to cancel.');
     image.style.display = 'block';
     image.style.maxWidth = '100%';
-    //create a cropper object for the pageImage
-    cropDetails = {};
-    //add a event listener for hitting the enter key, which will confirm the selection
+
     const cropper = new Cropper(image, {
-      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
       crop(event) {
-        cropDetails = event.detail;
+        const cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
         instance.selecty1.set(cropDetails.y);
         instance.selectwidth.set(cropDetails.width);
         instance.selectheight.set(cropDetails.height);
       }
     });
-    cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
   },
-
   'click #createElement'(event, instance) {
     event.preventDefault();
     console.log("DEBUG: createElement click handler - start");
@@ -2022,6 +2149,13 @@ Template.viewPage.events({
         console.log("DEBUG: createElement - found glyph with dimensions:", {
           width: glyph.width,
           height: line.height
+        });
+        
+        // Show bounding boxes for existing elements
+        const elements = glyph.elements || [];
+        elements.forEach((element, index) => {
+          console.log("drawing existing element bounding box");
+          drawRect(image, element.x, element.y, element.width, element.height, 'element', index, index);
         });
       }
     }
@@ -2270,6 +2404,13 @@ Template.viewPage.events({
         console.log("DEBUG: createElement - found glyph with dimensions:", {
           width: glyph.width,
           height: line.height
+        });
+        
+        // Show bounding boxes for existing elements
+        const elements = glyph.elements || [];
+        elements.forEach((element, index) => {
+          console.log("drawing existing element bounding box");
+          drawRect(image, element.x, element.y, element.width, element.height, 'element', index, index);
         });
       }
     }
@@ -2758,16 +2899,20 @@ function drawButton(image, x, y, width, height, type, text, id) {
 
   //add a label on the bottom left corner of the button that says the type and index
   const label = document.createElement('label');
-  label.textContent = type + ' ' + text;
+  // Increment the displayed index by 1 for user-friendly numbering (1-based instead of 0-based)
+  label.textContent = type + ' ' + (parseInt(text) + 1);
   label.style.position = 'absolute';
   label.style.bottom = '0';
   label.style.left = '0';
 
-  //label width is only 10 percent of the width of the button
-  label.style.width = '10%';
+  // Make label width wider for word elements to properly display both the type and the number
+  if (type === 'word') {
+    label.style.width = '30%'; // Wider for word elements
+  } else {
+    label.style.width = '10%';
+  }
+  
   label.style.height = '15px';
-
-  //label font size is 10px
   label.style.fontSize = '10px';
 
   //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
@@ -2833,22 +2978,51 @@ function drawButton(image, x, y, width, height, type, text, id) {
 }
 
 //function to draw a rectangle on the canvas at a particular location
-function drawRect(image, x, y, width, height, type, text, id) {
-  //get the canvas' context
-  const context = image.getContext('2d');
+function drawRect(canvas, x, y, width, height, type, index, subIndex) {
+  const ctx = canvas.getContext('2d');
+
+  if (type === 'phoneme') {
+    ctx.strokeStyle = 'red';
+  } else if (type === 'glyph') {
+    ctx.strokeStyle = 'yellow';
+  } else {
+    ctx.strokeStyle = '#000'; // fallback or other types
+  }
+
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, width, height);
+
+  // Add a class to the canvas to mark it for preservation
+  $(canvas).addClass('preserve-canvas');
 
   //draw a rectangle at the x, y, width, and height
   //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
   if (type == 'line') {
-    context.fillStyle = 'rgba(0, 255, 0, 0.2)';
-    context.strokeStyle = 'green';
-    context.lineWidth = 1;
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 1;
   }
   if (type == 'word') {
-    context.fillStyle = 'rgba(0, 0, 255, 0.2)';
-    context.strokeStyle = 'blue';
-    context.lineWidth = 1;
+    ctx.fillStyle = 'rgba(0, 0, 255, 0.2)';
+    ctx.strokeStyle = 'blue';
+    ctx.lineWidth = 1;
   }
-  context.fillRect(x, y, width, height);
-  context.strokeRect(x, y, width, height);
+  if (type == 'phoneme') {
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 1;
+  }
+  if (type == 'glyph') {
+    ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+    ctx.strokeStyle = 'yellow';
+    ctx.lineWidth = 1;
+  }
+  if (type == 'element') {
+    ctx.fillStyle = 'rgba(128, 0, 128, 0.2)';
+    ctx.strokeStyle = 'purple';
+    ctx.lineWidth = 1;
+  }
+  
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeRect(x, y, width, height);
 }
