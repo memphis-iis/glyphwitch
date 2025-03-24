@@ -1810,9 +1810,23 @@ Template.viewPage.events({
         elementImageData  // Pass image data
       );
       alert("element added");
+      
       // Clean up the cropper
       $('.cropper-container').remove();
       $('#pageImage').removeClass('cropper-hidden');
+      
+      // Reset to view mode at glyph level
+      instance.currentTool.set('view');
+      resetToolbox();
+      replaceWithOriginalImage();
+      
+      // Make sure we stay in glyph view and the glyphImage is visible
+      if (instance.currentView.get() === 'glyph') {
+        $('#glyphImage').show();
+      }
+      
+      // Reset help text
+      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the image.");
     }
 
   },
