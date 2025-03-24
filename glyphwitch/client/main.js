@@ -1662,6 +1662,20 @@ Template.viewPage.events({
     }
 
     
+    // Remove all selection boxes and overlay buttons
+    $('.selectElement').remove();
+    $('.showReferences').remove();
+    
+    // Also clean up any cropper instances that might be active
+    const cropper = instance.cropper.get();
+    if (cropper) {
+      cropper.destroy();
+      instance.cropper.set(false);
+    }
+    
+    // Clean up any lingering canvas elements for selection/cropping
+    $('.cropper-container').remove();
+    
     //if the tab exists, make it active
     if (tabparent != 'simple') {
       //set the currentView to the tabparent's type
