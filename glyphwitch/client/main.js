@@ -1652,6 +1652,14 @@ Template.viewPage.events({
       // Remove ALL instances of glyphImage, not just one
       $('img#glyphImage').remove();
     }
+    if (type == 'element') {
+      // Clear the currentElement if it exists
+      if (instance.currentElement) {
+        instance.currentElement.set(false);
+      }
+      // Remove ALL instances of elementImage
+      $('img#elementImage').remove();
+    }
 
     
     //if the tab exists, make it active
