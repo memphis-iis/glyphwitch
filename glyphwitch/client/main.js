@@ -2863,7 +2863,8 @@ function drawButton(image, x, y, width, height, type, text, id) {
 
   //add a label on the bottom left corner of the button that says the type and index
   const label = document.createElement('label');
-  label.textContent = type + ' ' + text;
+  // Increment the displayed index by 1 for user-friendly numbering (1-based instead of 0-based)
+  label.textContent = type + ' ' + (parseInt(text) + 1);
   label.style.position = 'absolute';
   label.style.bottom = '0';
   label.style.left = '0';
