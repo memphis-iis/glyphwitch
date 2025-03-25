@@ -291,7 +291,7 @@ Template.newGlyph.events({
   },
   'click #clearCanvas'(event, instance) {
     console.log("clearCanvas");
-    const context = $('#glyphCanvas')[0].getContext('2d');
+    const context = $('#glyphImageDraw')[0].getContext('2d');
     context.clearRect(0, 0, 200, 200);
   },
   'click #saveGlyph'(event, instance) {
@@ -2533,6 +2533,11 @@ Template.viewPage.events({
     $('#documentName').show();
     $('#documentNameInput').hide();
   },
+  'click #clearCanvas'(event, instance) {
+    console.log("clearCanvas");
+    const context = $('glyphImageDraw')[0].getContext('2d');
+    context.clearRect(0, 0, 200, 200);
+  }
 });
 
 //upload document onCreated function
