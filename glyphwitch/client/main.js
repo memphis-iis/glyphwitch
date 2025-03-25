@@ -1763,6 +1763,10 @@ Template.viewPage.events({
       $('#pageImage').parent().children('button').remove();
       setCurrentHelp(false);
       replaceWithOriginalImage();
+      
+      // Clean up any existing glyphImageDraw elements before opening the modal
+      $('[id="glyphImageDraw"]').remove();
+      
       $('#createGlyphModal').modal('show');
       //set glyphcanvas to have the cropped image as its background with 
       glyphCanvas = document.getElementById('glyphCanvas');
@@ -1916,7 +1920,8 @@ Template.viewPage.events({
     Session.set('glyphSaved', true);
     //close the modal and destroy the glyphImageDraw
     $('#createGlyphModal').modal('hide');
-    $('#glyphImageDraw').remove();
+    // Remove ALL instances of glyphImageDraw
+    $('[id="glyphImageDraw"]').remove();
   },
   // Event handler for when the Create Glyph modal is hidden (after cancel or close button clicked)
   'hidden.bs.modal #createGlyphModal'(event, instance) {
@@ -1932,14 +1937,11 @@ Template.viewPage.events({
         const context = glyphCanvas.getContext('2d');
         context.clearRect(0, 0, glyphCanvas.width, glyphCanvas.height);
       }
-      
-      // Clear the drawing canvas as well if it exists
-      const glyphImageDraw = document.getElementById('glyphImageDraw');
-      if (glyphImageDraw) {
-        const context = glyphImageDraw.getContext('2d');
-        context.clearRect(0, 0, glyphImageDraw.width, glyphImageDraw.height);
-      }
     }
+    
+    // Always remove the drawing canvas to prevent duplicates
+    // Use a more thorough selector to catch all instances
+    $('[id="glyphImageDraw"]').remove();
     
     // Reset the saved flag for next time
     Session.set('glyphSaved', false);
