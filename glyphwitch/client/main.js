@@ -2535,7 +2535,7 @@ Template.viewPage.events({
   },
   'click #clearCanvas'(event, instance) {
     console.log("clearCanvas");
-    const context = $('glyphImageDraw')[0].getContext('2d');
+    const context = $('#glyphImageDraw')[0].getContext('2d');
     context.clearRect(0, 0, 200, 200);
   }
 });
