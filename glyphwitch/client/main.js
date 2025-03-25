@@ -1912,9 +1912,37 @@ Template.viewPage.events({
     //submit the glyph addGlyphToWord: function(document, page, line, word, x, width, documentImageData, drawnImageData) {
     ret = Meteor.callAsync('addGlyphToWord', instance.currentDocument.get(), instance.currentPage.get(), instance.currentLine.get(), instance.currentWord.get(), instance.selectx1.get(), instance.selectwidth.get(), glyphImageDataActual, glyphImageData);
     alert("glyph added");
+    // Set a flag to indicate successful save before hiding the modal
+    Session.set('glyphSaved', true);
     //close the modal and destroy the glyphImageDraw
     $('#createGlyphModal').modal('hide');
     $('#glyphImageDraw').remove();
+  },
+  // Event handler for when the Create Glyph modal is hidden (after cancel or close button clicked)
+  'hidden.bs.modal #createGlyphModal'(event, instance) {
+    console.log("Create Glyph modal was closed");
+    
+    // Only clear the canvas if we didn't just save a glyph
+    const wasSaved = Session.get('glyphSaved');
+    if (!wasSaved) {
+      console.log("Clearing canvas because modal was canceled");
+      // Clear the main glyph canvas
+      const glyphCanvas = document.getElementById('glyphCanvas');
+      if (glyphCanvas) {
+        const context = glyphCanvas.getContext('2d');
+        context.clearRect(0, 0, glyphCanvas.width, glyphCanvas.height);
+      }
+      
+      // Clear the drawing canvas as well if it exists
+      const glyphImageDraw = document.getElementById('glyphImageDraw');
+      if (glyphImageDraw) {
+        const context = glyphImageDraw.getContext('2d');
+        context.clearRect(0, 0, glyphImageDraw.width, glyphImageDraw.height);
+      }
+    }
+    
+    // Reset the saved flag for next time
+    Session.set('glyphSaved', false);
   },
   'click #createLine'(event, instance) {
     event.preventDefault();
