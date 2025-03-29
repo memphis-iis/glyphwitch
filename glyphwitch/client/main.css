@@ -201,3 +201,129 @@ html, body {
   box-sizing: border-box;
   max-width: 100%;
 }
+
+/* Ensure tooltips stay within viewport - enhanced positioning */
+#HelpBox, #ToolOptions, #DiscussionBox {
+  max-width: 90vw !important;
+  width: auto !important;
+  position: fixed !important;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+  overflow-y: auto;
+  max-height: 80vh;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  z-index: 1500 !important;
+  
+  /* Default position - will be adjusted by JavaScript */
+  right: 20px;
+}
+
+/* Make the inner containers responsive */
+#HelpBox .container-fluid,
+#ToolOptions .container-fluid,
+#DiscussionBox .container-fluid,
+.subTool-container {
+  max-width: 450px;
+  width: auto !important;
+  padding: 10px;
+  overflow: auto;
+}
+
+/* Responsive positioning based on screen size */
+@media (max-width: 1200px) {
+  #HelpBox, #ToolOptions, #DiscussionBox {
+    max-width: 70vw !important;
+  }
+}
+
+@media (max-width: 992px) {
+  #HelpBox, #ToolOptions, #DiscussionBox {
+    max-width: 80vw !important;
+    right: 15px;
+  }
+  
+  #HelpBox .container-fluid,
+  #ToolOptions .container-fluid,
+  #DiscussionBox .container-fluid,
+  .subTool-container {
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  #HelpBox, #ToolOptions, #DiscussionBox {
+    max-width: 85vw !important;
+    right: 10px;
+  }
+  
+  #HelpBox .container-fluid,
+  #ToolOptions .container-fluid,
+  #DiscussionBox .container-fluid,
+  .subTool-container {
+    max-width: 300px;
+  }
+}
+
+@media (max-width: 576px) {
+  #HelpBox, #ToolOptions, #DiscussionBox {
+    max-width: 92vw !important;
+    right: 4%;
+    left: 4%;
+  }
+}
+
+/* Specific positioning overrides for each tooltip type */
+#HelpBox {
+  margin-top: 140px;
+}
+
+#ToolOptions {
+  margin-top: 120px;
+}
+
+#DiscussionBox {
+  margin-top: 160px;
+}
+
+/* Ensure tooltips stay within viewport */
+#HelpBox, #ToolOptions, #DiscussionBox {
+  max-width: 90vw !important;
+  width: auto !important;
+  right: 20px;  /* Use right instead of margin-right for better positioning */
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Make the inner containers responsive */
+#HelpBox .container-fluid,
+#ToolOptions .container-fluid,
+#DiscussionBox .container-fluid,
+.subTool-container {
+  max-width: 450px;
+  width: auto !important;
+  padding: 10px;
+}
+
+/* Make sure other tooltips follow the same pattern */
+#ToolOptions, #DiscussionBox {
+  margin-top: 120px;
+  position: fixed !important;
+  z-index: 1500 !important;
+}
+
+/* For small screens, adjust positioning */
+@media (max-width: 768px) {
+  #HelpBox, #ToolOptions, #DiscussionBox {
+    right: 10px;
+    max-width: 80vw !important;
+  }
+  
+  #HelpBox .container-fluid,
+  #ToolOptions .container-fluid,
+  #DiscussionBox .container-fluid,
+  .subTool-container {
+    max-width: 300px;
+  }
+}

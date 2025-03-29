@@ -523,28 +523,22 @@
         </div>
       </div>
       {{#if toolOptions}}
-      <div id="ToolOptions" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" style="margin-top: 120px; margin-right:20px; pointer-events: fill">
-        
-          {{> Template.dynamic template=toolOptions data=toolOptionsData}}
-        
-
+      <div id="ToolOptions" class="position-fixed bg-light border p-2 rounded tooltip-container">
+        {{> Template.dynamic template=toolOptions data=toolOptionsData}}
       </div>
       {{/if}}
       {{#if currentHelp}}
-        <div id="HelpBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border border-success p-2 rounded-end" style="margin-top: 140px; margin-right:20px; pointer-events: fill">
-          <div class="container" style="width:500px;">
+        <div id="HelpBox" class="position-fixed bg-light border border-success p-2 rounded tooltip-container">
+          <div class="container-fluid p-2">
             <h4>{{currentToolHumanReadable}}</h4>
-            
-            <!-- two buttons, select line and create word and and exit tool button -->
             <small>{{currentHelp}}</small>
             <br>
           </div>
         </div>
       {{/if}}
-
       {{#if currentDiscussion}}
-      <div id="DiscussionBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border border-success p-2 rounded-end" style="margin-top: 140px; margin-right:20px; pointer-events: fill">
-        <div class="container" style="width:500px;">
+      <div id="DiscussionBox" class="position-fixed bg-light border border-success p-2 rounded tooltip-container">
+        <div class="container-fluid p-2">
           <h4>Discussions</h4>
           <div class="container">
             <div class="row">
@@ -821,7 +815,7 @@
 <!-- template for displaying glyph information -->
 
 <template name="subTool">
-  <div class="container" style="width:500px;">
+  <div class="subTool-container">
     <h4>Create Word</h4>
     <!-- two buttons, select line and create word and and exit tool button -->
     <small><b>1. First select the line to add the word to by clicking on the line that contains the word. </b>  

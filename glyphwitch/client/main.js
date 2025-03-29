@@ -458,6 +458,32 @@ Template.viewPage.onRendered(function() {
   // Initialize with view tool active
   instance.currentTool.set('view');
   resetToolbox();
+  
+  // Add tooltip position adjustment whenever window is resized
+  $(window).on('resize', adjustTooltipPosition);
+  
+  // Initial adjustment after render
+  setTimeout(adjustTooltipPosition, 100);
+  
+  // Set up a mutation observer to detect when tooltips are added or changed
+  const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      if (mutation.addedNodes.length > 0 || mutation.type === 'attributes') {
+        if ($(mutation.target).is('#HelpBox, #ToolOptions, #DiscussionBox') || 
+            $(mutation.target).find('#HelpBox, #ToolOptions, #DiscussionBox').length) {
+          adjustTooltipPosition();
+        }
+      }
+    });
+  });
+  
+  // Start observing the document body for tooltip changes
+  observer.observe(document.body, { 
+    childList: true, 
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class']
+  });
 });
 
 
@@ -2753,6 +2779,9 @@ function isContainedBy(point, x1, y1, x2, y2) {
 function setCurrentHelp(help) {
   const instance = Template.instance();
   instance.currentHelp.set(help);
+  
+  // Adjust tooltip position after help is displayed
+  setTimeout(adjustTooltipPosition, 50);
 }
 
 // Create a shared function that both handlers can use
@@ -3094,4 +3123,43 @@ function drawRect(canvas, x, y, width, height, type, index, subIndex) {
   
   ctx.fillRect(x, y, width, height);
   ctx.strokeRect(x, y, width, height);
+}
+
+// Function to ensure tooltips stay within the viewport
+function adjustTooltipPosition() {
+  // Get all tooltip containers
+  const tooltips = $('#HelpBox, #ToolOptions, #DiscussionBox');
+  
+  tooltips.each(function() {
+    const tooltip = $(this);
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const tooltipWidth = tooltip.outerWidth();
+    const tooltipHeight = tooltip.outerHeight();
+    
+    // Check if tooltip extends beyond the right edge of the viewport
+    const rightEdge = viewportWidth - 20; // 20px margin
+    if (tooltip.offset().left + tooltipWidth > rightEdge) {
+      // If tooltip is too wide for right positioning, adjust it
+      if (tooltipWidth > viewportWidth * 0.9) {
+        // If tooltip is very wide, center it with max-width
+        tooltip.css({
+          'right': 'auto',
+          'left': '5%',
+          'max-width': '90vw'
+        });
+      } else {
+        // Otherwise, position it from the right with a margin
+        tooltip.css('right', '20px');
+      }
+    }
+    
+    // Check if tooltip extends beyond the bottom of the viewport
+    const bottomEdge = viewportHeight - 20; // 20px margin
+    if (tooltip.offset().top + tooltipHeight > bottomEdge) {
+      // If tooltip is too tall for its current position, adjust its max-height
+      const newMaxHeight = viewportHeight - tooltip.offset().top - 40; // 40px for margin
+      tooltip.css('max-height', newMaxHeight + 'px');
+    }
+  });
 }
