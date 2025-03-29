@@ -433,7 +433,7 @@ Template.viewPage.onRendered(function() {
     $('#openModal').modal('show');
   } else {
     $('#openModal').modal('hide');
-    currentPage = Te  
+    currentPage = Template.instance().currentPage.get();  
     currentDocument = Template.instance().currentDocument.get();
     console.log("currentDocument is " + currentDocument);
     console.log("currentPage is " + currentPage);
@@ -442,6 +442,22 @@ Template.viewPage.onRendered(function() {
     instance.currentPage.set(currentPage);
   }
   
+  // Ensure toolbox is visible after render
+  console.log("Making toolbox visible");
+  $('.toolbox-container').css({
+    'display': 'flex',
+    'z-index': 2000,
+    'visibility': 'visible',
+    'opacity': 1
+  });
+  $('#ToolBox').css({
+    'display': 'flex',
+    'opacity': 1
+  });
+  
+  // Initialize with view tool active
+  instance.currentTool.set('view');
+  resetToolbox();
 });
 
 
@@ -580,6 +596,16 @@ function resetToolbox() {
       });
     }
   }
+  
+  // Make sure the toolbox container itself is visible
+  $('.toolbox-container').css({
+    'display': 'flex',
+    'visibility': 'visible',
+    'opacity': 1
+  });
+  
+  // Ensure at least one button is visible - viewTool should always be there
+  $('#viewTool').show();
 }
 
 //fucntion to generate document flow using gojs
@@ -648,6 +674,14 @@ function hideAllToolButtons() {
   //hide all buttons in the toolbox-container, even if in a div
   console.log("DEBUG: hideAllToolButtons - hiding all buttons");
   $('.toolbox-container button').hide();
+  
+  // Make sure the container itself stays visible even when buttons are hidden
+  $('.toolbox-container').css({
+    'display': 'flex',
+    'visibility': 'visible',
+    'opacity': 1
+  });
+  
   console.log("DEBUG: hideAllToolButtons - button visibility after hide:", {
     viewTool: $('#viewTool').is(':visible'),
     selectItem: $('#selectItem').is(':visible'),

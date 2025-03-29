@@ -474,9 +474,9 @@
         </svg>
       </button>
       {{#if currentDocument}}
-      <div class="image-container" style="position: relative; height: 90vh; width: 80vw;">
+      <div class="image-container" style="position: relative; height: 90vh; width: 80vw; overflow-x: hidden;">
         {{#if currentPage.image}}
-          <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; height:100%; object-fit: cover; " id="pageImage">
+          <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; object-fit: cover;" id="pageImage">
         {{else}}
           <div class="alert alert-secondary" role="alert">
             No page selected. Please select a page to view.
@@ -484,11 +484,11 @@
         {{/if}}
       </div>
       {{/if}}
-      <div class="flow-container" style="position: relative; height: 90vh; width: 80vw; display: none;">
+      <div class="flow-container" style="position: relative; height: 90vh; max-width: 100%; display: none;">
         <div class="flow" id="flow"></div>
       </div>
-      <div class="toolbox-container" style="display: flex; flex-direction: column; position: absolute; top: 50px; right: 0; margin-right: 50px; opacity: 1;">
-        <div class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" id="ToolBox">
+      <div class="toolbox-container" style="display: flex !important; flex-direction: column; position: fixed; top: 60px; right: 10px; margin-right: 0; opacity: 1; z-index: 2000; background-color: rgba(248, 249, 250, 0.9); border: 1px solid #ccc; border-radius: 5px; padding: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
+        <div class="d-flex align-items-center justify-content-center" id="ToolBox">
           <button type="button" class="btn btn-dark me-2" title="View" id="viewTool">
             <i class="bi bi-eyeglasses"></i>
           </button>
@@ -643,7 +643,7 @@
   </div>
   <!-- bootstrap modal for creating a word -->
   <div class="modal fade" id="createWordModal" tabindex="-1" aria-labelledby="createWordModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog">odal-lg">
       <div class="modal-content" style="width: 75vw; right: 25vw;">
         <div class="modal-header">
           <h5 class="modal-title" id="createWordModalLabel">Create Word</h5>
@@ -661,7 +661,7 @@
   </div>
     <!-- bootstrap modal for creating a phoneme -->
   <div class="modal fade" id="createPhonemeModal" tabindex="-1" aria-labelledby="createWordModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog">odal-lg">
       <div class="modal-content" style="width: 75vw; right: 25vw;">
         <div class="modal-header">
           <h5 class="modal-title" id="createWordModalLabel">Create Phoneme</h5>
@@ -681,7 +681,7 @@
   </div>
   <!-- bootstrap modal for creating a glyph, includes a canvas to draw on -->
   <div class="modal fade" id="createGlyphModal" tabindex="-1" aria-labelledby="createGlyphModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog">odal-lg">
       <div class="modal-content" style="width: 75vw; right: 25vw;">
         <div class="modal-header">
           <h5 class="modal-title" id="createGlyphModalLabel">Create Glyph</h5>

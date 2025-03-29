@@ -1,6 +1,7 @@
 body {
   padding: 10px;
   font-family: sans-serif;
+  overflow-x: hidden;
 }
 
 .navbar{
@@ -104,4 +105,57 @@ body {
   justify-content: center;
   align-items: center;
   padding: 0;
+}
+
+/* Responsive container styles to prevent horizontal scrolling */
+.container-fluid {
+  width: 100%;
+  padding-right: 15px;
+  padding-left: 15px;
+  margin-right: auto;
+  margin-left: auto;
+  overflow-x: hidden;
+}
+
+/* Ensure modals stay within viewport */
+.modal-dialog {
+  max-width: 95%;
+  margin: 1.75rem auto;
+}
+
+/* Ensure image containers don't overflow */
+.image-container img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Ensure toolbox stays visible */
+.toolbox-container {
+  z-index: 2000 !important;
+  max-width: 100%;
+  display: flex !important;
+  position: fixed !important;
+  background-color: rgba(248, 249, 250, 0.95) !important;
+  border: 1px solid #ccc !important;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+}
+
+.toolbox-container button {
+  margin: 2px;
+}
+
+/* Fix for ToolBox inner container */
+#ToolBox {
+  display: flex !important;
+  opacity: 1 !important;
+}
+
+/* Make sure elements don't extend beyond their containers */
+* {
+  box-sizing: border-box;
+  max-width: 100%;
 }
