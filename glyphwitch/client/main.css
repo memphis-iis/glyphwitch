@@ -1,7 +1,11 @@
 body {
+  display: flex;
+  flex-direction: column;
   padding: 10px;
+  padding-bottom: 50px; /* Add space for the fixed bottom bar */
   font-family: sans-serif;
   overflow-x: hidden;
+  min-height: 100%;
 }
 
 .navbar{
@@ -115,6 +119,44 @@ body {
   margin-right: auto;
   margin-left: auto;
   overflow-x: hidden;
+  min-height: 0; /* Prevent min-height inheritance */
+}
+
+/* Ensure the main content area doesn't extend too far */
+.col.position-relative.border {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Improve sidebar scrolling */
+#sidebar {
+  overflow-y: auto;
+  max-height: 85vh;
+}
+
+/* Ensure the fixed bottom element doesn't create extra space */
+.fixed-bottom {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  z-index: 1030;
+}
+
+/* Ensure the page doesn't scroll unnecessarily */
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+/* Ensure wrapper for content fills available space but doesn't overflow */
+.container-fluid.d-flex.flex-nowrap {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Make sure modals don't affect page layout */
+.modal {
+  height: auto !important;
 }
 
 /* Ensure modals stay within viewport */
