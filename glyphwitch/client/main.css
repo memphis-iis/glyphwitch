@@ -327,3 +327,17 @@ html, body {
     max-width: 300px;
   }
 }
+
+/* New code */
+.line-view-image {
+  /* Resize to fit viewport instead of scrolling */
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+}
+
+/* Remove horizontal scrolling settings */
+.image-container {
+  overflow-x: hidden;
+  white-space: normal;
+}

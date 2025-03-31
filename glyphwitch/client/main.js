@@ -737,6 +737,29 @@ function setImage(type, id) {
     //get the currentDocument
     //get the line from the currentDocument
     line = doc.pages[currentPage].lines[id];
+    console.log("DEBUG: Checking line boundaries before drawing. Original coords:", {
+      x1: line.x1, y1: line.y1, width: line.width, height: line.height,
+      imageWidth: image.width, imageHeight: image.height
+    });
+    if (line.x1 < 0) {
+      console.log("DEBUG: x1 is negative, resetting to 0.");
+      line.x1 = 0;
+    }
+    if (line.y1 < 0) {
+      console.log("DEBUG: y1 is negative, resetting to 0.");
+      line.y1 = 0;
+    }
+    if (line.x1 + line.width > image.width) {
+      console.log("DEBUG: line exceeds image width, adjusting line.width");
+      line.width = image.width - line.x1;
+    }
+    if (line.y1 + line.height > image.height) {
+      console.log("DEBUG: line exceeds image height, adjusting line.height");
+      line.height = image.height - line.y1;
+    }
+    console.log("DEBUG: Final coords after boundary check:", {
+      x1: line.x1, y1: line.y1, width: line.width, height: line.height
+    });
     canvas = document.createElement('canvas');
     //set the canvas width and height to the line width and height
     canvas.width = line.width;
@@ -754,12 +777,16 @@ function setImage(type, id) {
     clone.attr('src', dataURL);
     //remove all classes from the clone
     clone.removeClass();
-    //add img-responsive class to the clone
-    clone.addClass('img-fluid');
+    // Use a specialized class that won't limit width
+    clone.addClass('line-view-image');
     //remove all styles from the clone
     clone.removeAttr('style');
     //append the clone to the parent of the pageImage
     pageImage.parent().append(clone);
+    // Ensure horizontal scrolling is allowed
+    // pageImage.parent().css({
+    //   'overflow-x': 'auto'
+    // });
     //show the clone
     clone.show();
     //hide the pageImage
