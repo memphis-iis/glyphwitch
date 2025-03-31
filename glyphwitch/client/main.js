@@ -1561,13 +1561,20 @@ Template.viewPage.events({
   
   'click .open-tab'(event, instance) {
     event.preventDefault();
-    //get the clicked tab data-tab-id
-    tabId = event.target.getAttribute('data-tab-id');
-    //set the aria of the parent to true
-    $(event.target).attr('aria-selected', 'true');
-    //set the class of the parent to active
-    $(event.target).addClass('active');
-    if(tabId == 'flow') {
+    const tabId = event.target.getAttribute('data-tab-id');
+    $(event.target).attr('aria-selected', 'true').addClass('active');
+
+    // Close child tabs when a parent tab is clicked
+    const clickedTabElement = $(event.target).closest('li');
+    const clickedTabId = clickedTabElement.attr('id');
+    if (clickedTabId) {
+      $('#view-tab-template').parent().children(`[data-parent="${clickedTabId}"]`).each(function() {
+        $(this).find('.close-tab').click();
+      });
+    }
+
+    // Handle tab-specific logic
+    if (tabId === 'flow') {
       //hide the image-container
       $('#image-container').hide();
       instance.currentView.set('flow');
@@ -1624,72 +1631,33 @@ Template.viewPage.events({
   },
   'click .close-tab' (event, instance) {
     event.preventDefault();
-    //get the grandparent of the event target
-    grandparent = event.target.parentElement.parentElement;
-    //get the data-parent of the grandparent
-    tabparent = grandparent.getAttribute('data-parent');
-    //get the data-type of the grandparent
-    type = grandparent.getAttribute('data-type');
+    const grandparent = event.target.parentElement.parentElement;
+    const type = grandparent.getAttribute('data-type');
+    const closedTabId = grandparent.getAttribute('id');
 
+    // Close child tabs
+    if (closedTabId) {
+      $('#view-tab-template').parent().children(`[data-parent="${closedTabId}"]`).each(function() {
+        $(this).find('.close-tab').click();
+      });
+    }
 
-    if (type == 'line') {
+    // Handle type-specific cleanup
+    if (type === 'line') {
       instance.currentLine.set(false);
-      // Remove ALL instances of lineImage, not just one
       $('img#lineImage').remove();
-    }
-    if (type == 'word') {
+    } else if (type === 'word') {
       instance.currentWord.set(false);
-      // Remove ALL instances of wordImage, not just one
       $('img#wordImage').remove();
-    }
-    if (type == 'phoneme') {
-      instance.currentPhoneme.set(false);
-      // Remove ALL instances of phonemeImage, not just one
-      $('img#phonemeImage').remove();
-    }
-    if (type == 'glyph') {
+    } else if (type === 'glyph') {
       instance.currentGlyph.set(false);
-      // Remove ALL instances of glyphImage, not just one
       $('img#glyphImage').remove();
-    }
-    if (type == 'element') {
-      // Clear the currentElement if it exists
-      if (instance.currentElement) {
-        instance.currentElement.set(false);
-      }
-      // Remove ALL instances of elementImage
+    } else if (type === 'element') {
+      if (instance.currentElement) instance.currentElement.set(false);
       $('img#elementImage').remove();
     }
 
-    
-    // Remove all selection boxes and overlay buttons
-    $('.selectElement').remove();
-    $('.showReferences').remove();
-    
-    // Also clean up any cropper instances that might be active
-    const cropper = instance.cropper.get();
-    if (cropper) {
-      cropper.destroy();
-      instance.cropper.set(false);
-    }
-    
-    // Clean up any lingering canvas elements for selection/cropping
-    $('.cropper-container').remove();
-    
-    //if the tab exists, make it active
-    if (tabparent != 'simple') {
-      //set the currentView to the tabparent's type
-      instance.currentView.set(tabparent.split('-')[3]);
-      console.log("currentView is " + instance.currentView.get());
-      //simulate a click on the tabparent's button
-      $('#' + tabparent + ' button').click();
-    } else {
-      //set the currentView to simple
-      instance.currentView.set('simple');
-      //simulate a click on the simple tab
-      $('#simple-tab').click();
-    }
-    //remove the grandparent
+    // Remove the tab and reset the toolbox
     grandparent.remove();
     resetToolbox();
   },
@@ -2748,6 +2716,13 @@ function handleElementSelection(type, id, instance) {
   //simulate clicking the exitTool button
   $('#exitTool').click();
   
+  // Close other tabs at the same level
+  $('#view-tab-template').parent().children(`[data-type="${type}"]`).each(function() {
+    if ($(this).attr('data-id') !== id) {
+      $(this).find('.close-tab').click();
+    }
+  });
+
   //copy view-tab-template to it's parent
   viewTemplate = $('#view-tab-template');
   clone = viewTemplate.clone(); 
