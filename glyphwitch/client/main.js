@@ -1657,10 +1657,26 @@ Template.viewPage.events({
       $('img#elementImage').remove();
     }
 
-    // Remove the tab and reset the toolbox
+    // Remove the tab
     grandparent.remove();
+    
+    // Check if there are any remaining tabs (other than the template tab)
+    const remainingTabs = $('#view-tab-template').parent().children().not('#view-tab-template');
+    if (remainingTabs.length <= 1) { // Just the Simple View tab remains
+      // Switch to Simple View
+      instance.currentView.set('simple');
+      $('#simple-tab').addClass('active').attr('aria-selected', 'true');
+      
+      // Show page image
+      $('#pageImage').show();
+      
+      // Hide any other view-specific images that might be lingering
+      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+    }
+    
     resetToolbox();
   },
+  
   'click #searchGlyphs'(event, instance) {
     event.preventDefault();
     resetToolbox();
