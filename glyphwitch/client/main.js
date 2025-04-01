@@ -1571,60 +1571,91 @@ Template.viewPage.events({
       });
     }
 
+    // First ensure image-container is visible for all tab types except flow
+    if(tabId !== 'flow') {
+      $('#image-container').show();
+    }
+
     // Handle tab-specific logic
     if (tabId === 'flow') {
-      //hide the image-container
+      // hide the image-container
       $('#image-container').hide();
       instance.currentView.set('flow');
       instance.currentTool.set('view');
       resetToolbox();
-      //hide the image-container class
+      // hide the image-container class
       $('.image-container').hide();
-      //show the flow-container by removing display none
+      // show the flow-container by removing display none
       $('.flow-container').show();
-      //generate the drawflow
+      // generate the drawflow
       generateFlow();
-    } else {
-      //show the image-container
-      $('#image-container').hide();
-    }
-    if(tabId == 'line') {
+    } else if(tabId == 'line') {
+      // Hide all images first
+      $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+      
       instance.currentView.set('line');
       instance.currentTool.set('view');
       resetToolbox();
-      //get the currentLine
+      // get the currentLine
       currentLine = instance.currentLine.get();
       setImage('line', currentLine);
-    }
-    if(tabId == 'word') {
+      
+      // Ensure line image is visible
+      $('#lineImage').show();
+    } else if(tabId == 'word') {
+      // Hide all images first
+      $('#pageImage, img#lineImage, img#glyphImage, img#elementImage').hide();
+      
       instance.currentView.set('word');
       instance.currentTool.set('view');
       resetToolbox();
-      //get the currentLine
+      // get the currentLine
       currentLine = instance.currentLine.get();
-      //get the currentWord
+      // get the currentWord
       currentWord = instance.currentWord.get();
       setImage('word', currentWord);
-    }
-    if(tabId == 'glyph') {
+      
+      // Ensure word image is visible
+      $('#wordImage').show();
+    } else if(tabId == 'glyph') {
+      // Hide all images first
+      $('#pageImage, img#lineImage, img#wordImage, img#elementImage').hide();
+      
       instance.currentView.set('glyph');
       instance.currentTool.set('view');
       resetToolbox();
-      //get the currentLine
+      // get the currentLine
       currentLine = instance.currentLine.get();
-      //get the currentWord);
+      // get the currentWord
       currentWord = instance.currentWord.get();
-      //get the currentGlyph
+      // get the currentGlyph
       currentGlyph = instance.currentGlyph.get();
       setImage('glyph', currentGlyph);
-    }
-    if(tabId == 'simple'){
+      
+      // Ensure glyph image is visible
+      $('#glyphImage').show();
+    } else if(tabId == 'element') {
+      // Hide all images first
+      $('#pageImage, img#lineImage, img#wordImage, img#glyphImage').hide();
+      
+      instance.currentView.set('element');
+      instance.currentTool.set('view');
+      resetToolbox();
+      // get the current element
+      const elementId = instance.currentElement ? instance.currentElement.get() : null;
+      if (elementId !== null) {
+        setElementImage(elementId, instance);
+        
+        // Ensure element image is visible
+        $('#elementImage').show();
+      }
+    } else if(tabId == 'simple'){
+      // Hide all other images first
+      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+      
       instance.currentView.set('simple');
       instance.currentTool.set('view');
       resetToolbox();
-      
-      // First, remove all view-specific images completely
-      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').remove();
       
       // Also remove any canvas elements that might have been created
       $('canvas#lineImage, canvas#wordImage, canvas#glyphImage, canvas#elementImage').remove();
@@ -1680,6 +1711,23 @@ Template.viewPage.events({
       
       // Show page image
       $('#pageImage').show();
+    } else {
+      // Find the active tab and ensure its image is visible
+      const activeTab = $('#view-tab-template').parent().children().find('.active').first();
+      if (activeTab.length > 0) {
+        const activeTabId = activeTab.attr('data-tab-id');
+        if (activeTabId === 'line') {
+          $('img#lineImage').show();
+        } else if (activeTabId === 'word') {
+          $('img#wordImage').show();
+        } else if (activeTabId === 'glyph') {
+          $('img#glyphImage').show();
+        } else if (activeTabId === 'element') {
+          $('img#elementImage').show();
+        } else if (activeTabId === 'simple') {
+          $('#pageImage').show();
+        }
+      }
     }
     
     resetToolbox();
