@@ -910,29 +910,27 @@ function replaceWithOriginalImage() {
   // Show the appropriate image based on current view
   if (currentView === 'simple') {
     $('#pageImage').show();
+    // Hide all other view-specific images
+    $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
   } else if (currentView === 'line') {
     $('#lineImage').show();
+    // Hide other view-specific images
+    $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
   } else if (currentView === 'word') {
     $('#wordImage').show();
+    // Hide other view-specific images
+    $('#pageImage, img#lineImage, img#glyphImage, img#elementImage').hide();
   } else if (currentView === 'glyph') {
     $('#glyphImage').show();
+    // Hide other view-specific images
+    $('#pageImage, img#lineImage, img#wordImage, img#elementImage').hide();
+  } else if (currentView === 'element') {
+    $('#elementImage').show();
+    // Hide other view-specific images
+    $('#pageImage, img#lineImage, img#wordImage, img#glyphImage').hide();
   } else {
     // For any other view, keep the pageImage hidden
     $('#pageImage').hide();
-  }
-  
-  // We need to be more selective here - only remove canvas elements that were created
-  // for the cropper, not the ones used for drawing rectangles
-  if (currentView === 'simple') {
-    // In simple view we can clean up all canvas elements except those with specific classes
-    $('#pageImage').parent().children('canvas:not(.preserve-canvas)').remove();
-  } else {
-    // In other views, we only remove canvas elements that have the same ID as our image
-    // This ensures we don't remove canvas elements used for drawing rectangles
-    const imageId = currentView === 'line' ? 'lineImage' : 
-                    currentView === 'word' ? 'wordImage' : 
-                    currentView === 'glyph' ? 'glyphImage' : 'pageImage';
-    $(`canvas#${imageId}`).remove();
   }
   
   // We need to be more selective here - only remove canvas elements that were created
@@ -1614,7 +1612,7 @@ Template.viewPage.events({
       resetToolbox();
       //get the currentLine
       currentLine = instance.currentLine.get();
-      //get the currentWord
+      //get the currentWord);
       currentWord = instance.currentWord.get();
       //get the currentGlyph
       currentGlyph = instance.currentGlyph.get();
@@ -1624,11 +1622,21 @@ Template.viewPage.events({
       instance.currentView.set('simple');
       instance.currentTool.set('view');
       resetToolbox();
+      
+      // First, remove all view-specific images completely
+      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').remove();
+      
+      // Also remove any canvas elements that might have been created
+      $('canvas#lineImage, canvas#wordImage, canvas#glyphImage, canvas#elementImage').remove();
+      
+      // Show the page image
+      $('#pageImage').show();
+      
+      // Call this to ensure cropper instances are cleaned up
       replaceWithOriginalImage();
     }
-
-
   },
+  
   'click .close-tab' (event, instance) {
     event.preventDefault();
     const grandparent = event.target.parentElement.parentElement;
@@ -1667,11 +1675,11 @@ Template.viewPage.events({
       instance.currentView.set('simple');
       $('#simple-tab').addClass('active').attr('aria-selected', 'true');
       
+      // Remove all view-specific images
+      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').remove();
+      
       // Show page image
       $('#pageImage').show();
-      
-      // Hide any other view-specific images that might be lingering
-      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
     }
     
     resetToolbox();
@@ -1679,11 +1687,11 @@ Template.viewPage.events({
   
   'click #searchGlyphs'(event, instance) {
     event.preventDefault();
+    instance.currentTool.set('searchGlyphs');
     resetToolbox();
     //set the currentTool to btn-dark
     $('#searchGlyphs').removeClass('btn-light').addClass('btn-dark');
     setCurrentHelp(false);
-    instance.currentTool.set('searchGlyphs');
   },
   'click #createReference'(event, instance) {
     event.preventDefault();
@@ -1706,7 +1714,6 @@ Template.viewPage.events({
       resetToolbox();
       replaceWithOriginalImage();
       setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
-      
     } else if(currentTool == 'createWord') {
       //document, page, line, x, width, wordOrder=false, word=false
       ret = Meteor.callAsync('addWordToLine', instance.currentDocument.get(), instance.currentPage.get(), instance.currentLine.get(), instance.selectx1.get(), instance.selectwidth.get());
@@ -1719,14 +1726,12 @@ Template.viewPage.events({
       instance.currentTool.set('view');
       resetToolbox();
       replaceWithOriginalImage();
-      
+      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
       // Ensure we're in line view and the lineImage is visible
       if (instance.currentView.get() === 'line') {
         $('#lineImage').show();
       }
-      
-      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
-    }  else if(currentTool == 'createPhoneme') {
+    } else if(currentTool == 'createPhoneme') {
       //open the modal
       instance.currentTool.set('view');
       resetToolbox();
@@ -1747,9 +1752,6 @@ Template.viewPage.events({
       $('#pageImage').parent().children('button').remove();
       setCurrentHelp(false);
       replaceWithOriginalImage();
-      
-      // Clean up any existing glyphImageDraw elements before opening the modal
-      $('[id="glyphImageDraw"]').remove();
       
       $('#createGlyphModal').modal('show');
       //set glyphcanvas to have the cropped image as its background with 
@@ -1784,13 +1786,13 @@ Template.viewPage.events({
       canvas.height = instance.selectheight.get();
       const context = canvas.getContext('2d');
       
-      // Extract the element image from the glyph
+      // Extract the element image from the glyph 
       context.drawImage(
         glyphImage, 
-        instance.selectx1.get(), 
-        instance.selecty1.get(), 
+        instance.selectx1.get(),
+        instance.selecty1.get(),
         instance.selectwidth.get(), 
-        instance.selectheight.get(), 
+        instance.selectheight.get(),
         0, 0, 
         canvas.width, canvas.height
       );
@@ -1821,7 +1823,6 @@ Template.viewPage.events({
       instance.currentTool.set('view');
       resetToolbox();
       replaceWithOriginalImage();
-      
       // Make sure we stay in glyph view and the glyphImage is visible
       if (instance.currentView.get() === 'glyph') {
         $('#glyphImage').show();
@@ -1831,7 +1832,7 @@ Template.viewPage.events({
       setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the image.");
     }
 
-  },
+  }, 
   //event listners to draw on the glyphImageDraw canvas
   'mousedown #glyphImageDraw'(event, instance) {
     event.preventDefault();
@@ -1910,7 +1911,6 @@ Template.viewPage.events({
   // Event handler for when the Create Glyph modal is hidden (after cancel or close button clicked)
   'hidden.bs.modal #createGlyphModal'(event, instance) {
     console.log("Create Glyph modal was closed");
-    
     // Only clear the canvas if we didn't just save a glyph
     const wasSaved = Session.get('glyphSaved');
     if (!wasSaved) {
@@ -1922,7 +1922,6 @@ Template.viewPage.events({
         context.clearRect(0, 0, glyphCanvas.width, glyphCanvas.height);
       }
     }
-    
     // Always remove the drawing canvas to prevent duplicates
     // Use a more thorough selector to catch all instances
     $('[id="glyphImageDraw"]').remove();
@@ -1973,7 +1972,6 @@ Template.viewPage.events({
       }
     });
     cropper.setCropBoxData({left: 0, top: lines[lines.length - 1].y2, width: image.width, height: 20});
-
   },
   'click #createWord'(event, instance) {
     event.preventDefault();
@@ -2022,7 +2020,6 @@ Template.viewPage.events({
         instance.selectheight.set(cropDetails.height);
       }
     });
-    
     // Store the cropper instance to properly clean it up later
     instance.cropper.set(cropper);
     cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
@@ -2273,8 +2270,6 @@ Template.viewPage.events({
         document.getElementById('pageImage').style.width = parseInt(width) * 0.9 + 'px';
       }
 
-
-      
     }
   },
   //logout and head to the home page
@@ -2320,8 +2315,6 @@ Template.viewPage.events({
             title: title,
             addedBy: Meteor.userId(),
             lines: []
-
-
           };
           doc = Documents.findOne({_id: documentId});
           doc.pages.push(thispage);
@@ -2343,7 +2336,7 @@ Template.viewPage.events({
       upload.start();
     }
   },
-'click .move-up'(event, instance) {
+  'click .move-up'(event, instance) {
     event.preventDefault();
     const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
     const documentId = instance.currentDocument.get();
@@ -2357,7 +2350,6 @@ Template.viewPage.events({
       });
     }
   },
-
   'click .move-down'(event, instance) {
     event.preventDefault();
     const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
@@ -2509,6 +2501,120 @@ Template.viewPage.events({
     
     console.log("DEBUG: createElement - end of handler");
   },
+  
+  //keyboard shift and mouse wheel event
+  'wheel #pageImage'(event, instance) {
+    if(event.shiftKey) {
+
+      console.log(event);
+      //get the current calculated height of the image
+      height = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('height');
+      width = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('width');
+      //if the mouse wheel is scrolled up, increase the height by 10%
+      if (event.originalEvent.deltaY < 0) {
+        document.getElementById('pageImage').style.height = parseInt(height) * 1.1 + 'px';
+        document.getElementById('pageImage').style.width = parseInt(width) * 1.1 + 'px';
+      } else {
+        //if the mouse wheel is scrolled down, decrease the height by 10%
+        document.getElementById('pageImage').style.height = parseInt(height) * 0.9 + 'px';
+        document.getElementById('pageImage').style.width = parseInt(width) * 0.9 + 'px';
+      }
+
+    }
+  },
+  //logout and head to the home page
+  'click #allExit': function(event, instance) {
+      Router.go('/logout');
+  },
+  //click addPage to open the addPageModal
+  'click #addPage': function(event, instance) {
+    event.preventDefault();
+    //if theres a data-id, we set the currentPage to the data-id
+    if(event.target.getAttribute('data-id')) {
+      instance.currentPage.set(event.target.getAttribute('data-id'));
+    }
+    $('#createPageModal').modal('show');
+  },
+  'submit #createPageForm'(event, template) {
+    event.preventDefault();
+    console.log("submitNewPage");
+
+    // Disable the submit button
+    $('#submitNewPage').prop('disabled', true);
+
+    // Get the title and file from the form
+    const title = $('#pageTitle').val();
+    const file = $('#newpageImage').get(0).files[0];
+    const documentId = template.currentDocument.get();
+    const pageIndex = $('#pageIndex').val();
+    console.log("Filename: " + file.name + ". Title: " + title + ".", "DocumentId: " + documentId + ". PageIndex: " + pageIndex + ".");
+
+    if (file) {
+      const upload = Files.insert({
+        file: file,
+        chunkSize: 'dynamic'
+      }, false);
+
+      upload.on('end', function(error, fileObj) {
+        if (error) {
+          console.log(error);
+          alert('Error uploading file');
+        } else {
+          console.log(fileObj);
+          const thispage = {
+            title: title,
+            addedBy: Meteor.userId(),
+            lines: []
+          };
+          doc = Documents.findOne({_id: documentId});
+          doc.pages.push(thispage);
+          //           addPageToDocument: function(document, fileObjId, pageNumber, title){
+          Meteor.call('addPageToDocument', documentId, fileObj._id, pageIndex, title, function(error, result) {
+            if (error) {
+              console.log(error);
+              alert('Error adding page');
+            } else {
+              console.log(result);
+              alert('Page added');
+              // Enable the submit button
+              $('#submitNewPage').prop('disabled', false);
+              $('#createPageModal').modal('hide');
+            }
+          });
+        }
+      });
+      upload.start();
+    }
+  },
+  'click .move-up'(event, instance) {
+    event.preventDefault();
+    const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
+    const documentId = instance.currentDocument.get();
+    if (pageIndex > 0) {
+      Meteor.call('movePage', documentId, pageIndex, pageIndex - 1, (error, result) => {
+        if (error) {
+          console.error('Error moving page up:', error);
+        } else {
+          console.log('Page moved up successfully');
+        }
+      });
+    }
+  },
+  'click .move-down'(event, instance) {
+    event.preventDefault();
+    const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
+    const documentId = instance.currentDocument.get();
+    const totalPages = Documents.findOne({_id: documentId}).pages.length;
+    if (pageIndex < totalPages - 1) {
+        Meteor.call('movePage', documentId, pageIndex, pageIndex + 1, (error, result) => {
+            if (error) {
+                console.error('Error moving page down:', error);
+            } else {
+                console.log('Page moved down successfully');
+            }
+        });
+    }
+  },
   'dblclick #documentName'(event, instance) {
     // Hide the document name and show the input box
     $('#documentName').hide();
@@ -2553,7 +2659,7 @@ Template.viewPage.events({
     context.clearRect(0, 0, 200, 200);
   }
 });
-
+  
 //upload document onCreated function
 Template.uploadDocument.onCreated(function() {
   this.currentUpload = new ReactiveVar(false);
@@ -2623,6 +2729,39 @@ Template.uploadFont.helpers({
   }
 });
 
+//Template events for uploading fonts
+Template.uploadFont.events({
+  'click #submitFont'(event, template) {
+    console.log("submitFont");
+    event.preventDefault();
+    const font = $('#font').get(0).files[0];
+    console.log("Filename: " + font.name);
+    if (font) {
+      const upload = Files.insert({
+        file: font,
+        chunkSize: 'dynamic'
+      }, false);
+
+      upload.on('end', function(error, fileObj) {
+        if (error) {
+          console.log(error);
+          alert('Error uploading file');
+        } else {
+          console.log(fileObj);
+          Meteor.call('addFont', fileObj._id, function(error, result) {
+            if (error) {
+              console.log(error);
+              alert('Error adding font');
+            } else {
+              console.log(result);
+            }
+          });
+        }
+      });
+      upload.start();
+    }
+  }
+});
 
 //Template for new blank document
 Template.newDocument.events({
@@ -2642,7 +2781,6 @@ Template.newDocument.events({
     });
   }
 });
-
 
 //Template events for uploading fonts
 Template.uploadFont.events({
@@ -2699,7 +2837,6 @@ function isContainedBy(point, x1, y1, x2, y2) {
   return point.x > x1 && point.x < x2 && point.y > y1 && point.y < y2;
 }
 
-
 function setCurrentHelp(help) {
   const instance = Template.instance();
   instance.currentHelp.set(help);
@@ -2708,8 +2845,66 @@ function setCurrentHelp(help) {
 // Create a shared function that both handlers can use
 function handleElementSelection(type, id, instance) {
   console.log("Processing element selection, type is " + type + " and id is " + id);
+
+  // Check if a tab with the same type and id already exists
+  const existingTab = $(`#view-tab-template`).parent().children(`[data-type="${type}"][data-id="${id}"]`);
+  if (existingTab.length > 0) {
+    console.log(`Tab for ${type} ${id} already exists. Redirecting to the existing tab.`);
+    
+    // Clean up any overlay elements that might be active
+    $('.selectElement').remove();
+    $('.showReferences').remove();
+    
+    // Clean up any cropper instances
+    const cropper = instance.cropper.get();
+    if (cropper) {
+      cropper.destroy();
+      instance.cropper.set(false);
+    }
+    
+    // Clean up any canvas elements that might be lingering
+    $('canvas#pageImage, canvas#lineImage, canvas#wordImage, canvas#glyphImage').each(function() {
+      // Only remove canvas duplicates, not the original images
+      if ($(this).siblings('img#' + this.id).length) {
+        $(this).remove();
+      }
+    });
+    // Make sure the exit tool is triggered to clean up any active tools
+    if ($('#exitTool').is(':visible')) {
+      $('#exitTool').click();
+    }
+    
+    // Activate the existing tab
+    existingTab.children().addClass('active').attr('aria-selected', 'true');
+    
+    // Deactivate other tabs
+    existingTab.siblings().children().removeClass('active').attr('aria-selected', 'false');
+    
+    // Set the current view to match the tab type
+    instance.currentView.set(type);
+    
+    // Reset toolbox to show appropriate tools for this view
+    instance.currentTool.set('view');
+    resetToolbox();
+    
+    // Make sure the appropriate image is shown based on the tab type
+    if (type === 'element') {
+      setElementImage(id, instance);
+    } else {
+      setImage(type, id);
+    }
+    
+    // Ensure no selection buttons remain
+    setTimeout(() => {
+      $('.selectElement').remove();
+      $('.showReferences').remove();
+      console.log(`Selection cleanup complete for existing tab ${type} ${id}`);
+    }, 100);
+    
+    return; // Exit early to prevent creating a duplicate tab
+  }
   
-  // Clean up all overlay buttons before proceeding
+  // Clean up all overlay buttons before proceeding 
   // This ensures previous selection elements don't remain on screen
   $('.selectElement').remove();
   $('.showReferences').remove();
@@ -2728,7 +2923,6 @@ function handleElementSelection(type, id, instance) {
       $(this).remove();
     }
   });
-  
   //simulate clicking the exitTool button
   $('#exitTool').click();
   
@@ -2738,8 +2932,8 @@ function handleElementSelection(type, id, instance) {
       $(this).find('.close-tab').click();
     }
   });
-
-  //copy view-tab-template to it's parent
+  
+  //copy view-tab-template to it's parent 
   viewTemplate = $('#view-tab-template');
   clone = viewTemplate.clone(); 
   //append the clone to the parent
@@ -2774,7 +2968,7 @@ function handleElementSelection(type, id, instance) {
   //set the data-parent of the clone to the parent's expected tab id
   clone.attr('data-parent', parenttab);
   clone.attr('id', 'view-tab-element-' + type + '-' + id);
-
+  
   //get the amount of tabs open
   tabs = $('#view-tab-template').parent().children().length;
   //set the clone's data tab index to the number of tabs open
@@ -2816,7 +3010,7 @@ function handleElementSelection(type, id, instance) {
 function setElementImage(id, instance) {
   // Delete any images with img-fluid class
   $('#pageImage').parent().children('img.img-fluid').remove();
-
+  
   // Get document and element data
   const currentDocument = instance.currentDocument.get();
   const currentPage = instance.currentPage.get();
@@ -2881,7 +3075,7 @@ function setElementImage(id, instance) {
   console.log(`Element image set for element ${id}`);
 }
 
-//function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index.
+//function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index. 
 // We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
 function drawButton(image, x, y, width, height, type, text, id) {
   //round the x, y, width, and height to the nearest integer
@@ -2913,9 +3107,8 @@ function drawButton(image, x, y, width, height, type, text, id) {
 
   //calculate the scale factor
   const xScaling = canvasOffset.width / context.canvas.width;
-  
+
   let defaultClass = 'selectElement';
-  
   //draw the button at the x, y, width, and height 
   button.style.position = 'absolute';
   button.style.left = (x * xScaling) + 'px';
@@ -2937,7 +3130,7 @@ function drawButton(image, x, y, width, height, type, text, id) {
   } else {
     label.style.width = '10%';
   }
-  
+
   label.style.height = '15px';
   label.style.fontSize = '10px';
 
@@ -2948,14 +3141,12 @@ function drawButton(image, x, y, width, height, type, text, id) {
     label.style.backgroundColor = 'green';
     label.style.color = 'white';
   }
-
   if (type == 'word') {
     button.style.backgroundColor = 'rgba(0, 0, 255, 0.2)';
     button.style.border = '1px solid blue';
     label.style.backgroundColor = 'blue';
     label.style.color = 'white';
   }
-
   if (type == 'phoneme') {
     button.style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
     button.style.border = '1px solid red';
