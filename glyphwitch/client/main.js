@@ -2778,7 +2778,7 @@ function handleElementSelection(type, id, instance) {
   //get the amount of tabs open
   tabs = $('#view-tab-template').parent().children().length;
   //set the clone's data tab index to the number of tabs open
-  clone.attr('data-tab-index', tabs + 1); // Increment tab index by 1
+  clone.attr('data-tab-index', tabs);
   $(clone).children().attr('data-tab-id', type);
   //show the clone
   clone.show();
