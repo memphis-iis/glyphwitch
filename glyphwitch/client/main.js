@@ -3031,8 +3031,9 @@ function handleElementSelection(type, id, instance) {
   //change the clone's button aria-selected to true
   clone.children().attr('aria-selected', 'true');
   clone.children().addClass('active');
-  //prepend <type> uppercase and id to the clone's button text
-  clone.children().prepend(type.charAt(0).toUpperCase() + type.slice(1) + ' ' + id + ' ');
+  //prepend <type> uppercase and id to the clone's button text, incremented by 1 for user-friendly display
+  const displayId = parseInt(id) + 1; // Increment by 1 for display
+  clone.children().prepend(type.charAt(0).toUpperCase() + type.slice(1) + ' ' + displayId + ' ');
   //set the current view to the type
   instance.currentView.set(type);
   resetToolbox();
