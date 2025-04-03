@@ -121,4 +121,122 @@ Meteor.methods({
       elementId: glyphsArr[numGlyph].elements.length - 1
     };
   },
+
+  /**
+   * Store all freeflow (canvas) data at the line level
+   */
+  setFreeflowObject(docId, pageIndex, lineIndex, freeflowData) {
+    check(docId, String);
+    check(pageIndex, Match.OneOf(String, Number));
+    check(lineIndex, Match.OneOf(String, Number));
+
+    const numPage = parseInt(pageIndex);
+    const numLine = parseInt(lineIndex);
+    if (isNaN(numPage) || isNaN(numLine)) {
+      throw new Meteor.Error('invalid-params','Page/Line must be valid numbers');
+    }
+
+    // Example structure: { strokes: [...], polygons: [...], wordBoundaries: [...], glyphBoundaries: [...] }
+    Documents.update(
+      { _id: docId },
+      { $set: {
+          [`pages.${numPage}.lines.${numLine}.freeflow_object`]: freeflowData
+        }
+      }
+    );
+  },
+
+  /**
+   * Convert canvas image data to a server-storable format (e.g. Buffer)
+   */
+  convertCanvasImageData(dataUrl) {
+    check(dataUrl, String);
+    // Minimal example: returning dataUrl directly
+    const result = { success: true, processedData: dataUrl };
+    return result;
+  },
+
+  /**
+   * Process freeflow drawings to extract word boundaries
+   */
+  processDrawingsToExtractWordBoundaries(docId, pageIndex, lineIndex) {
+    check(docId, String);
+    check(pageIndex, Match.OneOf(String, Number));
+    check(lineIndex, Match.OneOf(String, Number));
+    const np = parseInt(pageIndex);
+    const nl = parseInt(lineIndex);
+    if (isNaN(np) || isNaN(nl)) {
+      throw new Meteor.Error('invalid-params','Page/Line must be valid numbers');
+    }
+    const doc = Documents.findOne({_id: docId});
+    if (!doc) {
+      throw new Meteor.Error('not-found','Document not found');
+    }
+    const freeflow = doc.pages[np].lines[nl].freeflow_object || {};
+    // Example logic: Detect word boundaries from strokes
+    freeflow.wordBoundaries = [
+      { startX: 10, endX: 50 },
+      { startX: 60, endX: 100 }
+    ];
+    Documents.update(
+      { _id: docId },
+      { $set: { [`pages.${np}.lines.${nl}.freeflow_object.wordBoundaries`]: freeflow.wordBoundaries } }
+    );
+    return { success: true, message: 'Word boundaries extracted' };
+  },
+
+  /**
+   * Extract glyph boundaries from polygon data
+   */
+  extractGlyphBoundariesFromPolygons(docId, pageIndex, lineIndex) {
+    check(docId, String);
+    check(pageIndex, Match.OneOf(String, Number));
+    check(lineIndex, Match.OneOf(String, Number));
+    const np = parseInt(pageIndex);
+    const nl = parseInt(lineIndex);
+    if (isNaN(np) || isNaN(nl)) {
+      throw new Meteor.Error('invalid-params','Page/Line must be valid numbers');
+    }
+    const doc = Documents.findOne({_id: docId});
+    if (!doc) {
+      throw new Meteor.Error('not-found','Document not found');
+    }
+    const freeflow = doc.pages[np].lines[nl].freeflow_object || {};
+    // Example logic: Locate polygons & compute bounding boxes
+    freeflow.glyphBoundaries = [
+      { x: 10, y: 20, width: 40, height: 50 },
+      { x: 60, y: 70, width: 30, height: 35 }
+    ];
+    Documents.update(
+      { _id: docId },
+      { $set: { [`pages.${np}.lines.${nl}.freeflow_object.glyphBoundaries`]: freeflow.glyphBoundaries } }
+    );
+    return { success: true, message: 'Glyph boundaries extracted' };
+  },
+
+  /**
+   * Associate traced glyphs with their boundaries
+   */
+  associateTracedGlyphsWithBoundaries(docId, pageIndex, lineIndex) {
+    check(docId, String);
+    check(pageIndex, Match.OneOf(String, Number));
+    check(lineIndex, Match.OneOf(String, Number));
+    const np = parseInt(pageIndex);
+    const nl = parseInt(lineIndex);
+    const doc = Documents.findOne({_id: docId});
+    if (!doc) {
+      throw new Meteor.Error('not-found','Document not found');
+    }
+    const freeflow = doc.pages[np].lines[nl].freeflow_object || {};
+    // Example logic: Match user-traced glyph data with glyphBoundaries
+    // Suppose we add traceIds to each boundary
+    (freeflow.glyphBoundaries || []).forEach((boundary, index) => {
+      boundary.traceId = `trace-${index}`;
+    });
+    Documents.update(
+      { _id: docId },
+      { $set: { [`pages.${np}.lines.${nl}.freeflow_object.glyphBoundaries`]: freeflow.glyphBoundaries } }
+    );
+    return { success: true, message: 'Traced glyphs associated' };
+  },
 });

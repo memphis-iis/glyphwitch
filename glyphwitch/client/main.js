@@ -239,6 +239,30 @@ Template.searchGlyphs.events({
         instance.glyphs.set(result);
       }
     });
+  },
+  'click #saveFreeflowData'(event, instance) {
+    const canvas = document.getElementById('searchCanvas');
+    const dataUrl = canvas.toDataURL('image/png');
+    Meteor.call('convertCanvasImageData', dataUrl, (err, res) => {
+      if (!err && res.success) {
+        const freeflowData = {
+          strokes: [{ timestamp: Date.now(), data: res.processedData }],
+          polygons: [],
+          wordBoundaries: [],
+          glyphBoundaries: []
+        };
+        Meteor.call('setFreeflowObject', 'someDocId', 0, 0, freeflowData);
+      }
+    });
+  },
+  'click #extractWords'(event, instance) {
+    Meteor.call('processDrawingsToExtractWordBoundaries', 'someDocId', 0, 0);
+  },
+  'click #extractGlyphs'(event, instance) {
+    Meteor.call('extractGlyphBoundariesFromPolygons', 'someDocId', 0, 0);
+  },
+  'click #associateGlyphs'(event, instance) {
+    Meteor.call('associateTracedGlyphsWithBoundaries', 'someDocId', 0, 0);
   }
 });
 
