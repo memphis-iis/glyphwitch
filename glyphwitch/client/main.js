@@ -2904,3 +2904,58 @@ Template.body.events({
     }
   },
 });
+
+// Add reactive variables to manage current tool, layer, and drawing mode
+Template.drawingState = {
+  tool: new ReactiveVar(null),
+  layer: new ReactiveVar(null),
+  mode: new ReactiveVar('none') // e.g. 'verticalLine', 'polygon', or 'tracing'
+};
+
+// Example helper function for vertical line drawing (Layer 1: words)
+function drawVerticalLines(canvas, xPositions) {
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = 'blue';
+  ctx.lineWidth = 2;
+  xPositions.forEach(x => {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  });
+}
+
+// Example helper function for starting polygon drawing (Layer 2: glyphs)
+function startPolygonDraw(canvas, points) {
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = 'purple';
+  ctx.fillStyle = 'rgba(128, 0, 128, 0.2)';
+  ctx.beginPath();
+  points.forEach((pt, i) => {
+    if (i === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  });
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+// Reuse existing glyph tracing (Layer 3: tracing) in existing mousemove handlers, e.g.:
+// 'mousemove #glyphImageDraw'(event, instance) { ...existing code... }
+
+// Update click handlers to set tool, layer, and mode as needed
+Template.body.events({
+  'click #layerWords'(event, instance) {
+    Template.drawingState.layer.set('words');
+    Template.drawingState.mode.set('verticalLine');
+  },
+  'click #layerGlyphs'(event, instance) {
+    Template.drawingState.layer.set('glyphs');
+    Template.drawingState.mode.set('polygon');
+  },
+  // Reuse layer "tracing" to continue using existing glyph drawing
+  'click #freeflowTool'(event, instance) {
+    Template.drawingState.layer.set('tracing');
+    Template.drawingState.mode.set('tracing');
+  },
+});
