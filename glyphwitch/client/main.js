@@ -2811,3 +2811,57 @@ function drawRect(canvas, x, y, width, height, type, index, subIndex) {
   ctx.fillRect(x, y, width, height);
   ctx.strokeRect(x, y, width, height);
 }
+
+// Creates four stacked canvases matching the dimensions of a given line image
+// Layer 0: Original line image background
+// Layer 1: Word disambiguation canvas
+// Layer 2: Glyph disambiguation canvas
+// Layer 3: Glyph tracing canvas
+function createStackedCanvasLayers(lineImageId, containerId) {
+  const lineImg = document.getElementById(lineImageId);
+  if (!lineImg) return;
+
+  // Use the displayed size of the line image
+  const { width, height } = lineImg.getBoundingClientRect();
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  // Helper to create a new canvas layer
+  function makeCanvasLayer(zIndex) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.position = 'absolute';
+    canvas.style.left = '0px';
+    canvas.style.top = '0px';
+    canvas.style.zIndex = zIndex.toString();
+    return canvas;
+  }
+
+  // Layer 0: background with original line image
+  const layer0 = makeCanvasLayer(0);
+  const ctx0 = layer0.getContext('2d');
+  const imgObj = new Image();
+  imgObj.src = lineImg.src;
+  imgObj.onload = () => ctx0.drawImage(imgObj, 0, 0, width, height);
+
+  // Layer 1: word disambiguation
+  const layer1 = makeCanvasLayer(1);
+
+  // Layer 2: glyph disambiguation
+  const layer2 = makeCanvasLayer(2);
+
+  // Layer 3: glyph tracing
+  const layer3 = makeCanvasLayer(3);
+
+  // Position container relatively so canvases stack
+  container.style.position = 'relative';
+  container.style.width = width + 'px';
+  container.style.height = height + 'px';
+
+  // Append layers
+  container.appendChild(layer0);
+  container.appendChild(layer1);
+  container.appendChild(layer2);
+  container.appendChild(layer3);
+}
