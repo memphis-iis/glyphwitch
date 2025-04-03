@@ -487,9 +487,10 @@ function resetToolbox() {
    } else if (currentView == 'line') {
     if(currentTool == 'view') {
       hideAllToolButtons();
-      //show the viewTool, createWord,  selectTool, and viewTool
+      //show the viewTool, createWord,  selectTool, and viewTool and viewTool
       $('#viewTool').show();
       $('#createWord').show();
+      $('#freeflowTool').show();
       $('#selectItem').show();
       $('#viewTool').removeClass('btn-light').addClass('btn-dark');
     } 
@@ -504,16 +505,20 @@ function resetToolbox() {
       $('#exitTool').show();
       $('#confirmTool').show();
     }
+    if(currentTool == 'freeflow') {
+      $('#freeflowTool').show().addClass('btn-dark');
+      setCurrentHelp("Freeflow Mode: Allows multiple word/glyph layering and editing.");
+    }
   } else if(currentView == 'word') {
-      if(currentTool == 'view') {
-        hideAllToolButtons();
-        $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light')
-        //show createPhoneme, selectItem, createGlyph, and viewTool
-        $('#createPhoneme').show();
-        $('#selectItem').show();
-        $('#createGlyph').show();
-        $('#viewTool').show();
-        $('#viewTool').removeClass('btn-light').addClass('btn-dark');
+    if(currentTool == 'view') {
+      hideAllToolButtons();
+      $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light')
+      //show createPhoneme, selectItem, createGlyph, and viewTool
+      $('#createPhoneme').show();
+      $('#selectItem').show();
+      $('#createGlyph').show();
+      $('#viewTool').show();
+      $('#viewTool').removeClass('btn-light').addClass('btn-dark');
     } 
     if(currentTool == 'select') {
       hideAllToolButtons();
@@ -2133,261 +2138,6 @@ Template.viewPage.events({
         instance.selectheight.set(cropDetails.height);
       }
     });
-  },
-  'click #createElement'(event, instance) {
-    event.preventDefault();
-    console.log("DEBUG: createElement click handler - start");
-    console.log("createElement, drawing is " + instance.drawing.get());
-    
-    // Set the currentTool to createElement first
-    console.log("DEBUG: createElement - setting tool state");
-    instance.currentTool.set('createElement');
-    
-    // Update button appearance
-    $('#createElement').removeClass('btn-light').addClass('btn-dark');
-    
-    // Call resetToolbox after setting the tool state
-    console.log("DEBUG: createElement - calling resetToolbox");
-    resetToolbox();
-    
-    console.log("DEBUG: createElement - tool buttons visibility after resetToolbox:", {
-      createElement: $('#createElement').is(':visible'),
-      exitTool: $('#exitTool').is(':visible'),
-      confirmTool: $('#confirmTool').is(':visible')
-    });
-    
-    // Initialize cropper for the glyph image
-    console.log("DEBUG: createElement - initializing cropper");
-    image = initCropper('glyph');
-    
-    // Get the glyph data to set appropriate crop boundaries
-    const documentId = instance.currentDocument.get();
-    const page = instance.currentPage.get();
-    const lineId = instance.currentLine.get();
-    const wordId = instance.currentWord.get();
-    const glyphId = instance.currentGlyph.get();
-    
-    const doc = Documents.findOne({_id: documentId});
-    if (doc) {
-      console.log("DEBUG: createElement - found document");
-      const line = doc.pages[page].lines[lineId];
-      const word = line.words[wordId];
-      const glyphsArray = word.glyphs || word.glyph || [];
-      const glyph = glyphsArray[glyphId];
-      
-      if (glyph) {
-        console.log("DEBUG: createElement - found glyph with dimensions:", {
-          width: glyph.width,
-          height: line.height
-        });
-        
-        // Show bounding boxes for existing elements
-        const elements = glyph.elements || [];
-        elements.forEach((element, index) => {
-          console.log("drawing existing element bounding box");
-          drawRect(image, element.x, element.y, element.width, element.height, 'element', index, index);
-        });
-      }
-    }
-    
-    setCurrentHelp('To create a bounding box to represent an element in the glyph, use the cropping bounds to select the area that contains the element. Click Confirm when done or Exit to cancel.');
-    
-    // Set the image css to display block and max-width 100%
-    image.style.display = 'block';
-    image.style.maxWidth = '100%';
-    
-    // Create a cropper object for the glyphImage with strict constraints
-    cropDetails = {};
-    const cropper = new Cropper(image, {
-      dragMode: 'crop',
-      aspectRatio: 0,
-      viewMode: 1,        // Restrict the crop box to not exceed the size of the canvas
-      autoCropArea: 1,    // Make the crop box cover the entire canvas by default
-      movable: false,     // Prevent the image from being moved inside the canvas
-      zoomable: false,    // Disable zooming
-      rotatable: false,   // Disable rotation
-      scalable: false,    // Disable scaling
-      zoomOnTouch: false, // Disable zoom on touch
-      zoomOnWheel: false, // Disable zoom on wheel
-      minCropBoxWidth: 10,
-      minCropBoxHeight: 10,
-      crop(event) {
-        cropDetails = event.detail;
-        instance.selectx1.set(cropDetails.x);
-        instance.selecty1.set(cropDetails.y);
-        instance.selectwidth.set(cropDetails.width);
-        instance.selectheight.set(cropDetails.height);
-        
-        // Log the crop details for debugging
-        console.log("Crop details:", {
-          x: cropDetails.x,
-          y: cropDetails.y,
-          width: cropDetails.width,
-          height: cropDetails.height,
-          canvasWidth: image.width,
-          canvasHeight: image.height
-        });
-      }
-    });
-    
-    // Store the cropper instance to destroy it later
-    instance.cropper.set(cropper);
-    
-    // Set initial crop box to a reasonable size in the center of the glyph
-    // We want to start with something smaller than the full glyph
-    cropper.setCropBoxData({
-      left: image.width * 0.25,     // Start at 25% from left
-      top: image.height * 0.25,     // Start at 25% from top
-      width: image.width * 0.5,     // Width is 50% of glyph width
-      height: image.height * 0.5    // Height is 50% of glyph height
-    });
-    
-    // Add a check to ensure the container is properly sized
-    setTimeout(() => {
-      const container = $('.cropper-container');
-      const canvas = $('.cropper-canvas');
-      const dragBox = $('.cropper-drag-box');
-      
-      console.log("Cropper dimensions:", {
-        container: {
-          width: container.width(),
-          height: container.height()
-        },
-        canvas: {
-          width: canvas.width(),
-          height: canvas.height()
-        },
-        dragBox: {
-          width: dragBox.width(),
-          height: dragBox.height()
-        },
-        image: {
-          width: image.width,
-          height: image.height
-        }
-      });
-    }, 500);
-    
-    console.log("DEBUG: createElement - end of handler");
-  },
-  
-  //keyboard shift and mouse wheel event
-  'wheel #pageImage'(event, instance) {
-    if(event.shiftKey) {
-
-      console.log(event);
-      //get the current calculated height of the image
-      height = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('height');
-      width = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('width');
-      //if the mouse wheel is scrolled up, increase the height by 10%
-      if (event.originalEvent.deltaY < 0) {
-        document.getElementById('pageImage').style.height = parseInt(height) * 1.1 + 'px';
-        document.getElementById('pageImage').style.width = parseInt(width) * 1.1 + 'px';
-      } else {
-        //if the mouse wheel is scrolled down, decrease the height by 10%
-        document.getElementById('pageImage').style.height = parseInt(height) * 0.9 + 'px';
-        document.getElementById('pageImage').style.width = parseInt(width) * 0.9 + 'px';
-      }
-
-
-      
-    }
-  },
-  //logout and head to the home page
-  'click #allExit': function(event, instance) {
-      Router.go('/logout');
-  },
-  //click addPage to open the addPageModal
-  'click #addPage': function(event, instance) {
-    event.preventDefault();
-    //if theres a data-id, we set the currentPage to the data-id
-    if(event.target.getAttribute('data-id')) {
-      instance.currentPage.set(event.target.getAttribute('data-id'));
-    }
-    $('#createPageModal').modal('show');
-  },
-  'submit #createPageForm'(event, template) {
-    event.preventDefault();
-    console.log("submitNewPage");
-
-    // Disable the submit button
-    $('#submitNewPage').prop('disabled', true);
-
-    // Get the title and file from the form
-    const title = $('#pageTitle').val();
-    const file = $('#newpageImage').get(0).files[0];
-    const documentId = template.currentDocument.get();
-    const pageIndex = $('#pageIndex').val();
-    console.log("Filename: " + file.name + ". Title: " + title + ".", "DocumentId: " + documentId + ". PageIndex: " + pageIndex + ".");
-
-    if (file) {
-      const upload = Files.insert({
-        file: file,
-        chunkSize: 'dynamic'
-      }, false);
-
-      upload.on('end', function(error, fileObj) {
-        if (error) {
-          console.log(error);
-          alert('Error uploading file');
-        } else {
-          console.log(fileObj);
-          const thispage = {
-            title: title,
-            addedBy: Meteor.userId(),
-            lines: []
-
-
-          };
-          doc = Documents.findOne({_id: documentId});
-          doc.pages.push(thispage);
-          //           addPageToDocument: function(document, fileObjId, pageNumber, title){
-          Meteor.call('addPageToDocument', documentId, fileObj._id, pageIndex, title, function(error, result) {
-            if (error) {
-              console.log(error);
-              alert('Error adding page');
-            } else {
-              console.log(result);
-              alert('Page added');
-              // Enable the submit button
-              $('#submitNewPage').prop('disabled', false);
-              $('#createPageModal').modal('hide');
-            }
-          });
-        }
-      });
-      upload.start();
-    }
-  },
-'click .move-up'(event, instance) {
-    event.preventDefault();
-    const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
-    const documentId = instance.currentDocument.get();
-    if (pageIndex > 0) {
-      Meteor.call('movePage', documentId, pageIndex, pageIndex - 1, (error, result) => {
-        if (error) {
-          console.error('Error moving page up:', error);
-        } else {
-          console.log('Page moved up successfully');
-        }
-      });
-    }
-  },
-
-  'click .move-down'(event, instance) {
-    event.preventDefault();
-    const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
-    const documentId = instance.currentDocument.get();
-    const totalPages = Documents.findOne({_id: documentId}).pages.length;
-    if (pageIndex < totalPages - 1) {
-        Meteor.call('movePage', documentId, pageIndex, pageIndex + 1, (error, result) => {
-            if (error) {
-                console.error('Error moving page down:', error);
-            } else {
-                console.log('Page moved down successfully');
-            }
-        });
-    }
   },
   'click #createElement'(event, instance) {
     event.preventDefault();
