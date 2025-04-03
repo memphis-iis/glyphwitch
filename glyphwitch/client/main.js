@@ -442,6 +442,12 @@ Template.viewPage.onRendered(function() {
     instance.currentPage.set(currentPage);
   }
   
+  // Clear the pageTitle field whenever the modal is closed
+  $('#createPageModal').on('hidden.bs.modal', () => {
+    $('#pageTitle').val('');
+    $('#newpageImage').val('');
+  });
+
 });
 
 
@@ -2349,7 +2355,10 @@ Template.viewPage.events({
             } else {
               console.log(result);
               alert('Page added');
-              // Enable the submit button
+              // Clear these fields
+              $('#pageTitle').val('');
+              $('#newpageImage').val('');
+              // Re-enable and close
               $('#submitNewPage').prop('disabled', false);
               $('#createPageModal').modal('hide');
             }
