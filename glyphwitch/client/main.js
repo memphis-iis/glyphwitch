@@ -2865,3 +2865,42 @@ function createStackedCanvasLayers(lineImageId, containerId) {
   container.appendChild(layer2);
   container.appendChild(layer3);
 }
+
+Template.body.onCreated(function(){
+  this.activeLayer = new ReactiveVar(null);
+});
+
+Template.body.events({
+  'click .layer-button'(event, instance) {
+    event.preventDefault();
+    // Determine which layer was clicked
+    const layer = event.currentTarget.id.replace('layer','').toLowerCase(); // "words", "glyphs", "tracing"
+    instance.activeLayer.set(layer);
+    
+    // Update button visuals
+    $('.layer-button').removeClass('btn-dark').addClass('btn-light');
+    $(event.currentTarget).removeClass('btn-light').addClass('btn-dark');
+
+    // Show eraser for the active layer
+    $('#eraseLayer').show();
+
+    // Update z-index to bring the active layer forward
+    // (Assumes you have separate elements or canvases for each layer)
+    $('#wordsLayer').css('z-index', layer === 'words' ? 10 : 1);
+    $('#glyphsLayer').css('z-index', layer === 'glyphs' ? 10 : 1);
+    $('#tracingLayer').css('z-index', layer === 'tracing' ? 10 : 1);
+  },
+
+  'click #eraseLayer'(event, instance) {
+    event.preventDefault();
+    // Clear content on the current active layer
+    const currentLayer = instance.activeLayer.get();
+    if (currentLayer === 'words') {
+      // ...existing code or logic to clear words layer...
+    } else if (currentLayer === 'glyphs') {
+      // ...existing code or logic to clear glyphs layer...
+    } else if (currentLayer === 'tracing') {
+      // ...existing code or logic to clear tracing layer...
+    }
+  },
+});
