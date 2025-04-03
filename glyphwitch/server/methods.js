@@ -239,4 +239,55 @@ Meteor.methods({
     );
     return { success: true, message: 'Traced glyphs associated' };
   },
+
+  /**
+   * Convert freeflow data into the standard words/glyphs structure
+   * @param {String} docId     - Document ID
+   * @param {Number} pageIndex - Page index
+   * @param {Number} lineIndex - Line index
+   * @param {Boolean} overwrite - If true, overwrite existing words/glyphs
+   */
+  convertFreeflowToDocument(docId, pageIndex, lineIndex, overwrite = false) {
+    check(docId, String);
+    check(pageIndex, Number);
+    check(lineIndex, Number);
+
+    const doc = Documents.findOne({_id: docId});
+    if (!doc) {
+      throw new Meteor.Error('not-found', 'Document not found');
+    }
+    if (!doc.pages[pageIndex] || !doc.pages[pageIndex].lines[lineIndex]) {
+      throw new Meteor.Error('not-found', 'Page or line not found');
+    }
+
+    const lineObj = doc.pages[pageIndex].lines[lineIndex];
+    const freeflow = lineObj.freeflow_object || {};
+
+    // If words/glyphs exist and overwrite is false, emit warning
+    if (!overwrite && lineObj.words && lineObj.words.length > 0) {
+      throw new Meteor.Error('overwrite-warning', 'Words/glyphs already exist. Use overwrite to replace.');
+    }
+
+    // Example logic: create new words array from wordBoundaries
+    const newWords = (freeflow.wordBoundaries || []).map((wb, idx) => ({
+      text: `Word${idx}`,
+      glyphs: []
+    }));
+
+    // For each word boundary, we might create glyph placeholders
+    newWords.forEach((wd, wIndex) => {
+      // Possibly read glyphBoundaries and assign them here
+      wd.glyphs = (freeflow.glyphBoundaries || []).map((gb, gIndex) => ({
+        shape: `Glyph${gIndex}`,
+        elements: []
+      }));
+    });
+
+    Documents.update(
+      { _id: docId },
+      { $set: { [`pages.${pageIndex}.lines.${lineIndex}.words`]: newWords } }
+    );
+
+    return { success: true, message: 'Freeflow converted into standard words/glyphs' };
+  },
 });

@@ -263,6 +263,9 @@ Template.searchGlyphs.events({
   },
   'click #associateGlyphs'(event, instance) {
     Meteor.call('associateTracedGlyphsWithBoundaries', 'someDocId', 0, 0);
+  },
+  'click #reloadFreeflow'(event, instance) {
+    reloadFreeflowLayers('someDocId', 0, 0);
   }
 });
 
@@ -2983,3 +2986,22 @@ Template.body.events({
     Template.drawingState.mode.set('tracing');
   },
 });
+
+function reloadFreeflowLayers(docId, pageIndex, lineIndex) {
+  const doc = Documents.findOne({ _id: docId });
+  if (!doc || !doc.pages[pageIndex]?.lines[lineIndex]) return;
+
+  const freeflow = doc.pages[pageIndex].lines[lineIndex].freeflow_object || {};
+
+  // Example: re-draw vertical lines from wordBoundaries
+  if (freeflow.wordBoundaries) {
+    // Possibly call drawVerticalLines(...) or other UI logic
+    console.log('Redrawing word boundaries:', freeflow.wordBoundaries);
+  }
+
+  // For glyphBoundaries, polygons, etc., do the same
+  if (freeflow.glyphBoundaries) {
+    console.log('Redrawing glyph boundaries:', freeflow.glyphBoundaries);
+    // Possibly call startPolygonDraw(...) or other UI logic
+  }
+}
