@@ -2525,7 +2525,6 @@ Template.viewPage.events({
       
       // If there are no lines, alert and exit
       if (lines.length == 0) {
-        alert("No lines to display for deletion.");
         $('#exitTool').click();
         return;
       }
