@@ -488,9 +488,14 @@ function resetToolbox() {
     }
     if(currentTool == 'select') {
       hideAllToolButtons();
-      $('selectItem').removeClass('btn-light').addClass('btn-dark');
+      $('#selectItem').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
       $('#deleteItem').show();
+    }
+    if(currentTool == 'delete') {
+      hideAllToolButtons();
+      $('#deleteItem').removeClass('btn-light').addClass('btn-dark');
+      $('#exitTool').show();
     }
    } else if (currentView == 'line') {
     if(currentTool == 'view') {
@@ -507,6 +512,11 @@ function resetToolbox() {
       $('#selectItem').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
       $('#deleteItem').show();
+    }
+    if(currentTool == 'delete') {
+      hideAllToolButtons();
+      $('#deleteItem').removeClass('btn-light').addClass('btn-dark');
+      $('#exitTool').show();
     }
     if(currentTool == 'createWord') {
       hideAllToolButtons();
@@ -531,6 +541,11 @@ function resetToolbox() {
       $('#selectItem').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
       $('#deleteItem').show();
+    }
+    if(currentTool == 'delete') {
+      hideAllToolButtons();
+      $('#deleteItem').removeClass('btn-light').addClass('btn-dark');
+      $('#exitTool').show();
     }
     if(currentTool == 'createPhoneme') {
       hideAllToolButtons();
@@ -568,6 +583,11 @@ function resetToolbox() {
         $('#selectItem').removeClass('btn-light').addClass('btn-dark');
         $('#exitTool').show();
         $('#deleteItem').show();
+      } else if(currentTool == 'delete') {
+        console.log("DEBUG: resetToolbox - configuring delete tool");
+        hideAllToolButtons();
+        $('#deleteItem').removeClass('btn-light').addClass('btn-dark');
+        $('#exitTool').show();
       } else if(currentTool == 'createElement') {
         console.log("DEBUG: resetToolbox - configuring createElement tool");
         hideAllToolButtons();
@@ -595,6 +615,11 @@ function resetToolbox() {
         viewTool: $('#viewTool').is(':visible'),
         deleteItem: $('#deleteItem').is(':visible')
       });
+    } else if(currentTool == 'delete') {
+      console.log("DEBUG: resetToolbox - configuring delete tool for element view");
+      hideAllToolButtons();
+      $('#deleteItem').removeClass('btn-light').addClass('btn-dark');
+      $('#exitTool').show();
     }
   }
 }
@@ -1224,6 +1249,9 @@ Template.viewPage.events({
     // Ensure the selection boxes disappear
     $('.selectElement').remove();
     $('.showReferences').remove();
+    // Also remove deleteElement selection boxes
+    $('.deleteElement').remove();
+    
     setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
   },
   
