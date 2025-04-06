@@ -10,14 +10,8 @@ import promisify from 'util.promisify';
 import jimp from 'jimp';
 import sharp from 'sharp';
 
-
-
-
 const fs = require('fs');
 const path = require('path');
-
-
-
 
 // Meteor collections for MongoDB database. 
 
@@ -25,7 +19,6 @@ const path = require('path');
 
 //set storagepath to the /glyphwitchAssets folder in the server root
 const storagePath = '/glyphwitchAssets';
-
 
 Documents = new Meteor.Collection("documents");
 References = new Meteor.Collection("references");
@@ -47,7 +40,6 @@ Files = new FilesCollection({
         }
     }
 });
-
 
 // Define methods for the collections. They must be exported to be used in the main server file.
 
@@ -253,6 +245,12 @@ Meteor.methods({
         //update the document
         Documents.update(document, doc);
     },
+    
+    // Add reference to the removeLine method for backwards compatibility
+    removeLine: function(documentId, pageIndex, lineIndex) {
+        return Meteor.call('removeLineFromPage', documentId, pageIndex, lineIndex);
+    },
+    
     //add word to a line. Must include the document id, the page number, the line number, the x coordinate, the width, the word order number, the word, and the user who added it.
     addWordToLine: function(document, page, line, x, width, wordOrder=false, word=false) {
         console.log("Adding word (document: " + document + ", page: " + page + ", line: " + line + ", x: " + x + ", width: " + width + ", wordOrder: " + wordOrder + ", word: " + word + ")");
@@ -924,7 +922,6 @@ Meteor.publish('files.images.all', function () {
     return Files.find().cursor;
   });
 
-
 //Utility Functions
 
 //Function to open a local pdf file and convert it to images, then add the images to the image collection. Returns the images as an array of image ids.
@@ -960,7 +957,6 @@ async function convertPdfToImages(pdfinfo, documentId) {
         }
     });
 }
-
 
 //specialty functions for the glyphwitch application
 function blurImage(imageData, kernelSize) {
@@ -1008,9 +1004,7 @@ function blurImage(imageData, kernelSize) {
     return newImageData;
   }
 
-
-
-  function createGlyphImage(fontPath, charCode) {
+function createGlyphImage(fontPath, charCode) {
     const fontFileName = fontPath.split('/').pop();
     const opentype  = require('opentype.js');
     const { createCanvas } = require('canvas');
@@ -1038,4 +1032,4 @@ function blurImage(imageData, kernelSize) {
     newBuffer = canvas.toDataURL();
     //add the image to the image collection
     Meteor.call('addGlyphFromDataURL', newBuffer, fontFileName, charCode);
-  }
+}
