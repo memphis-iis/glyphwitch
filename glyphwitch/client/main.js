@@ -2740,9 +2740,19 @@ Template.viewPage.events({
           console.log('Line deleted successfully');
           // Hide modal
           $('#deleteItemModal').modal('hide');
-          // Reset to view mode
+          
+          // Clear existing selection boxes
+          $('.deleteElement').remove();
+          
+          // Temporarily exit delete mode
           instance.currentTool.set('view');
-          resetToolbox();
+          
+          // Wait a moment for the UI to update with the new data
+          Meteor.setTimeout(() => {
+            // Re-apply delete tool to refresh the selection boxes with updated data
+            instance.currentTool.set('delete');
+            $('#deleteItem').click();
+          }, 300);
         }
       });
     } 
@@ -2756,9 +2766,19 @@ Template.viewPage.events({
           console.log('Word deleted successfully');
           // Hide modal
           $('#deleteItemModal').modal('hide');
-          // Reset to view mode
+          
+          // Clear existing selection boxes
+          $('.deleteElement').remove();
+          
+          // Temporarily exit delete mode
           instance.currentTool.set('view');
-          resetToolbox();
+          
+          // Wait a moment for the UI to update with the new data
+          Meteor.setTimeout(() => {
+            // Re-apply delete tool to refresh the selection boxes with updated data
+            instance.currentTool.set('delete');
+            $('#deleteItem').click();
+          }, 300);
         }
       });
     }
@@ -2773,9 +2793,19 @@ Template.viewPage.events({
           console.log('Phoneme deleted successfully');
           // Hide modal
           $('#deleteItemModal').modal('hide');
-          // Reset to view mode
+          
+          // Clear existing selection boxes
+          $('.deleteElement').remove();
+          
+          // Temporarily exit delete mode
           instance.currentTool.set('view');
-          resetToolbox();
+          
+          // Wait a moment for the UI to update with the new data
+          Meteor.setTimeout(() => {
+            // Re-apply delete tool to refresh the selection boxes with updated data
+            instance.currentTool.set('delete');
+            $('#deleteItem').click();
+          }, 300);
         }
       });
     }
@@ -2790,9 +2820,19 @@ Template.viewPage.events({
           console.log('Glyph deleted successfully');
           // Hide modal
           $('#deleteItemModal').modal('hide');
-          // Reset to view mode
+          
+          // Clear existing selection boxes
+          $('.deleteElement').remove();
+          
+          // Temporarily exit delete mode
           instance.currentTool.set('view');
-          resetToolbox();
+          
+          // Wait a moment for the UI to update with the new data
+          Meteor.setTimeout(() => {
+            // Re-apply delete tool to refresh the selection boxes with updated data
+            instance.currentTool.set('delete');
+            $('#deleteItem').click();
+          }, 300);
         }
       });
     }
@@ -2808,9 +2848,19 @@ Template.viewPage.events({
           console.log('Element deleted successfully');
           // Hide modal
           $('#deleteItemModal').modal('hide');
-          // Reset to view mode
+          
+          // Clear existing selection boxes
+          $('.deleteElement').remove();
+          
+          // Temporarily exit delete mode
           instance.currentTool.set('view');
-          resetToolbox();
+          
+          // Wait a moment for the UI to update with the new data
+          Meteor.setTimeout(() => {
+            // Re-apply delete tool to refresh the selection boxes with updated data
+            instance.currentTool.set('delete');
+            $('#deleteItem').click();
+          }, 300);
         }
       });
     }
