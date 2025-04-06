@@ -495,6 +495,9 @@
           <button type="button" class="btn btn-light me-2" title="Select" id="selectItem">
             <i class="bi bi-mouse2"></i>
           </button>
+          <button type="button" class="btn btn-light me-2" title="Delete" id="deleteItem">
+            <i class="bi bi-trash3"></i>
+          </button>
           <button type="button" class="btn btn-light me-2" title="Search Glyphs" id="searchGlyphs">
             <i class="bi bi-search"></i>
           </button>
@@ -619,6 +622,28 @@
               <button type="submit" class="btn btn-primary" id="submitNewPage">Create</button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- bootstrap modal for confirmation of item deletion -->
+  <div class="modal fade" id="deleteItemModal" tabindex="-1" aria-labelledby="deleteItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="deleteItemModalLabel">Confirm Deletion</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete <span id="deleteItemType"></span> <span id="deleteItemId"></span>?</p>
+          <p class="text-danger" id="deleteItemWarning"></p>
+          <input type="hidden" id="deleteItemTypeHidden">
+          <input type="hidden" id="deleteItemIdHidden">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteItem">Delete</button>
         </div>
       </div>
     </div>
