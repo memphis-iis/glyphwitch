@@ -2784,28 +2784,81 @@ Template.viewPage.events({
     else if (type === 'phoneme') {
       const lineId = instance.currentLine.get();
       const wordId = instance.currentWord.get();
+      console.log(`Attempting to delete phoneme: doc=${documentId}, page=${page}, line=${lineId}, word=${wordId}, phoneme=${id}`);
+      
+      // Show a loading indicator
+      const originalButtonText = $('#confirmDeleteItem').html();
+      $('#confirmDeleteItem').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...');
+      $('#confirmDeleteItem').prop('disabled', true);
+      
       Meteor.call('removePhoneme', documentId, page, lineId, wordId, id, (error, result) => {
+        // Reset button state
+        $('#confirmDeleteItem').html(originalButtonText);
+        $('#confirmDeleteItem').prop('disabled', false);
+        
         if (error) {
           console.error('Error deleting phoneme:', error);
           alert('Error deleting phoneme: ' + error.reason);
-        } else {
-          console.log('Phoneme deleted successfully');
-          // Hide modal
-          $('#deleteItemModal').modal('hide');
-          
-          // Clear existing selection boxes
-          $('.deleteElement').remove();
-          
-          // Temporarily exit delete mode
-          instance.currentTool.set('view');
-          
-          // Wait a moment for the UI to update with the new data
-          Meteor.setTimeout(() => {
-            // Re-apply delete tool to refresh the selection boxes with updated data
-            instance.currentTool.set('delete');
-            $('#deleteItem').click();
-          }, 300);
+          return;
         }
+        
+        console.log('Phoneme deleted successfully');
+        
+        // Hide modal
+        $('#deleteItemModal').modal('hide');
+        
+        // Clear existing selection boxes and UI elements
+        $('.deleteElement').remove();
+        
+        // Force a complete UI reset to ensure the document is refreshed
+        instance.currentTool.set('view');
+        
+        // Use our specific document with phonemes publication
+        const docId = instance.currentDocument.get();
+        
+        // Force a re-fetch using our targeted publication
+        const subscription = Meteor.subscribe('documentWithPhonemes', docId, {
+          onReady: function() {
+            console.log('Document and phonemes data refreshed after phoneme deletion');
+            
+            // Wait for document to be refreshed, then reactivate delete tool
+            Meteor.setTimeout(() => {
+              // Get fresh document data after the subscription is ready
+              const freshDoc = Documents.findOne(docId);
+              if (!freshDoc) {
+                console.error('Could not find document after refresh');
+                return;
+              }
+              
+              // Get the current line's words
+              const currentLine = instance.currentLine.get();
+              const currentPage = instance.currentPage.get();
+              
+              // Check if the word still exists after deletion
+              const currentWord = instance.currentWord.get();
+              if (!freshDoc.pages[currentPage]?.lines[currentLine]?.words[currentWord]) {
+                console.error('Word no longer exists after phoneme deletion');
+                // Redirect to line view since the word is gone
+                instance.currentView.set('line');
+                instance.currentTool.set('view');
+                return;
+              }
+              
+              // Re-apply delete tool with fresh data
+              instance.currentTool.set('delete');
+              
+              // Add a delay before clicking the deleteItem button to ensure the view is ready
+              Meteor.setTimeout(() => {
+                // Manually trigger the deleteItem tool click to redraw the selection boxes
+                $('#deleteItem').click();
+              }, 200);
+            }, 300);
+          },
+          onError: function(error) {
+            console.error('Error refreshing document data:', error);
+            alert('Error refreshing document data. Please try again.');
+          }
+        });
       });
     }
     else if (type === 'glyph') {

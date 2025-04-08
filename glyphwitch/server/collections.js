@@ -261,6 +261,232 @@ Meteor.methods({
         //update the document
         Documents.update(document, doc);
     },
+    
+    // Add the removeElementFromGlyph method to match the one in methods.js
+    removeElementFromGlyph: function(documentId, pageIndex, lineIndex, wordIndex, glyphIndex, elementIndex) {
+        // Convert indices to numbers
+        const numPageIndex = parseInt(pageIndex);
+        const numLineIndex = parseInt(lineIndex);
+        const numWordIndex = parseInt(wordIndex);
+        const numGlyphIndex = parseInt(glyphIndex);
+        const numElementIndex = parseInt(elementIndex);
+        
+        console.log(`Removing element: doc=${documentId}, page=${numPageIndex}, line=${numLineIndex}, word=${numWordIndex}, glyph=${numGlyphIndex}, element=${numElementIndex}`);
+        
+        // Get the document
+        const doc = Documents.findOne({ _id: documentId });
+        if (!doc) {
+            throw new Meteor.Error('not-found', 'Document not found');
+        }
+        
+        // Navigate to the word
+        if (!doc.pages?.[numPageIndex]?.lines?.[numLineIndex]?.words?.[numWordIndex]) {
+            throw new Meteor.Error('not-found', 'Word not found');
+        }
+        
+        const word = doc.pages[numPageIndex].lines[numLineIndex].words[numWordIndex];
+        
+        // Handle both possible glyph property names
+        let glyph, updatePath;
+        
+        if (word.glyphs && word.glyphs[numGlyphIndex]) {
+            glyph = word.glyphs[numGlyphIndex];
+            updatePath = `pages.${numPageIndex}.lines.${numLineIndex}.words.${numWordIndex}.glyphs.${numGlyphIndex}.elements`;
+        } else if (word.glyph && word.glyph[numGlyphIndex]) {
+            glyph = word.glyph[numGlyphIndex];
+            updatePath = `pages.${numPageIndex}.lines.${numLineIndex}.words.${numWordIndex}.glyph.${numGlyphIndex}.elements`;
+        } else {
+            throw new Meteor.Error('not-found', 'Glyph not found');
+        }
+        
+        // Check if the glyph has elements
+        if (!glyph.elements || !glyph.elements[numElementIndex]) {
+            throw new Meteor.Error('not-found', 'Element not found');
+        }
+        
+        // Remove the element
+        glyph.elements.splice(numElementIndex, 1);
+        
+        // Update the document
+        const updateObj = {};
+        updateObj[updatePath] = glyph.elements;
+        
+        Documents.update({ _id: documentId }, { $set: updateObj });
+        
+        return {
+            success: true,
+            message: 'Element successfully removed'
+        };
+    },
+    
+    /**
+     * Remove a glyph from a word
+     */
+    removeGlyphFromWord: function(documentId, pageIndex, lineIndex, wordIndex, glyphIndex) {
+        // Convert indices to numbers
+        const numPageIndex = parseInt(pageIndex);
+        const numLineIndex = parseInt(lineIndex);
+        const numWordIndex = parseInt(wordIndex);
+        const numGlyphIndex = parseInt(glyphIndex);
+        
+        if (isNaN(numPageIndex) || isNaN(numLineIndex) || isNaN(numWordIndex) || isNaN(numGlyphIndex)) {
+            throw new Meteor.Error('invalid-parameters', 'Indices must be valid numbers');
+        }
+        
+        console.log(`Removing glyph: doc=${documentId}, page=${numPageIndex}, line=${numLineIndex}, word=${numWordIndex}, glyph=${numGlyphIndex}`);
+        
+        // Get the document
+        const doc = Documents.findOne({ _id: documentId });
+        if (!doc) {
+            throw new Meteor.Error('not-found', 'Document not found');
+        }
+        
+        // Navigate to the word
+        if (!doc.pages?.[numPageIndex]?.lines?.[numLineIndex]?.words?.[numWordIndex]) {
+            throw new Meteor.Error('not-found', 'Word not found');
+        }
+        
+        const word = doc.pages[numPageIndex].lines[numLineIndex].words[numWordIndex];
+        
+        // Handle both possible glyph property names (glyphs or glyph)
+        let glyphsArr, updatePath;
+        
+        if (word.glyphs) {
+            if (!word.glyphs[numGlyphIndex]) {
+                throw new Meteor.Error('not-found', 'Glyph not found');
+            }
+            glyphsArr = word.glyphs;
+            updatePath = `pages.${numPageIndex}.lines.${numLineIndex}.words.${numWordIndex}.glyphs`;
+        } else if (word.glyph) {
+            if (!word.glyph[numGlyphIndex]) {
+                throw new Meteor.Error('not-found', 'Glyph not found');
+            }
+            glyphsArr = word.glyph;
+            updatePath = `pages.${numPageIndex}.lines.${numLineIndex}.words.${numWordIndex}.glyph`;
+        } else {
+            throw new Meteor.Error('not-found', 'No glyphs found in this word');
+        }
+        
+        // Remove the glyph
+        glyphsArr.splice(numGlyphIndex, 1);
+        
+        // Update the document
+        const updateObj = {};
+        updateObj[updatePath] = glyphsArr;
+        
+        Documents.update({ _id: documentId }, { $set: updateObj });
+        
+        return {
+            success: true,
+            message: 'Glyph successfully removed'
+        };
+    },
+    
+    /**
+     * Remove a word from a line
+     */
+    removeWord: function(documentId, pageIndex, lineIndex, wordIndex) {
+        // Convert indices to numbers
+        const numPageIndex = parseInt(pageIndex);
+        const numLineIndex = parseInt(lineIndex);
+        const numWordIndex = parseInt(wordIndex);
+        
+        if (isNaN(numPageIndex) || isNaN(numLineIndex) || isNaN(numWordIndex)) {
+            throw new Meteor.Error('invalid-parameters', 'Indices must be valid numbers');
+        }
+        
+        console.log(`Removing word: doc=${documentId}, page=${numPageIndex}, line=${numLineIndex}, word=${numWordIndex}`);
+        
+        // Get the document
+        const doc = Documents.findOne({ _id: documentId });
+        if (!doc) {
+            throw new Meteor.Error('not-found', 'Document not found');
+        }
+        
+        // Get the page
+        if (!doc.pages || !doc.pages[numPageIndex]) {
+            throw new Meteor.Error('not-found', 'Page not found');
+        }
+        
+        // Get the line
+        if (!doc.pages[numPageIndex].lines || !doc.pages[numPageIndex].lines[numLineIndex]) {
+            throw new Meteor.Error('not-found', 'Line not found');
+        }
+        
+        // Get the words array
+        if (!doc.pages[numPageIndex].lines[numLineIndex].words) {
+            throw new Meteor.Error('not-found', 'No words found in this line');
+        }
+        
+        // Check if the word exists
+        if (!doc.pages[numPageIndex].lines[numLineIndex].words[numWordIndex]) {
+            throw new Meteor.Error('not-found', 'Word not found');
+        }
+        
+        // Remove the word from the array
+        doc.pages[numPageIndex].lines[numLineIndex].words.splice(numWordIndex, 1);
+        
+        // Update the document
+        Documents.update(
+            { _id: documentId }, 
+            { $set: { [`pages.${numPageIndex}.lines.${numLineIndex}.words`]: doc.pages[numPageIndex].lines[numLineIndex].words } }
+        );
+        
+        return {
+            success: true,
+            message: 'Word successfully removed'
+        };
+    },
+    
+    /**
+     * Remove a phoneme from a word
+     */
+    removePhoneme: function(documentId, pageIndex, lineIndex, wordIndex, phonemeIndex) {
+        // Convert indices to numbers
+        const numPageIndex = parseInt(pageIndex);
+        const numLineIndex = parseInt(lineIndex);
+        const numWordIndex = parseInt(wordIndex);
+        const numPhonemeIndex = parseInt(phonemeIndex);
+        
+        if (isNaN(numPageIndex) || isNaN(numLineIndex) || isNaN(numWordIndex) || isNaN(numPhonemeIndex)) {
+            throw new Meteor.Error('invalid-parameters', 'Indices must be valid numbers');
+        }
+        
+        console.log(`Removing phoneme: doc=${documentId}, page=${numPageIndex}, line=${numLineIndex}, word=${numWordIndex}, phoneme=${numPhonemeIndex}`);
+        
+        // Get the document
+        const doc = Documents.findOne({ _id: documentId });
+        if (!doc) {
+            throw new Meteor.Error('not-found', 'Document not found');
+        }
+        
+        // Navigate to the word
+        if (!doc.pages?.[numPageIndex]?.lines?.[numLineIndex]?.words?.[numWordIndex]) {
+            throw new Meteor.Error('not-found', 'Word not found');
+        }
+        
+        const word = doc.pages[numPageIndex].lines[numLineIndex].words[numWordIndex];
+        
+        // Check if the word has phonemes
+        if (!word.phonemes || !word.phonemes[numPhonemeIndex]) {
+            throw new Meteor.Error('not-found', 'Phoneme not found');
+        }
+        
+        // Remove the phoneme
+        word.phonemes.splice(numPhonemeIndex, 1);
+        
+        // Update the document
+        Documents.update(
+            { _id: documentId }, 
+            { $set: { [`pages.${numPageIndex}.lines.${numLineIndex}.words.${numWordIndex}.phonemes`]: word.phonemes } }
+        );
+        
+        return {
+            success: true,
+            message: 'Phoneme successfully removed'
+        };
+    },
+    
     //remove word from a line. Must include the document id, the page number, the line number, the word order number, and the user who added it.
     removeWordFromLine: function(document, page, line, wordOrder) {
         console.log("Removing word (document: " + document + ", page: " + page + ", line: " + line + ", wordOrder: " + wordOrder + ")");
@@ -909,9 +1135,11 @@ Meteor.publish("all", function() {
         Phonemes.find(),
         Fonts.find(),
         Glyphs.find(),
-        Discussion.find()
+        Discussion.find(),
+        Elements.find()
     ];
 });
+
 //User data is also published to the client.
 Meteor.publish("userData", function () {
     return Meteor.users.find();
@@ -920,7 +1148,14 @@ Meteor.publish("userData", function () {
 //image publication
 Meteor.publish('files.images.all', function () {
     return Files.find().cursor;
-  });
+});
+
+// Specialized publication for documents with phonemes
+// This ensures we get fresh phoneme data without cache issues
+Meteor.publish('documentWithPhonemes', function(documentId) {
+    check(documentId, String);
+    return Documents.find({_id: documentId});
+});
 
 //Utility Functions
 
