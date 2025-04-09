@@ -2667,7 +2667,6 @@ Template.viewPage.events({
       const elements = glyph.elements || [];
       
       if (elements.length === 0) {
-        alert("No elements to display for deletion.");
         $('#exitTool').click();
         return;
       }
@@ -2813,50 +2812,22 @@ Template.viewPage.events({
         // Force a complete UI reset to ensure the document is refreshed
         instance.currentTool.set('view');
         
-        // Use our specific document with phonemes publication
-        const docId = instance.currentDocument.get();
-        
-        // Force a re-fetch using our targeted publication
-        const subscription = Meteor.subscribe('documentWithPhonemes', docId, {
+        // Force a re-fetch of the document data to ensure we have the latest state
+        Meteor.subscribe('all', {
           onReady: function() {
-            console.log('Document and phonemes data refreshed after phoneme deletion');
+            console.log('Document data refreshed after phoneme deletion');
             
             // Wait for document to be refreshed, then reactivate delete tool
             Meteor.setTimeout(() => {
-              // Get fresh document data after the subscription is ready
-              const freshDoc = Documents.findOne(docId);
-              if (!freshDoc) {
-                console.error('Could not find document after refresh');
-                return;
-              }
-              
-              // Get the current line's words
-              const currentLine = instance.currentLine.get();
-              const currentPage = instance.currentPage.get();
-              
-              // Check if the word still exists after deletion
-              const currentWord = instance.currentWord.get();
-              if (!freshDoc.pages[currentPage]?.lines[currentLine]?.words[currentWord]) {
-                console.error('Word no longer exists after phoneme deletion');
-                // Redirect to line view since the word is gone
-                instance.currentView.set('line');
-                instance.currentTool.set('view');
-                return;
-              }
-              
-              // Re-apply delete tool with fresh data
               instance.currentTool.set('delete');
+              instance.currentView.set('word'); // Ensure we stay in word view
               
               // Add a delay before clicking the deleteItem button to ensure the view is ready
               Meteor.setTimeout(() => {
                 // Manually trigger the deleteItem tool click to redraw the selection boxes
                 $('#deleteItem').click();
-              }, 200);
+              }, 100);
             }, 300);
-          },
-          onError: function(error) {
-            console.error('Error refreshing document data:', error);
-            alert('Error refreshing document data. Please try again.');
           }
         });
       });

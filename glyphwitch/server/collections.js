@@ -1135,11 +1135,9 @@ Meteor.publish("all", function() {
         Phonemes.find(),
         Fonts.find(),
         Glyphs.find(),
-        Discussion.find(),
-        Elements.find()
+        Discussion.find()
     ];
 });
-
 //User data is also published to the client.
 Meteor.publish("userData", function () {
     return Meteor.users.find();
@@ -1148,14 +1146,7 @@ Meteor.publish("userData", function () {
 //image publication
 Meteor.publish('files.images.all', function () {
     return Files.find().cursor;
-});
-
-// Specialized publication for documents with phonemes
-// This ensures we get fresh phoneme data without cache issues
-Meteor.publish('documentWithPhonemes', function(documentId) {
-    check(documentId, String);
-    return Documents.find({_id: documentId});
-});
+  });
 
 //Utility Functions
 
