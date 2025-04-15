@@ -1,6 +1,12 @@
 body {
   padding: 10px;
   font-family: sans-serif;
+  padding-bottom: 0;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-y: hidden;
 }
 
 .navbar{
@@ -122,6 +128,10 @@ body, html {
 #sidebar {
   max-width: 100%;
   flex-shrink: 0;
+  overflow-y: hidden;
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
 }
 
 /* Make toolbox containers responsive */
@@ -144,4 +154,65 @@ body, html {
     margin-right: 0 !important;
     width: 100%;
   }
+}
+
+/* Better container structure to prevent double scrollbars */
+.main-container {
+  display: flex;
+  flex-direction: row;
+  min-height: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+/* Main content area should be flexible */
+.main-content-area {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: calc(100vh - 120px);
+}
+
+/* Improved scrollable container */
+.scrollable-container {
+  overflow-y: auto;
+  max-height: 65vh;
+  width: 100%;
+  padding-right: 5px;
+}
+
+/* Fix for data browser height */
+#databrowse {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* Make status footer stay at bottom without creating extra space */
+.status-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 0.5rem 0;
+}
+
+/* Ensure images don't create excess height */
+.img {
+  max-height: 65vh;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Remove unnecessary padding that may cause extra space */
+.container-fluid {
+  padding-bottom: 0;
+}
+
+/* Adjust page selection area to prevent overflow */
+#pagesel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure proper spacing for the page content */
+.modal-body {
+  overflow-y: auto;
+  max-height: 70vh;
 }
