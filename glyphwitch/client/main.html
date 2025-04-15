@@ -296,14 +296,8 @@
 
 <!-- template for document viewing UI, with a left side -->
 <template name="viewPage">
-  <!-- document icon -->
-  <div class="container-fluid d-flex flex-nowrap">
-
-
-
-
-
-        
+  <!-- Change from flex-nowrap to flex-wrap to allow wrapping -->
+  <div class="container-fluid d-flex flex-wrap">
 
     <div class="col-md-3 bg-light collapse show text-center border" id="sidebar">
       {{#if currentDocument}}
@@ -474,9 +468,10 @@
         </svg>
       </button>
       {{#if currentDocument}}
-      <div class="image-container" style="position: relative; height: 90vh; width: 80vw;">
+      <!-- Change fixed width 80vw to use 100% with auto width -->
+      <div class="image-container" style="position: relative; height: 90vh; width: 100%;">
         {{#if currentPage.image}}
-          <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; height:100%; object-fit: cover; " id="pageImage">
+          <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; object-fit: cover; " id="pageImage">
         {{else}}
           <div class="alert alert-secondary" role="alert">
             No page selected. Please select a page to view.
@@ -484,7 +479,8 @@
         {{/if}}
       </div>
       {{/if}}
-      <div class="flow-container" style="position: relative; height: 90vh; width: 80vw; display: none;">
+      <!-- Change fixed width 80vw to use 100% with auto width -->
+      <div class="flow-container" style="position: relative; height: 90vh; width: 100%; display: none;">
         <div class="flow" id="flow"></div>
       </div>
       <div class="toolbox-container" style="display: flex; flex-direction: column; position: absolute; top: 50px; right: 0; margin-right: 50px; opacity: 1;">
@@ -641,10 +637,10 @@
       </div>
     </div>
   </div>
-  <!-- bootstrap modal for creating a word -->
+  <!-- Fix overly wide modals by removing the inline width styles -->
   <div class="modal fade" id="createWordModal" tabindex="-1" aria-labelledby="createWordModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content" style="width: 75vw; right: 25vw;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="createWordModalLabel">Create Word</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -659,10 +655,10 @@
       </div>
     </div>
   </div>
-    <!-- bootstrap modal for creating a phoneme -->
+  <!-- Fix overly wide modals by removing the inline width styles -->
   <div class="modal fade" id="createPhonemeModal" tabindex="-1" aria-labelledby="createWordModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content" style="width: 75vw; right: 25vw;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="createWordModalLabel">Create Phoneme</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -679,10 +675,10 @@
       </div>
     </div>
   </div>
-  <!-- bootstrap modal for creating a glyph, includes a canvas to draw on -->
+  <!-- Fix overly wide modals by removing the inline width styles -->
   <div class="modal fade" id="createGlyphModal" tabindex="-1" aria-labelledby="createGlyphModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content" style="width: 75vw; right: 25vw;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="createGlyphModalLabel">Create Glyph</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

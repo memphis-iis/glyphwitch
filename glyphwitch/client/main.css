@@ -105,3 +105,43 @@ body {
   align-items: center;
   padding: 0;
 }
+
+/* Prevent horizontal scrolling */
+body, html {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Make images responsive */
+.img-fluid {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Ensure the sidebar doesn't cause overflow */
+#sidebar {
+  max-width: 100%;
+  flex-shrink: 0;
+}
+
+/* Make toolbox containers responsive */
+.toolbox-container {
+  max-width: 95%;
+}
+
+/* Adjust help containers to fit within viewport */
+#HelpBox, #DiscussionBox, #ToolOptions {
+  max-width: calc(100% - 40px);
+  right: 0;
+  word-wrap: break-word;
+}
+
+/* Fix fixed positioning on small screens */
+@media (max-width: 768px) {
+  .position-absolute {
+    position: relative !important;
+    margin-top: 10px !important;
+    margin-right: 0 !important;
+    width: 100%;
+  }
+}
