@@ -822,6 +822,16 @@ function initCropper(type) {
   //replace the image with a canvas that has the same dimensions and source
   if (type == 'page') {
     divId = document.getElementById('pageImage');
+    
+    // Create a visual clone to prevent the white flash
+    const visualClone = divId.cloneNode(true);
+    visualClone.id = 'temp-image-clone';
+    visualClone.style.position = 'absolute';
+    visualClone.style.top = '0';
+    visualClone.style.left = '0';
+    visualClone.style.zIndex = '1000';
+    visualClone.style.pointerEvents = 'none'; // Don't interfere with interactions
+    divId.parentNode.appendChild(visualClone);
   }
   if (type == 'line') {
     divId = document.getElementById('lineImage');
@@ -841,6 +851,9 @@ function initCropper(type) {
   //get calculated width and height of the div
   height = window.getComputedStyle(divId).height;
   width = window.getComputedStyle(divId).width;
+  
+  // Debug log original dimensions
+  console.log(`initCropper (${type}): Original element dimensions - width=${width}, height=${height}`);
   
   src = divId.src;
   
@@ -866,17 +879,23 @@ function initCropper(type) {
     canvas.height = image.height;
   }
   
+  // Debug log image and canvas dimensions
+  console.log(`Image dimensions: width=${image.width}, height=${image.height}`);
+  console.log(`Canvas dimensions: width=${canvas.width}, height=${canvas.height}`);
+  
   // Set the height on the canvas style
   canvas.style.height = height;
   
   const context = canvas.getContext('2d');
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-  xScaling = canvas.width / divId.width;
-  yScaling = canvas.height / divId.height;
-  console.log("xScaling is " + xScaling + ". yScaling is " + yScaling);
-  Template.instance().yScaling.set(canvas.height / divId.height);
-  Template.instance().xScaling.set(canvas.width / divId.width);
+  // Calculate scaling factors with accurate measurement
+  const xScaling = canvas.width / parseFloat(width);
+  const yScaling = canvas.height / parseFloat(height);
+  console.log(`Calculated scaling factors: xScaling=${xScaling}, yScaling=${yScaling}`);
+  
+  Template.instance().yScaling.set(yScaling);
+  Template.instance().xScaling.set(xScaling);
 
   //set the width and height of the canvas to the width and height of the div
   canvas.style.width = divId.style.width;
@@ -901,59 +920,64 @@ function initCropper(type) {
 
 //replace the image with a canvas that has the same dimensions and source
 function replaceWithOriginalImage() {
-  //remove the cropper from the DOM
-  const cropper = Template.instance().cropper.get();
-  const currentView = Template.instance().currentView.get();
+  const instance = Template.instance();
+  if (!instance) {
+    console.warn("replaceWithOriginalImage: Template.instance() is null.");
+    return;
+  }
   
+  // Remove the temporary image clone if it exists
+  const tempClone = document.getElementById('temp-image-clone');
+  if (tempClone) {
+    tempClone.parentNode.removeChild(tempClone);
+  }
+  
+  const cropper = instance.cropper ? instance.cropper.get() : null;
   if (cropper) {
     cropper.destroy();
-    Template.instance().cropper.set(false);
+    instance.cropper.set(false);
   }
   
   // More thorough cleanup - remove any cropper containers that might be left
   $('.cropper-container').remove();
   
-  // Show the appropriate image based on current view
-  if (currentView === 'simple') {
-    $('#pageImage').show();
-    // Hide all other view-specific images
-    $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
-  } else if (currentView === 'line') {
-    $('#lineImage').show();
-    // Hide other view-specific images
-    $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
-  } else if (currentView === 'word') {
-    $('#wordImage').show();
-    // Hide other view-specific images
-    $('#pageImage, img#lineImage, img#glyphImage, img#elementImage').hide();
-  } else if (currentView === 'glyph') {
-    $('#glyphImage').show();
-    // Hide other view-specific images
-    $('#pageImage, img#lineImage, img#wordImage, img#elementImage').hide();
-  } else if (currentView === 'element') {
-    $('#elementImage').show();
-    // Hide other view-specific images
-    $('#pageImage, img#lineImage, img#wordImage, img#glyphImage').hide();
+  // In simple view with select tool active, make sure image stays visible
+  if (instance.currentView.get() === 'simple' && instance.currentTool.get() === 'select') {
+    $('#pageImage').show(); // Ensure image is visible during selection
+    // Don't hide the selection elements in this case
   } else {
-    // For any other view, keep the pageImage hidden
-    $('#pageImage').hide();
+    // Show the appropriate image based on current view
+    if (instance.currentView.get() === 'simple') {
+      $('#pageImage').show();
+      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+    } else if (instance.currentView.get() === 'line') {
+      $('#lineImage').show();
+      $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+    } else if (instance.currentView.get() === 'word') {
+      $('#wordImage').show();
+      $('#pageImage, img#lineImage, img#glyphImage, img#elementImage').hide();
+    } else if (instance.currentView.get() === 'glyph') {
+      $('#glyphImage').show();
+      $('#pageImage, img#lineImage, img#wordImage, img#elementImage').hide();
+    } else if (instance.currentView.get() === 'element') {
+      $('#elementImage').show();
+      $('#pageImage, img#lineImage, img#wordImage, img#glyphImage').hide();
+    } else {
+      $('#pageImage').hide();
+    }
   }
   
   // We need to be more selective here - only remove canvas elements that were created
   // for the cropper, not the ones used for drawing rectangles
-  if (currentView === 'simple') {
-    // In simple view we can clean up all canvas elements except those with specific classes
+  if (instance.currentView.get() === 'simple') {
     $('#pageImage').parent().children('canvas:not(.preserve-canvas)').remove();
   } else {
-    // In other views, we only remove canvas elements that have the same ID as our image
-    // This ensures we don't remove canvas elements used for drawing rectangles
-    const imageId = currentView === 'line' ? 'lineImage' : 
-                    currentView === 'word' ? 'wordImage' : 
-                    currentView === 'glyph' ? 'glyphImage' : 'pageImage';
+    const imageId = instance.currentView.get() === 'line' ? 'lineImage' : 
+                    instance.currentView.get() === 'word' ? 'wordImage' : 
+                    instance.currentView.get() === 'glyph' ? 'glyphImage' : 'pageImage';
     $(`canvas#${imageId}`).remove();
   }
   
-  // Fix: remove any extra #wordImage with the "img-fluid" class
   const duplicates = document.querySelectorAll('img#wordImage.img-fluid');
   if (duplicates.length > 1) {
     duplicates.forEach((img, i) => {
@@ -963,9 +987,7 @@ function replaceWithOriginalImage() {
     });
   }
   
-  // Remove any selectElement buttons that might be lingering
-  // but ONLY if they were created by the current tool, not others
-  const currentTool = Template.instance().currentTool.get();
+  const currentTool = instance.currentTool.get();
   if (currentTool === 'createWord' || currentTool === 'createLine' || 
       currentTool === 'createGlyph' || currentTool === 'createPhoneme' ||
       currentTool === 'createElement') {
@@ -1311,214 +1333,265 @@ Template.viewPage.events({
   },
 
   'click #selectItem'(event, instance) {
-  event.preventDefault();
-  instance.currentTool.set('select');
-  resetToolbox();
-  //set the currentTool to btn-dark
-  $('#selectItem').removeClass('btn-light').addClass('btn-dark');
-  selectedLine = instance.currentLine.get();
-  selectedWord = instance.currentWord.get();
-  selectedGlyph = instance.currentGlyph.get();
-  currentView = instance.currentView.get();
-  console.log("selectedLine is " + selectedLine);
-  if (currentView == 'simple') {
-    image = initCropper("page");
-    const context = image.getContext('2d');
-    const page = instance.currentPage.get();
-    const documentId = instance.currentDocument.get();
-    const lines = Documents.findOne({_id: documentId}).pages[page].lines;
-    //if there are no lines, simulate clicking the exitTool button
-    if (lines.length == 0) {
-      alert("No lines to display. Use the Create Line tool to create a line.");
-      $('#exitTool').click();
-      return;
-    }
-    //sort the lines by y1
-    lines.sort(function(a, b) {
-      return a.y1 - b.y1;
-    });
-    //split the canvas into multiple canvases by line
-    lines.forEach(function(line) {
-      index = lines.indexOf(line);
-      drawButton(image, 0, line.y1, image.width, line.height, 'line', index, index);
-    });
-    //hide the original image with display none
-    setCurrentHelp('To select a line, click on the line.  To cancel, click the close tool button.');
-    // Ensure the selection boxes appear immediately
-    replaceWithOriginalImage();
-  }
-  if(currentView == 'line') {
-    //get $('#lineImage') and change it from img-fluid to a calculated width and height
-    calcWidth = $('#lineImage').width();
-    calcHeight = $('#lineImage').height();
-    $('#lineImage').removeClass('img-fluid');
-    //add width and height to the lineImage's style
-    $('#lineImage').css('width', calcWidth + 'px');
-    $('#lineImage').css('height', calcHeight + 'px');
-    
-    // Store original image source and visibility state for restoration
-    const originalSrc = $('#lineImage').attr('src');
-    
-    image = initCropper("line");
-    const context = image.getContext('2d');
-    const page = instance.currentPage.get();
-    const documentId = instance.currentDocument.get();
-    const words = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words;
-    //if there are no words, simulate clicking the exitTool button
-    if (words.length == 0) {
-      alert("No words to display. Use the Create Word tool to create a word.");
-      $('#exitTool').click();
-      return;
-    }
-    //sort the words by x1
-    words.sort(function(a, b) {
-      return a.x - b.x;
-    });
-    //split the canvas into multiple canvases by word
-    words.forEach(function(word) {
-      index = words.indexOf(word);
-      drawButton(image, word.x, 0, word.width, image.height, 'word', index, index);
-    });
-    //hide the original image with display none
-    setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
-    
-    // Ensure the selection boxes appear immediately but also make sure lineImage is visible
-    replaceWithOriginalImage();
-    
-    // Make sure lineImage is shown and has the original source
-    $('#lineImage').show();
-    if (originalSrc) {
-      $('#lineImage').attr('src', originalSrc);
-    }
-  }
-  if(currentView == 'word') {
-    //get $('#wordImage') and change it from img-fluid to a calculated width and height
-    calcWidth = $('#wordImage').width();
-    calcHeight = $('#wordImage').height();
-    $('#wordImage').removeClass('img-fluid');
-    //add width and height to the wordImage's style
-    $('#wordImage').css('width', calcWidth + 'px');
-    $('#wordImage').css('height', calcHeight + 'px');
-    image = initCropper("word");
-    const context = image.getContext('2d');
-    const page = instance.currentPage.get();
-    const documentId = instance.currentDocument.get();
-    const doc = Documents.findOne({_id: documentId});
-    const lineId = instance.currentLine.get();
-    const wordId = instance.currentWord.get();
-    const word = doc.pages[page].lines[lineId].words[wordId];
-    const phonemes = word.phonemes || [];
-    const glyphs = word.glyphs || word.glyph || []; // Handle both possible property names
-    
-    console.log("Found phonemes:", phonemes.length);
-    console.log("Found glyphs:", glyphs.length);
-    
-    // Check if there are no elements to display
-    if (phonemes.length === 0 && glyphs.length === 0) {
-      alert("No phonemes or glyphs to display. Use the Create Phoneme or Create Glyph tool to create a phoneme or glyph.");
-      $('#exitTool').click();
-      return;
-    }
-    
-    //sort the phonemes by x
-    if (phonemes.length > 0) {
-      phonemes.sort(function(a, b) {
-        return a.x - b.x;
-      });
-      //split the canvas into multiple canvases by phoneme
-      phonemes.forEach(function(phoneme) {
-        index = phonemes.indexOf(phoneme);
-        drawButton(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
-      });
-    }
-    
-    //sort the glyphs by x
-    if (glyphs.length > 0) {
-      glyphs.sort(function(a, b) {
-        return a.x - b.x;
-      });
-      console.log(`Found ${glyphs.length} glyphs to display in word view`);
-      
-      //split the canvas into multiple canvases by glyph
-      glyphs.forEach(function(glyph) {
-        index = glyphs.indexOf(glyph);
-        console.log("Drawing glyph button at:", glyph.x, 0, glyph.width, image.height);
-        drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
+    event.preventDefault();
+    instance.currentTool.set('select');
+    resetToolbox();
+    //set the currentTool to btn-dark
+    $('#selectItem').removeClass('btn-light').addClass('btn-dark');
+    selectedLine = instance.currentLine.get();
+    selectedWord = instance.currentWord.get();
+    selectedGlyph = instance.currentGlyph.get();
+    currentView = instance.currentView.get();
+    console.log("selectedLine is " + selectedLine);
+    if (currentView == 'simple') {
+      image = initCropper("page");
+      const context = image.getContext('2d');
+      const page = instance.currentPage.get();
+      const documentId = instance.currentDocument.get();
+      const lines = Documents.findOne({_id: documentId}).pages[page].lines;
+      //if there are no lines, simulate clicking the exitTool button
+      if (lines.length == 0) {
+        alert("No lines to display. Use the Create Line tool to create a line.");
+        $('#exitTool').click();
+        return;
+      }
+      //sort the lines by y1
+      lines.sort(function(a, b) {
+        return a.y1 - b.y1;
       });
       
-      // After creating all the glyph buttons, add a debug message
+      // Debug output line information before drawing buttons
+      console.log(`Found ${lines.length} lines to display`);
+      lines.forEach((line, idx) => {
+        console.log(`Line ${idx}: y1=${line.y1}, height=${line.height}, width=${image.width}`);
+      });
+      
+      // Apply scaling to make boxes appear at appropriate size
+      // Calculate one scaling factor for all buttons for consistency
+      const domImage = document.getElementById('pageImage');
+      const imageRect = domImage ? domImage.getBoundingClientRect() : null;
+      const scaleFactor = imageRect && imageRect.height ? imageRect.height / image.height : 0.1;
+      console.log(`Using scaleFactor for all boxes: ${scaleFactor}`);
+      
+      // Store the scale factor in the instance for reuse in drawButton
+      instance.boxScaleFactor = scaleFactor;
+      
+      // Draw each line with appropriate scaling
+      lines.forEach(function(line, index) {
+        console.log(`Drawing button for line ${index} at y=${line.y1}, height=${line.height}`);
+        drawButton(image, 0, line.y1, image.width, line.height, 'line', index, index);
+      });
+      
+      //hide the original image with display none
+      setCurrentHelp('To select a line, click on the line. To cancel, click the close tool button.');
+      
+      // For browsers that need time to calculate accurate dimensions
       setTimeout(() => {
-        const glyphButtons = document.querySelectorAll('button[data-type="glyph"]');
-        console.log(`Glyph buttons created: ${glyphButtons.length}`);
-        glyphButtons.forEach(btn => {
-          console.log(`Glyph button: ID=${btn.getAttribute('data-id')}, Classes=${btn.className}`);
+        // Run one more check to adjust any boxes that might be misplaced
+        const buttons = document.querySelectorAll('.selectElement[data-type="line"]');
+        console.log(`Found ${buttons.length} line buttons for final positioning check`);
+        
+        // If we still have issues, try an alternate approach with pageImage as reference
+        if (buttons.length > 0 && parseFloat(buttons[0].style.height) < 10) {
+          const pageImg = document.getElementById('pageImage');
+          if (pageImg) {
+            const imgRect = pageImg.getBoundingClientRect();
+            console.log(`pageImage dimensions for rescaling: ${imgRect.width} x ${imgRect.height}`);
+            
+            buttons.forEach((btn, idx) => {
+              if (idx < lines.length) {
+                const line = lines[idx];
+                const lineY = line.y1 / image.height * imgRect.height;
+                const lineHeight = line.height / image.height * imgRect.height;
+                
+                btn.style.top = `${lineY}px`;
+                btn.style.height = `${lineHeight}px`;
+                btn.style.width = `${imgRect.width}px`;
+                console.log(`Adjusted button ${idx} to: top=${btn.style.top}, height=${btn.style.height}, width=${btn.style.width}`);
+              }
+            });
+          }
+        }
+        
+        // Make sure the page image is visible behind the selection boxes
+        $('#pageImage').show();
+        $('#pageImage').css('z-index', '5000');
+        
+        replaceWithOriginalImage();
+      }, 250);
+    }
+    if(currentView == 'line') {
+      //get $('#lineImage') and change it from img-fluid to a calculated width and height
+      calcWidth = $('#lineImage').width();
+      calcHeight = $('#lineImage').height();
+      $('#lineImage').removeClass('img-fluid');
+      //add width and height to the lineImage's style
+      $('#lineImage').css('width', calcWidth + 'px');
+      $('#lineImage').css('height', calcHeight + 'px');
+      
+      // Store original image source and visibility state for restoration
+      const originalSrc = $('#lineImage').attr('src');
+      
+      image = initCropper("line");
+      const context = image.getContext('2d');
+      const page = instance.currentPage.get();
+      const documentId = instance.currentDocument.get();
+      const words = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words;
+      //if there are no words, simulate clicking the exitTool button
+      if (words.length == 0) {
+        alert("No words to display. Use the Create Word tool to create a word.");
+        $('#exitTool').click();
+        return;
+      }
+      //sort the words by x1
+      words.sort(function(a, b) {
+        return a.x - b.x;
+      });
+      //split the canvas into multiple canvases by word
+      words.forEach(function(word) {
+        index = words.indexOf(word);
+        drawButton(image, word.x, 0, word.width, image.height, 'word', index, index);
+      });
+      //hide the original image with display none
+      setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
+      
+      // Ensure the selection boxes appear immediately but also make sure lineImage is visible
+      replaceWithOriginalImage();
+      
+      // Make sure lineImage is shown and has the original source
+      $('#lineImage').show();
+      if (originalSrc) {
+        $('#lineImage').attr('src', originalSrc);
+      }
+    }
+    if(currentView == 'word') {
+      //get $('#wordImage') and change it from img-fluid to a calculated width and height
+      calcWidth = $('#wordImage').width();
+      calcHeight = $('#wordImage').height();
+      $('#wordImage').removeClass('img-fluid');
+      //add width and height to the wordImage's style
+      $('#wordImage').css('width', calcWidth + 'px');
+      $('#wordImage').css('height', calcHeight + 'px');
+      image = initCropper("word");
+      const context = image.getContext('2d');
+      const page = instance.currentPage.get();
+      const documentId = instance.currentDocument.get();
+      const doc = Documents.findOne({_id: documentId});
+      const lineId = instance.currentLine.get();
+      const wordId = instance.currentWord.get();
+      const word = doc.pages[page].lines[lineId].words[wordId];
+      const phonemes = word.phonemes || [];
+      const glyphs = word.glyphs || word.glyph || []; // Handle both possible property names
+      
+      console.log("Found phonemes:", phonemes.length);
+      console.log("Found glyphs:", glyphs.length);
+      
+      // Check if there are no elements to display
+      if (phonemes.length === 0 && glyphs.length === 0) {
+        alert("No phonemes or glyphs to display. Use the Create Phoneme or Create Glyph tool to create a phoneme or glyph.");
+        $('#exitTool').click();
+        return;
+      }
+      
+      //sort the phonemes by x
+      if (phonemes.length > 0) {
+        phonemes.sort(function(a, b) {
+          return a.x - b.x;
         });
-      }, 100);
+        //split the canvas into multiple canvases by phoneme
+        phonemes.forEach(function(phoneme) {
+          index = phonemes.indexOf(phoneme);
+          drawButton(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
+        });
+      }
+      
+      //sort the glyphs by x
+      if (glyphs.length > 0) {
+        glyphs.sort(function(a, b) {
+          return a.x - b.x;
+        });
+        console.log(`Found ${glyphs.length} glyphs to display in word view`);
+        
+        //split the canvas into multiple canvases by glyph
+        glyphs.forEach(function(glyph) {
+          index = glyphs.indexOf(glyph);
+          console.log("Drawing glyph button at:", glyph.x, 0, glyph.width, image.height);
+          drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
+        });
+        
+        // After creating all the glyph buttons, add a debug message
+        setTimeout(() => {
+          const glyphButtons = document.querySelectorAll('button[data-type="glyph"]');
+          console.log(`Glyph buttons created: ${glyphButtons.length}`);
+          glyphButtons.forEach(btn => {
+            console.log(`Glyph button: ID=${btn.getAttribute('data-id')}, Classes=${btn.className}`);
+          });
+        }, 100);
+      }
+      
+      //hide the original image with display none
+      setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph. To cancel, click the close tool button.');
+      // Ensure the selection boxes appear immediately
+      replaceWithOriginalImage();
     }
-    
-    //hide the original image with display none
-    setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph. To cancel, click the close tool button.');
-    // Ensure the selection boxes appear immediately
-    replaceWithOriginalImage();
-  }
-  if(currentView == 'glyph') {
-    // Instead of just exiting the tool, implement element selection
-    console.log("Initializing element selection in glyph view");
-    
-    // Get calculated dimensions of the glyph image
-    calcWidth = $('#glyphImage').width();
-    calcHeight = $('#glyphImage').height();
-    $('#glyphImage').removeClass('img-fluid');
-    // Add width and height to the glyphImage's style
-    $('#glyphImage').css('width', calcWidth + 'px');
-    $('#glyphImage').css('height', calcHeight + 'px');
-    
-    // Initialize the cropper
-    image = initCropper("glyph");
-    const context = image.getContext('2d');
-    
-    // Get document and glyph data
-    const page = instance.currentPage.get();
-    const documentId = instance.currentDocument.get();
-    const doc = Documents.findOne({_id: documentId});
-    const lineId = instance.currentLine.get();
-    const wordId = instance.currentWord.get();
-    const glyphId = instance.currentGlyph.get();
-    
-    // Access the word to get its glyph
-    const line = doc.pages[page].lines[lineId];
-    const word = line.words[wordId];
-    const glyphsArray = word.glyphs || word.glyph || [];
-    const glyph = glyphsArray[glyphId];
-    
-    // Check if the glyph has elements
-    const elements = glyph.elements || [];
-    
-    // If there are no elements, show a message and exit
-    if (elements.length === 0) {
-      alert("No elements to display. Use the Create Element tool to create elements within this glyph.");
-      $('#exitTool').click();
-      return;
+    if(currentView == 'glyph') {
+      // Instead of just exiting the tool, implement element selection
+      console.log("Initializing element selection in glyph view");
+      
+      // Get calculated dimensions of the glyph image
+      calcWidth = $('#glyphImage').width();
+      calcHeight = $('#glyphImage').height();
+      $('#glyphImage').removeClass('img-fluid');
+      // Add width and height to the glyphImage's style
+      $('#glyphImage').css('width', calcWidth + 'px');
+      $('#glyphImage').css('height', calcHeight + 'px');
+      
+      // Initialize the cropper
+      image = initCropper("glyph");
+      const context = image.getContext('2d');
+      
+      // Get document and glyph data
+      const page = instance.currentPage.get();
+      const documentId = instance.currentDocument.get();
+      const doc = Documents.findOne({_id: documentId});
+      const lineId = instance.currentLine.get();
+      const wordId = instance.currentWord.get();
+      const glyphId = instance.currentGlyph.get();
+      
+      // Access the word to get its glyph
+      const line = doc.pages[page].lines[lineId];
+      const word = line.words[wordId];
+      const glyphsArray = word.glyphs || word.glyph || [];
+      const glyph = glyphsArray[glyphId];
+      
+      // Check if the glyph has elements
+      const elements = glyph.elements || [];
+      
+      // If there are no elements, show a message and exit
+      if (elements.length === 0) {
+        alert("No elements to display. Use the Create Element tool to create elements within this glyph.");
+        $('#exitTool').click();
+        return;
+      }
+      
+      console.log(`Found ${elements.length} elements to display in glyph view`);
+      
+      // Sort elements by their x coordinate
+      elements.sort(function(a, b) {
+        return a.x - b.x;
+      });
+      
+      // Draw buttons for each element
+      elements.forEach(function(element, index) {
+        console.log(`Drawing element button at: x=${element.x}, y=${element.y}, w=${element.width}, h=${element.height}`);
+        drawButton(image, element.x, element.y, element.width, element.height, 'element', index, index);
+      });
+      
+      setCurrentHelp('To select an element, click on it. To cancel, click the close tool button.');
+      // Ensure the selection boxes appear immediately
+      replaceWithOriginalImage();
     }
-    
-    console.log(`Found ${elements.length} elements to display in glyph view`);
-    
-    // Sort elements by their x coordinate
-    elements.sort(function(a, b) {
-      return a.x - b.x;
-    });
-    
-    // Draw buttons for each element
-    elements.forEach(function(element, index) {
-      console.log(`Drawing element button at: x=${element.x}, y=${element.y}, w=${element.width}, h=${element.height}`);
-      drawButton(image, element.x, element.y, element.width, element.height, 'element', index, index);
-    });
-    
-    setCurrentHelp('To select an element, click on it. To cancel, click the close tool button.');
-    // Ensure the selection boxes appear immediately
-    replaceWithOriginalImage();
-  }
-},
+  },
 
   'click .selectElement'(event, instance) {
     event.preventDefault();
@@ -3134,8 +3207,9 @@ function setElementImage(id, instance) {
 }
 
 //function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index. 
-// We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
 function drawButton(image, x, y, width, height, type, text, id) {
+  console.log(`Drawing ${type} button ${id}: x=${x}, y=${y}, width=${width}, height=${height}`);
+
   //round the x, y, width, and height to the nearest integer
   x = Math.round(x);
   y = Math.round(y);
@@ -3152,27 +3226,70 @@ function drawButton(image, x, y, width, height, type, text, id) {
 
   //get the canvas' container
   const parent = context.canvas.parentNode;
+  console.log(`Parent container: id=${parent.id}, position=${window.getComputedStyle(parent).position}`);
 
-  //get the canvas' computed offset relative to the parent
-  const canvasOffset = context.canvas.getBoundingClientRect();
+  // Force the canvas to display temporarily to get proper bounds
+  const originalDisplay = image.style.display;
+  image.style.display = 'block';
+  image.style.visibility = 'visible';
+  image.style.position = 'absolute';
+  
+  // Get the canvas' computed offset
+  const canvasOffset = image.getBoundingClientRect();
+  console.log(`Canvas bounds: left=${canvasOffset.left}, top=${canvasOffset.top}, width=${canvasOffset.width}, height=${canvasOffset.height}`);
+  
+  // Restore original display
+  image.style.display = originalDisplay;
 
-  //get the canvas' data-url
-  const src = context.canvas.toDataURL('image/png');
+  // Get scale factors using fallbacks
+  let xScaling, yScaling;
+  
+  // First try: Use the bounding rect
+  if (canvasOffset.width > 0 && canvasOffset.height > 0) {
+    xScaling = canvasOffset.width / image.width;
+    yScaling = canvasOffset.height / image.height;
+  } 
+  // Second try: Use the instance's stored scaling values
+  else {
+    const instance = Template.instance();
+    if (instance && instance.xScaling && instance.yScaling) {
+      xScaling = 1 / instance.xScaling.get();
+      yScaling = 1 / instance.yScaling.get();
+    } 
+    // Final fallback: Calculate from the image container
+    else {
+      const containerWidth = parseFloat(window.getComputedStyle(parent).width);
+      const containerHeight = parseFloat(window.getComputedStyle(parent).height);
+      xScaling = containerWidth / image.width;
+      yScaling = containerHeight / image.height;
+      
+      // If still zero, just use a reasonable default scale
+      if (xScaling === 0 || yScaling === 0) {
+        console.warn("Using default scaling factor as fallback");
+        const defaultScale = 0.1; // Adjust as needed
+        xScaling = defaultScale;
+        yScaling = defaultScale;
+      }
+    }
+  }
+  
+  console.log(`Scale factors: xScaling=${xScaling}, yScaling=${yScaling}`);
 
-  //create a new image
-  const img = new Image();
-  img.src = src;
-
-  //calculate the scale factor
-  const xScaling = canvasOffset.width / context.canvas.width;
+  // Ensure we never have zero scaling
+  xScaling = xScaling || 0.1;
+  yScaling = yScaling || 0.1;
 
   let defaultClass = 'selectElement';
   //draw the button at the x, y, width, and height 
   button.style.position = 'absolute';
   button.style.left = (x * xScaling) + 'px';
-  button.style.top = (y * xScaling) + 'px';
+  button.style.top = (y * yScaling) + 'px';
   button.style.width = (width * xScaling) + 'px';
-  button.style.height = (height * xScaling) + 'px';
+  button.style.height = (height * yScaling) + 'px';
+  button.style.zIndex = '10000'; // Ensure it's on top
+  button.style.pointerEvents = 'auto'; // Make sure clicks register on the button
+
+  console.log(`Button final position: left=${button.style.left}, top=${button.style.top}, width=${button.style.width}, height=${button.style.height}`);
 
   //add a label on the bottom left corner of the button that says the type and index
   const label = document.createElement('label');
