@@ -170,12 +170,13 @@ body, html {
   flex-direction: column;
   overflow-y: auto;
   max-height: calc(100vh - 120px);
+  height: calc(100vh - 120px); /* Set explicit height */
 }
 
 /* Improved scrollable container */
 .scrollable-container {
   overflow-y: auto;
-  max-height: 65vh;
+  height: calc(100vh - 220px); /* Adjust based on other elements */
   width: 100%;
   padding-right: 5px;
 }
@@ -195,7 +196,7 @@ body, html {
 
 /* Ensure images don't create excess height */
 .img {
-  max-height: 65vh;
+  max-height: 100%;
   width: auto;
   object-fit: contain;
 }
@@ -215,4 +216,26 @@ body, html {
 .modal-body {
   overflow-y: auto;
   max-height: 70vh;
+}
+
+/* Improve image container and scaling behavior */
+.image-container {
+  position: relative;
+  height: calc(100vh - 180px); /* Subtract header/footer height */
+  width: 100%;
+  display: flex;
+  justify-content: flex-start; /* Align to start instead of center */
+  align-items: flex-start; /* Align to top instead of center */
+  overflow: hidden;
+}
+
+/* Updated image styling for proper scaling without centering */
+#pageImage, #lineImage, #wordImage, #glyphImage, #elementImage {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0; /* Remove auto margins that center the image */
 }

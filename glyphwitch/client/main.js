@@ -448,6 +448,21 @@ Template.viewPage.onRendered(function() {
     $('#newpageImage').val('');
   });
 
+  // Setup responsive image sizing
+  function adjustImageContainer() {
+    const container = $('.image-container');
+    const availableHeight = $(window).height() - 180; // Adjust based on header/footer
+    container.css('height', availableHeight + 'px');
+  }
+  
+  // Initial adjustment
+  adjustImageContainer();
+  
+  // Adjust on window resize
+  $(window).resize(function() {
+    adjustImageContainer();
+  });
+
 });
 
 
@@ -994,6 +1009,13 @@ function replaceWithOriginalImage() {
     $('.selectElement').remove();
   }
   
+  // Ensure images maintain proper scaling when restored
+  $('#pageImage, #lineImage, #wordImage, #glyphImage, #elementImage').css({
+    'max-width': '100%',
+    'max-height': '100%',
+    'object-fit': 'contain'
+  });
+
   console.log("replaceWithOriginalImage: Cleaned up canvas and button elements");
 }
 

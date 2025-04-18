@@ -467,10 +467,10 @@
         </svg>
       </button>
       {{#if currentDocument}}
-      <!-- Change fixed width 80vw to use 100% with auto width -->
-      <div class="image-container" style="position: relative; min-height: 400px; width: 100%;">
+      <!-- Remove inline styles from image element and update container -->
+      <div class="image-container">
         {{#if currentPage.image}}
-          <img src="{{currentPage.image}}" class="img" alt="Image" style="max-height: 70vh; object-fit: cover;" id="pageImage">
+          <img src="{{currentPage.image}}" class="img" alt="Image" id="pageImage">
         {{else}}
           <div class="alert alert-secondary" role="alert">
             No page selected. Please select a page to view.
