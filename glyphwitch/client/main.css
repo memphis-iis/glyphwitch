@@ -107,9 +107,11 @@ body {
 }
 
 #HelpBox {
-  transition: max-height 0.3s ease;
-  max-height: 300px;
+  transition: all 0.3s ease;
   overflow: hidden;
+  height: auto;
+  max-width: 50%;
+  max-height: none;
 }
 
 #HelpBox.helpbox-hidden {
