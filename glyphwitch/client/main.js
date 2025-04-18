@@ -450,6 +450,21 @@ Template.viewPage.onCreated(function() {
       }, 300);
     }
   });
+  
+  // Add autorun for reactive data refresh - watches for document data changes
+  this.autorun(() => {
+    const documentId = instance.currentDocument.get();
+    if (documentId) {
+      // Reactive data fetch that will re-run when document data changes
+      const docData = Documents.findOne({_id: documentId});
+      
+      // Only refresh if we have an initialized tree and actual document data
+      if (docData && $.jstree && $.jstree.reference('#documentTree')) {
+        console.log("Document data changed, refreshing tree");
+        initDocumentTree(documentId);
+      }
+    }
+  });
 });
 
 //Onrendered function for viewPage
@@ -3502,6 +3517,9 @@ function initSidebarResize() {
     // Add visual feedback during resizing
     $handle.addClass('dragging');
     
+    // Add body class to prevent text selection during resize
+    $('body').addClass('sidebar-resizing');
+    
     e.preventDefault();
   });
   
@@ -3518,12 +3536,44 @@ function initSidebarResize() {
     
     // Set the new width
     $sidebar.width(constrainedWidth);
+    
+    // Update thumbnail sizes if we're in page selection tab
+    updatePageThumbnails();
   });
   
   $(document).on('mouseup.sidebarResize', function() {
     if (isResizing) {
       isResizing = false;
       $handle.removeClass('dragging');
+      
+      // Remove body class
+      $('body').removeClass('sidebar-resizing');
+      
+      // Final update to thumbnails
+      updatePageThumbnails();
     }
   });
+  
+  // Function to update page thumbnails
+  function updatePageThumbnails() {
+    const sidebarWidth = $sidebar.width();
+    
+    // Adjust thumbnail heights based on width to maintain aspect ratio
+    // This creates a more balanced view as the sidebar changes width
+    const thumbnailHeight = Math.max(100, Math.min(200, sidebarWidth * 0.6));
+    
+    $('.pagesel img').css({
+      'max-height': thumbnailHeight + 'px'
+    });
+    
+    // Also adjust page info text size for better readability
+    if (sidebarWidth < 220) {
+      $('.page-info .title-text').css('font-size', '0.7rem');
+    } else {
+      $('.page-info .title-text').css('font-size', '');
+    }
+  }
+  
+  // Initialize thumbnail sizes
+  updatePageThumbnails();
 }

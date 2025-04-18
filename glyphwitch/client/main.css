@@ -75,12 +75,16 @@ body {
 .pagesel {
   position: relative;
   border: 1px solid gray;
+  width: 100%; /* Ensure thumbnails fill the container width */
+  transition: all 0.2s ease-in-out;
 }
 
 .pagesel img {
   display: block;
   width: 100%;
   height: auto;
+  object-fit: cover;
+  max-height: 150px;
 }
 
 .page-controls {
@@ -115,6 +119,15 @@ body {
   height: 100vh;
   background-color: #f8f9fa;
   border-right: 1px solid #dee2e6 !important;
+}
+
+/* Add responsive thumbnail styles */
+.page-thumbnails {
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 #sidebar-resize-handle {
