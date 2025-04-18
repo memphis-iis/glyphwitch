@@ -87,6 +87,12 @@ Template.registerHelper('add', function(a, b) {
   return Number(a) + Number(b);
 });
 
+// Custom Handlebars helper to track indexes for nested loops
+Handlebars.registerHelper('setIndex', function(value) {
+  this.index = Number(value);
+  return '';
+});
+
 //login template (handles login and signup)
 Template.login.events({
   //when the login form is submitted
@@ -483,6 +489,33 @@ Template.viewPage.onRendered(function() {
   });
   
   $(document).on('mousemove', handleMouseMove);
+
+  // Add debugging for the collapsible elements
+  $(document).on('click', '.file-tree [data-bs-toggle="collapse"]', function(e) {
+    const targetId = $(this).attr('href');
+    const ariaControls = $(this).attr('aria-controls');
+    
+    console.group('Collapse Debug');
+    console.log('Clicked element:', this);
+    console.log('Target ID:', targetId);
+    console.log('Aria controls:', ariaControls);
+    console.log('Target element exists:', $(targetId).length > 0);
+    
+    // Log all elements with the same aria-controls
+    const sameAriaControls = $(`.file-tree [aria-controls="${ariaControls}"]`);
+    console.log('Elements with same aria-controls:', sameAriaControls.length);
+    sameAriaControls.each(function(i, el) {
+      console.log(`Element ${i}:`, el, 'href:', $(el).attr('href'));
+    });
+    
+    // Log all collapse elements with the same ID
+    const sameId = $(targetId);
+    console.log('Elements with same ID:', sameId.length);
+    console.groupEnd();
+  });
+
+  // Add a delay to ensure the DOM is fully rendered
+  setTimeout(debugCollapsibleElements, 1000);
 });
 
 // Add this to the viewPage events to ensure cleanup
@@ -493,6 +526,55 @@ Template.viewPage.events({
   'template.viewPage.destroyed'() {
     $(document).off('mousemove');
     $(document).off('mouseup');
+  },
+  
+  'click #expandAll'(event, instance) {
+    event.preventDefault();
+    console.group('ExpandAll Debug');
+    
+    // Log before state
+    const beforeCount = $('.file-tree .collapse.show').length;
+    console.log('Collapse elements with .show before:', beforeCount);
+    
+    // Find all collapse elements in the file-tree and add the show class
+    $('.file-tree .collapse').addClass('show');
+    
+    // Log after state
+    const afterCount = $('.file-tree .collapse.show').length;
+    console.log('Collapse elements with .show after:', afterCount);
+    console.log('Total collapse elements:', $('.file-tree .collapse').length);
+    
+    // Update aria-expanded attribute for all toggler elements
+    $('.file-tree [data-bs-toggle="collapse"]').attr('aria-expanded', 'true');
+    
+    // Verify the aria-expanded attributes were updated
+    const expandedCount = $('.file-tree [data-bs-toggle="collapse"][aria-expanded="true"]').length;
+    console.log('Elements with aria-expanded="true":', expandedCount);
+    console.groupEnd();
+  },
+  
+  'click #collapseAll'(event, instance) {
+    event.preventDefault();
+    console.group('CollapseAll Debug');
+    
+    // Log before state
+    const beforeCount = $('.file-tree .collapse.show').length;
+    console.log('Collapse elements with .show before:', beforeCount);
+    
+    // Find all collapse elements in the file-tree and remove the show class
+    $('.file-tree .collapse').removeClass('show');
+    
+    // Log after state
+    const afterCount = $('.file-tree .collapse.show').length;
+    console.log('Collapse elements with .show after:', afterCount);
+    
+    // Update aria-expanded attribute for all toggler elements
+    $('.file-tree [data-bs-toggle="collapse"]').attr('aria-expanded', 'false');
+    
+    // Verify the aria-expanded attributes were updated
+    const expandedCount = $('.file-tree [data-bs-toggle="collapse"][aria-expanded="false"]').length;
+    console.log('Elements with aria-expanded="false":', expandedCount);
+    console.groupEnd();
   },
   
   'click #expandAll'(event, instance) {
@@ -3110,4 +3192,48 @@ function drawRect(canvas, x, y, width, height, type, index, subIndex) {
   
   ctx.fillRect(x, y, width, height);
   ctx.strokeRect(x, y, width, height);
+}
+
+// Add this function at the end of the file for additional debugging
+function debugCollapsibleElements() {
+  console.group('Collapsible Elements Debug');
+  
+  // Check for duplicate IDs
+  const idMap = {};
+  $('.file-tree [id]').each(function() {
+    const id = $(this).attr('id');
+    if (!idMap[id]) {
+      idMap[id] = [];
+    }
+    idMap[id].push(this);
+  });
+  
+  let duplicateCount = 0;
+  for (const id in idMap) {
+    if (idMap[id].length > 1) {
+      console.warn(`Duplicate ID found: ${id}`, idMap[id]);
+      duplicateCount++;
+    }
+  }
+  console.log(`Found ${duplicateCount} duplicate IDs`);
+  
+  // Check href and aria-controls consistency
+  $('.file-tree [data-bs-toggle="collapse"]').each(function() {
+    const href = $(this).attr('href');
+    const ariaControls = $(this).attr('aria-controls');
+    
+    if (href && !href.startsWith('#')) {
+      console.warn('Invalid href attribute (missing #):', href, this);
+    }
+    
+    if (href && href.substring(1) !== ariaControls) {
+      console.warn('href and aria-controls mismatch:', {
+        href: href,
+        ariaControls: ariaControls,
+        element: this
+      });
+    }
+  });
+  
+  console.groupEnd();
 }

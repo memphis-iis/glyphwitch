@@ -401,45 +401,48 @@
         <div class="col-12">
         <ul class="file-tree">
           {{#each currentDocument.pages}}
-          <li>
-          <a data-bs-toggle="collapse" href="#page-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{@index}}">
-            <i class="bi bi-folder-fill"></i> Page {{@index}}
-          </a>
-          <div class="collapse" id="page-{{@index}}">
-            <ul>
-            {{#each this.lines}}
+            {{setIndex @index}}
             <li>
-            <a data-bs-toggle="collapse" href="#line-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="line-{{../@index}}-{{@index}}">
-              <i class="bi bi-list"></i> Line {{@index}}
+            <a data-bs-toggle="collapse" href="#page-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{@index}}">
+              <i class="bi bi-folder-fill"></i> Page {{add @index 1}}
             </a>
-            <div class="collapse" id="line-{{../@index}}-{{@index}}">
+            <div class="collapse" id="page-{{@index}}">
               <ul>
-              {{#each this.words}}
-              <li>
-              <a data-bs-toggle="collapse" href="#word-{{../../@index}}-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="word-{{../../@index}}-{{../@index}}-{{@index}}">
-                <i class="bi bi-file-word-fill"></i>Word {{@index}}
-              </a>
-              <div class="collapse" id="word-{{../../@index}}-{{../@index}}-{{@index}}">
-                <ul class="d-flex">
-                {{#each this.phonemes}}
-                <li><i class="bi bi-soundwave"></i> {{this.ipa}}<br></li>
-                {{/each}}
-                {{#each this.glyphs}}
-                <li><i class="bi bi-wikipedia"></i> Glyph {{@index}}<br></li>
-                {{/each}}
-                </ul>
-              </div>
-              </li>
+              {{#each this.lines}}
+                {{setIndex @index}}
+                <li>
+                <a data-bs-toggle="collapse" href="#page-{{../index}}-line-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{../index}}-line-{{@index}}">
+                  <i class="bi bi-list"></i> Line {{add @index 1}}
+                </a>
+                <div class="collapse" id="page-{{../index}}-line-{{@index}}">
+                  <ul>
+                  {{#each this.words}}
+                    {{setIndex @index}}
+                    <li>
+                    <a data-bs-toggle="collapse" href="#page-{{../../index}}-line-{{../index}}-word-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{../../index}}-line-{{../index}}-word-{{@index}}">
+                      <i class="bi bi-file-word-fill"></i>Word {{add @index 1}}
+                    </a>
+                    <div class="collapse" id="page-{{../../index}}-line-{{../index}}-word-{{@index}}">
+                      <ul class="d-flex">
+                      {{#each this.phonemes}}
+                      <li><i class="bi bi-soundwave"></i> {{this.ipa}}<br></li>
+                      {{/each}}
+                      {{#each this.glyphs}}
+                      <li><i class="bi bi-wikipedia"></i> Glyph {{add @index 1}}<br></li>
+                      {{/each}}
+                      </ul>
+                    </div>
+                    </li>
+                  {{/each}}
+                  </ul>
+                </div>
+                </li>
               {{/each}}
               </ul>
             </div>
             </li>
-            {{/each}}
-            </ul>
-          </div>
-          </li>
           {{/each}}
-          </ul>
+        </ul>
         </div>
       </div>
       </div>
