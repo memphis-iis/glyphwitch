@@ -1753,6 +1753,21 @@ Template.viewPage.events({
     const type = grandparent.getAttribute('data-type');
     const closedTabId = grandparent.getAttribute('id');
 
+    // Find the previous visible tab (to the left) before we close this one
+    const prevTab = $(grandparent).prev(':visible:not(#view-tab-template)');
+    let nextActiveTab = null;
+
+    // If there's a tab to the left, store its information
+    if (prevTab.length > 0) {
+      nextActiveTab = {
+        element: prevTab,
+        type: prevTab.attr('data-type'),
+        id: prevTab.attr('data-id'),
+        tabId: prevTab.find('button').attr('data-tab-id')
+      };
+      console.log(`Found tab to the left: ${nextActiveTab.type} ${nextActiveTab.id}`);
+    }
+
     // Close child tabs
     if (closedTabId) {
       $('#view-tab-template').parent().children(`[data-parent="${closedTabId}"]`).each(function() {
@@ -1779,36 +1794,80 @@ Template.viewPage.events({
     grandparent.remove();
     
     // Check if there are any remaining tabs (other than the template tab)
-    const remainingTabs = $('#view-tab-template').parent().children().not('#view-tab-template');
-    if (remainingTabs.length <= 1) { // Just the Simple View tab remains
-      // Switch to Simple View
+    const remainingTabs = $('#view-tab-template').parent().children(':visible:not(#view-tab-template)');
+    
+    if (remainingTabs.length === 0) {
+      // No tabs left, switch to Simple View
       instance.currentView.set('simple');
       $('#simple-tab').addClass('active').attr('aria-selected', 'true');
       
-      // Remove all view-specific images
-      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').remove();
-      
       // Show page image
       $('#pageImage').show();
+      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').remove();
     } else {
-      // Find the active tab and ensure its image is visible
-      const activeTab = $('#view-tab-template').parent().children().find('.active').first();
-      if (activeTab.length > 0) {
-        const activeTabId = activeTab.attr('data-tab-id');
-        if (activeTabId === 'line') {
+      // We have tabs remaining
+      if (nextActiveTab) {
+        // Activate the tab that was to the left
+        nextActiveTab.element.children('button')
+          .addClass('active')
+          .attr('aria-selected', 'true');
+        
+        // Set the current view based on the activated tab
+        instance.currentView.set(nextActiveTab.type || nextActiveTab.tabId);
+        
+        // Show the appropriate image based on the activated tab type
+        $('img#pageImage, img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+        
+        if (nextActiveTab.type === 'line') {
           $('img#lineImage').show();
-        } else if (activeTabId === 'word') {
+          if (nextActiveTab.id) instance.currentLine.set(nextActiveTab.id);
+        } else if (nextActiveTab.type === 'word') {
           $('img#wordImage').show();
-        } else if (activeTabId === 'glyph') {
+          if (nextActiveTab.id) instance.currentWord.set(nextActiveTab.id);
+        } else if (nextActiveTab.type === 'glyph') {
           $('img#glyphImage').show();
-        } else if (activeTabId === 'element') {
+          if (nextActiveTab.id) instance.currentGlyph.set(nextActiveTab.id);
+        } else if (nextActiveTab.type === 'element') {
           $('img#elementImage').show();
-        } else if (activeTabId === 'simple') {
+          if (nextActiveTab.id && instance.currentElement) instance.currentElement.set(nextActiveTab.id);
+        } else if (nextActiveTab.tabId === 'simple') {
+          $('#pageImage').show();
+        }
+      } else {
+        // No tab to the left, activate the first visible tab
+        const firstTab = remainingTabs.first();
+        const tabType = firstTab.attr('data-type');
+        const tabId = firstTab.attr('data-id');
+        
+        firstTab.children('button')
+          .addClass('active')
+          .attr('aria-selected', 'true');
+        
+        // Set current view
+        instance.currentView.set(tabType || firstTab.find('button').attr('data-tab-id') || 'simple');
+        
+        // Show correct image
+        $('img#pageImage, img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+        
+        if (tabType === 'line') {
+          $('img#lineImage').show();
+          if (tabId) instance.currentLine.set(tabId);
+        } else if (tabType === 'word') {
+          $('img#wordImage').show();
+          if (tabId) instance.currentWord.set(tabId);
+        } else if (tabType === 'glyph') {
+          $('img#glyphImage').show();
+          if (tabId) instance.currentGlyph.set(tabId);
+        } else if (tabType === 'element') {
+          $('img#elementImage').show();
+          if (tabId && instance.currentElement) instance.currentElement.set(tabId);
+        } else {
           $('#pageImage').show();
         }
       }
     }
     
+    // Update the toolbox to match the new active view
     resetToolbox();
   },
   
@@ -2087,9 +2146,11 @@ Template.viewPage.events({
     cropDetails = {};
     //add a event listener for hitting the enter key, which will confirm the selection
     const cropper = new Cropper(image, {
-      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
+      // Use the same cropper options as for createWord
       dragMode: 'crop',
       aspectRatio: 0,
+      // Set a higher zIndex to ensure the cropper appears above other elements
+      zIndex: 9999,
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -2098,7 +2159,10 @@ Template.viewPage.events({
         instance.selectheight.set(cropDetails.height);
       }
     });
-    cropper.setCropBoxData({left: 0, top: lines[lines.length - 1].y2, width: image.width, height: 20});
+    // Use the same initial crop box as createWord
+    cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
+    // Store the cropper instance to properly clean it up later
+    instance.cropper.set(cropper);
   },
   'click #createWord'(event, instance) {
     event.preventDefault();
@@ -2457,256 +2521,6 @@ Template.viewPage.events({
               $('#pageTitle').val('');
               $('#newpageImage').val('');
               // Re-enable and close
-              $('#submitNewPage').prop('disabled', false);
-              $('#createPageModal').modal('hide');
-            }
-          });
-        }
-      });
-      upload.start();
-    }
-  },
-  'click .move-up'(event, instance) {
-    event.preventDefault();
-    const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
-    const documentId = instance.currentDocument.get();
-    if (pageIndex > 0) {
-      Meteor.call('movePage', documentId, pageIndex, pageIndex - 1, (error, result) => {
-        if (error) {
-          console.error('Error moving page up:', error);
-        } else {
-          console.log('Page moved up successfully');
-        }
-      });
-    }
-  },
-  'click .move-down'(event, instance) {
-    event.preventDefault();
-    const pageIndex = parseInt(event.currentTarget.getAttribute('data-id'));
-    const documentId = instance.currentDocument.get();
-    const totalPages = Documents.findOne({_id: documentId}).pages.length;
-    if (pageIndex < totalPages - 1) {
-        Meteor.call('movePage', documentId, pageIndex, pageIndex + 1, (error, result) => {
-            if (error) {
-                console.error('Error moving page down:', error);
-            } else {
-                console.log('Page moved down successfully');
-            }
-        });
-    }
-  },
-  'click #createElement'(event, instance) {
-    event.preventDefault();
-    console.log("DEBUG: createElement click handler - start");
-    console.log("createElement, drawing is " + instance.drawing.get());
-    
-    // Set the currentTool to createElement first
-    console.log("DEBUG: createElement - setting tool state");
-    instance.currentTool.set('createElement');
-    
-    // Update button appearance
-    $('#createElement').removeClass('btn-light').addClass('btn-dark');
-    
-    // Call resetToolbox after setting the tool state
-    console.log("DEBUG: createElement - calling resetToolbox");
-    resetToolbox();
-    
-    console.log("DEBUG: createElement - tool buttons visibility after resetToolbox:", {
-      createElement: $('#createElement').is(':visible'),
-      exitTool: $('#exitTool').is(':visible'),
-      confirmTool: $('#confirmTool').is(':visible')
-    });
-    
-    // Initialize cropper for the glyph image
-    console.log("DEBUG: createElement - initializing cropper");
-    image = initCropper('glyph');
-    
-    // Get the glyph data to set appropriate crop boundaries
-    const documentId = instance.currentDocument.get();
-    const page = instance.currentPage.get();
-    const lineId = instance.currentLine.get();
-    const wordId = instance.currentWord.get();
-    const glyphId = instance.currentGlyph.get();
-    
-    const doc = Documents.findOne({_id: documentId});
-    if (doc) {
-      console.log("DEBUG: createElement - found document");
-      const line = doc.pages[page].lines[lineId];
-      const word = line.words[wordId];
-      const glyphsArray = word.glyphs || word.glyph || [];
-      const glyph = glyphsArray[glyphId];
-      
-      if (glyph) {
-        console.log("DEBUG: createElement - found glyph with dimensions:", {
-          width: glyph.width,
-          height: line.height
-        });
-        
-        // Show bounding boxes for existing elements
-        const elements = glyph.elements || [];
-        elements.forEach((element, index) => {
-          console.log("drawing existing element bounding box");
-          drawRect(image, element.x, element.y, element.width, element.height, 'element', index, index);
-        });
-      }
-    }
-    
-    setCurrentHelp('To create a bounding box to represent an element in the glyph, use the cropping bounds to select the area that contains the element. Click Confirm when done or Exit to cancel.');
-    
-    // Set the image css to display block and max-width 100%
-    image.style.display = 'block';
-    image.style.maxWidth = '100%';
-    
-    // Create a cropper object for the glyphImage with strict constraints
-    cropDetails = {};
-    const cropper = new Cropper(image, {
-      dragMode: 'crop',
-      aspectRatio: 0,
-      viewMode: 1,        // Restrict the crop box to not exceed the size of the canvas
-      autoCropArea: 1,    // Make the crop box cover the entire canvas by default
-      movable: false,     // Prevent the image from being moved inside the canvas
-      zoomable: false,    // Disable zooming
-      rotatable: false,   // Disable rotation
-      scalable: false,    // Disable scaling
-      zoomOnTouch: false, // Disable zoom on touch
-      zoomOnWheel: false, // Disable zoom on wheel
-      minCropBoxWidth: 10,
-      minCropBoxHeight: 10,
-      crop(event) {
-        cropDetails = event.detail;
-        instance.selectx1.set(cropDetails.x);
-        instance.selecty1.set(cropDetails.y);
-        instance.selectwidth.set(cropDetails.width);
-        instance.selectheight.set(cropDetails.height);
-        
-        // Log the crop details for debugging
-        console.log("Crop details:", {
-          x: cropDetails.x,
-          y: cropDetails.y,
-          width: cropDetails.width,
-          height: cropDetails.height,
-          canvasWidth: image.width,
-          canvasHeight: image.height
-        });
-      }
-    });
-    
-    // Store the cropper instance to destroy it later
-    instance.cropper.set(cropper);
-    
-    // Set initial crop box to a reasonable size in the center of the glyph
-    // We want to start with something smaller than the full glyph
-    cropper.setCropBoxData({
-      left: image.width * 0.25,     // Start at 25% from left
-      top: image.height * 0.25,     // Start at 25% from top
-      width: image.width * 0.5,     // Width is 50% of glyph width
-      height: image.height * 0.5    // Height is 50% of glyph height
-    });
-    
-    // Add a check to ensure the container is properly sized
-    setTimeout(() => {
-      const container = $('.cropper-container');
-      const canvas = $('.cropper-canvas');
-      const dragBox = $('.cropper-drag-box');
-      
-      console.log("Cropper dimensions:", {
-        container: {
-          width: container.width(),
-          height: container.height()
-        },
-        canvas: {
-          width: canvas.width(),
-          height: canvas.height()
-        },
-        dragBox: {
-          width: dragBox.width(),
-          height: dragBox.height()
-        },
-        image: {
-          width: image.width,
-          height: image.height
-        }
-      });
-    }, 500);
-    
-    console.log("DEBUG: createElement - end of handler");
-  },
-  
-  //keyboard shift and mouse wheel event
-  'wheel #pageImage'(event, instance) {
-    if(event.shiftKey) {
-
-      console.log(event);
-      //get the current calculated height of the image
-      height = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('height');
-      width = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('width');
-      //if the mouse wheel is scrolled up, increase the height by 10%
-      if (event.originalEvent.deltaY < 0) {
-        document.getElementById('pageImage').style.height = parseInt(height) * 1.1 + 'px';
-        document.getElementById('pageImage').style.width = parseInt(width) * 1.1 + 'px';
-      } else {
-        //if the mouse wheel is scrolled down, decrease the height by 10%
-        document.getElementById('pageImage').style.height = parseInt(height) * 0.9 + 'px';
-        document.getElementById('pageImage').style.width = parseInt(width) * 0.9 + 'px';
-      }
-
-    }
-  },
-  //logout and head to the home page
-  'click #allExit': function(event, instance) {
-      Router.go('/logout');
-  },
-  //click addPage to open the addPageModal
-  'click #addPage': function(event, instance) {
-    event.preventDefault();
-    //if theres a data-id, we set the currentPage to the data-id
-    if(event.target.getAttribute('data-id')) {
-      instance.currentPage.set(event.target.getAttribute('data-id'));
-    }
-    $('#createPageModal').modal('show');
-  },
-  'submit #createPageForm'(event, template) {
-    event.preventDefault();
-    console.log("submitNewPage");
-
-    // Disable the submit button
-    $('#submitNewPage').prop('disabled', true);
-
-    // Get the title and file from the form
-    const title = $('#pageTitle').val();
-    const file = $('#newpageImage').get(0).files[0];
-    const documentId = template.currentDocument.get();
-    const pageIndex = $('#pageIndex').val();
-    console.log("Filename: " + file.name + ". Title: " + title + ".", "DocumentId: " + documentId + ". PageIndex: " + pageIndex + ".");
-
-    if (file) {
-      const upload = Files.insert({
-        file: file,
-        chunkSize: 'dynamic'
-      }, false);
-
-      upload.on('end', function(error, fileObj) {
-        if (error) {
-          console.log(error);
-          alert('Error uploading file');
-        } else {
-          console.log(fileObj);
-          const thispage = {
-            title: title,
-            addedBy: Meteor.userId(),
-            lines: []
-          };
-          doc = Documents.findOne({_id: documentId});
-          doc.pages.push(thispage);
-          //           addPageToDocument: function(document, fileObjId, pageNumber, title){
-          Meteor.call('addPageToDocument', documentId, fileObj._id, pageIndex, title, function(error, result) {
-            if (error) {
-              console.log(error);
-              alert('Error adding page');
-            } else {
-              console.log(result);
-              alert('Page added');
-              // Enable the submit button
               $('#submitNewPage').prop('disabled', false);
               $('#createPageModal').modal('hide');
             }
