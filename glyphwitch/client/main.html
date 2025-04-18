@@ -303,50 +303,26 @@
     <!-- Improved sidebar with tabs for Data Browser and Page Selection -->
     <div class="bg-light border" id="sidebar" style="width: 250px; min-width: 180px; max-width: 500px;">
       <div class="p-2">
-        <!-- Tabs for sidebar navigation -->
+        <!-- Tabs for sidebar navigation - changed order and default active tab -->
         <ul class="nav nav-tabs nav-fill mb-2" id="sidebarTabs" role="tablist">
           <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="data-browser-tab" data-bs-toggle="tab" data-bs-target="#data-browser-content" 
-              type="button" role="tab" aria-controls="data-browser-content" aria-selected="true">
-              <i class="bi bi-diagram-3"></i> Data Browser
+            <button class="nav-link active" id="page-selection-tab" data-bs-toggle="tab" data-bs-target="#page-selection-content" 
+              type="button" role="tab" aria-controls="page-selection-content" aria-selected="true">
+              <i class="bi bi-images"></i> Pages
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link" id="page-selection-tab" data-bs-toggle="tab" data-bs-target="#page-selection-content" 
-              type="button" role="tab" aria-controls="page-selection-content" aria-selected="false">
-              <i class="bi bi-images"></i> Pages
+            <button class="nav-link" id="data-browser-tab" data-bs-toggle="tab" data-bs-target="#data-browser-content" 
+              type="button" role="tab" aria-controls="data-browser-content" aria-selected="false">
+              <i class="bi bi-diagram-3"></i> Data Browser
             </button>
           </li>
         </ul>
         
-        <!-- Tab content -->
+        <!-- Tab content - changed order to match tab buttons -->
         <div class="tab-content" id="sidebarTabsContent">
-          <!-- Data Browser tab content -->
-          <div class="tab-pane fade show active" id="data-browser-content" role="tabpanel" aria-labelledby="data-browser-tab">
-            <h6 class="text-muted mb-2">Data Browser</h6>
-            <!-- Button group for Data Browser -->
-            <div class="btn-group mb-2 d-flex justify-content-center">
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="expandAll" title="Expand All">
-                <i class="bi bi-arrows-expand"></i>
-              </button>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAll" title="Collapse All">
-                <i class="bi bi-arrows-collapse"></i>
-              </button>
-            </div>
-            
-            <!-- Data Browser tree content -->
-            <div id="documentTree" style="text-align: left; min-height: 200px;">
-              <div class="text-center p-3">
-                <div class="spinner-border text-primary" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2">Loading Data Browser...</p>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Page Selection tab content -->
-          <div class="tab-pane fade" id="page-selection-content" role="tabpanel" aria-labelledby="page-selection-tab">
+          <!-- Page Selection tab content - now the active one -->
+          <div class="tab-pane fade show active" id="page-selection-content" role="tabpanel" aria-labelledby="page-selection-tab">
             <h6 class="text-muted mb-2">Pages</h6>
             
             <!-- Page list section -->
@@ -380,6 +356,29 @@
                   Select a document to view its pages
                 </div>
               {{/if}}
+            </div>
+          </div>
+          
+          <!-- Data Browser tab content -->
+          <div class="tab-pane fade" id="data-browser-content" role="tabpanel" aria-labelledby="data-browser-tab">
+            <h6 class="text-muted mb-2">Data Browser</h6>
+            <div class="btn-group mb-2 d-flex justify-content-center">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="expandAll" title="Expand All">
+                <i class="bi bi-arrows-expand"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAll" title="Collapse All">
+                <i class="bi bi-arrows-collapse"></i>
+              </button>
+            </div>
+            
+            <!-- Data Browser tree content -->
+            <div id="documentTree" style="text-align: left; min-height: 200px;">
+              <div class="text-center p-3">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading Data Browser...</p>
+              </div>
             </div>
           </div>
         </div>

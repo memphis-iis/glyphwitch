@@ -2844,7 +2844,7 @@ Template.viewPage.onRendered(function() {
   // ...existing onRendered code...
   
   // Initialize Bootstrap tabs
-  const tabEl = document.querySelector('#data-browser-tab');
+  const tabEl = document.querySelector('#page-selection-tab');
   if (tabEl) {
     const tab = new bootstrap.Tab(tabEl);
   }

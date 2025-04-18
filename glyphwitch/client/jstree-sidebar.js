@@ -354,43 +354,6 @@ function addTreeButtonHandlers() {
       initDocumentTree(instance.currentDocument.get());
     }
   });
-  
-  // Add a debug button to help troubleshoot
-  if (!$('#debugTree').length) {
-    $('#documentTree').parent().find('.btn-group').append(`
-      <button type="button" class="btn rounded border" id="debugTree" title="Debug Tree">
-        <i class="bi bi-bug"></i>
-      </button>
-    `);
-    
-    $('#debugTree').off('click').on('click', function() {
-      console.group("jsTree Debug Info");
-      console.log("jsTree container visibility:", $('#documentTree').is(':visible'));
-      console.log("jsTree container dimensions:", {
-        width: $('#documentTree').width(),
-        height: $('#documentTree').height(),
-        offset: $('#documentTree').offset()
-      });
-      
-      const instance = $.jstree.reference('#documentTree');
-      console.log("jsTree instance exists:", !!instance);
-      
-      if (instance) {
-        console.log("jsTree nodes count:", instance.get_json('#', {flat: true}).length);
-      }
-      
-      const templateInstance = Template.instance();
-      console.log("Current document:", templateInstance.currentDocument && templateInstance.currentDocument.get());
-      
-      console.log("Container HTML:", $('#documentTree').html());
-      console.groupEnd();
-      
-      // Force refresh the tree
-      if (templateInstance && templateInstance.currentDocument && templateInstance.currentDocument.get()) {
-        initDocumentTree(templateInstance.currentDocument.get());
-      }
-    });
-  }
 }
 
 export { initDocumentTree, addTreeButtonHandlers, ScriptLoader };
