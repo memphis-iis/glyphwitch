@@ -298,14 +298,7 @@
 <template name="viewPage">
   <!-- document icon -->
   <div class="container-fluid d-flex flex-nowrap">
-
-
-
-
-
-        
-
-    <div class="col-md-3 bg-light collapse show text-center border" id="sidebar">
+    <div class="bg-light collapse show text-center border" id="sidebar" style="width: 250px; min-width: 180px; max-width: 500px;">
       {{#if currentDocument}}
       <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -453,6 +446,8 @@
     </div>
   </div>
     
+    <!-- Add resize handle -->
+    <div id="sidebar-resize-handle"></div>
     
     <!-- end of tab content -->
     <div class="col position-relative border">

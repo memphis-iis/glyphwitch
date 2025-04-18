@@ -105,3 +105,34 @@ body {
   align-items: center;
   padding: 0;
 }
+
+/* Sidebar resize styles */
+#sidebar {
+  transition: width 0.05s ease;
+  overflow-x: hidden;
+  position: relative;
+  flex-shrink: 0;
+  height: 100vh;
+}
+
+#sidebar-resize-handle {
+  width: 5px;
+  background-color: #c5c5c5;
+  cursor: col-resize;
+  height: 100vh;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+#sidebar-resize-handle:hover, 
+#sidebar-resize-handle.dragging {
+  background-color: #888;
+}
+
+/* Prevent text selection during resize */
+body.sidebar-resizing {
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  cursor: col-resize !important;
+}

@@ -448,9 +448,53 @@ Template.viewPage.onRendered(function() {
     $('#newpageImage').val('');
   });
 
+  // Initialize sidebar resizing
+  this.isDraggingSidebar = false;
+  
+  // Handle sidebar resize
+  const handleMouseMove = (e) => {
+    if (this.isDraggingSidebar) {
+      // Get the new sidebar width based on mouse position
+      let newWidth = e.clientX;
+      
+      // Apply constraints
+      if (newWidth < 180) newWidth = 180;
+      if (newWidth > 500) newWidth = 500;
+      
+      // Update sidebar width
+      $('#sidebar').css('width', newWidth + 'px');
+    }
+  };
+  
+  // Add event listeners for sidebar resize handle
+  $('#sidebar-resize-handle').on('mousedown', (e) => {
+    e.preventDefault();
+    this.isDraggingSidebar = true;
+    $('body').addClass('sidebar-resizing');
+    $('#sidebar-resize-handle').addClass('dragging');
+  });
+  
+  $(document).on('mouseup', (e) => {
+    if (this.isDraggingSidebar) {
+      this.isDraggingSidebar = false;
+      $('body').removeClass('sidebar-resizing');
+      $('#sidebar-resize-handle').removeClass('dragging');
+    }
+  });
+  
+  $(document).on('mousemove', handleMouseMove);
 });
 
-
+// Add this to the viewPage events to ensure cleanup
+Template.viewPage.events({
+  // ...existing code...
+  
+  // Cleanup sidebar resize event handlers when the template is destroyed
+  'template.viewPage.destroyed'() {
+    $(document).off('mousemove');
+    $(document).off('mouseup');
+  }
+});
 
 //function to reset all buttons in toolbox-container to btn-light
 function resetToolbox() {
