@@ -21,11 +21,19 @@ import './lib/router.js';
 
 //on client startup we subscribe to the all publication and the userData publication
 Meteor.startup(() => {
-
-
   Meteor.subscribe('files.images.all');
   Meteor.subscribe('all');
   Meteor.subscribe('userData');
+  
+  // Add a short delay to ensure user authentication is complete
+  Meteor.setTimeout(() => {
+    // If the user is logged in, automatically open the Start modal
+    if (Meteor.userId()) {
+      Meteor.setTimeout(() => {
+        $('#openModal').modal('show');
+      }, 500); // Short delay to ensure the modal is ready
+    }
+  }, 300);
 });
 
 
@@ -1310,9 +1318,8 @@ Template.viewPage.helpers({
   currentPageNumber() {
     const instance = Template.instance();
     const currentPage = parseInt(instance.currentPage.get());
-    console.log("currentPage is " + currentPage);
     if (currentPage !== null && currentPage !== undefined) {
-      // Add 1 to convert from 0-based index to 1-based page number for display
+      // Always display 1-indexed page numbers to users
       return currentPage + 1;
     } else {
       return 1;
@@ -1323,7 +1330,6 @@ Template.viewPage.helpers({
     const instance = Template.instance();
     return instance.currentLine.get();
   },
-  // Remove the first totalPages helper function to avoid duplication
   
   toolOptions() {
     const instance = Template.instance();
@@ -1381,7 +1387,6 @@ Template.viewPage.helpers({
     const instance = Template.instance();
     return instance.currentDiscussion.get();
   },
-  // Keep only one totalPages helper and make sure it's correct
   totalPages() {
     const instance = Template.instance();
     const documentId = instance.currentDocument.get();
@@ -1397,6 +1402,67 @@ Template.viewPage.helpers({
   jsTreeInitialized() {
     return $.fn.jstree && $('#documentTree').data('jstree') !== undefined;
   },
+  // Helper to generate data for each page in the document
+  pageInDocument() {
+    const instance = Template.instance();
+    const documentId = instance.currentDocument.get();
+    
+    if (!documentId) return [];
+    
+    const doc = Documents.findOne({_id: documentId});
+    if (!doc || !doc.pages) return [];
+    
+    return doc.pages.map((page, index) => {
+      // Get page image URL
+      let pageImage = "";
+      if (page.pageId) {
+        const file = Files.findOne({_id: page.pageId});
+        if (file) {
+          pageImage = file.link();
+        }
+      }
+      
+      // Safe display number conversion
+      const displayNumber = index + 1;
+      
+      // Handle title safely
+      // Only use custom title if it exists and is not the default "Page X" format
+      let pageTitle = "";
+      if (page.title && typeof page.title === 'string') {
+        // Don't include title if it's already in "Page X" format
+        if (!page.title.startsWith(`Page ${displayNumber}`)) {
+          pageTitle = page.title;
+        }
+      }
+      
+      return {
+        page: index,
+        displayNumber: displayNumber,
+        pageImage: pageImage,
+        pageTitle: pageTitle
+      };
+    });
+  },
+  
+  // Helper to check if a page is the current page
+  isCurrentPage(pageIndex) {
+    const instance = Template.instance();
+    return Number(instance.currentPage.get()) === Number(pageIndex);
+  },
+  
+  // Helper to get page title
+  pageTitle(pageIndex) {
+    const instance = Template.instance();
+    const documentId = instance.currentDocument.get();
+    
+    if (documentId && pageIndex !== undefined) {
+      const doc = Documents.findOne({_id: documentId});
+      if (doc && doc.pages && doc.pages[pageIndex]) {
+        return doc.pages[pageIndex].title || `Page ${pageIndex + 1}`;
+      }
+    }
+    return `Page ${pageIndex + 1}`;
+  }
 });
 
 Template.viewPage.events({
@@ -1465,25 +1531,21 @@ Template.viewPage.events({
       instance.currentPage.set(newPage);
       console.log("Setting page to:", newPage);
       
+      // Update the UI to show correct page number
+      const displayPageNumber = newPage + 1; // Display 1-indexed page number
+      $('.current-page-indicator').text(displayPageNumber);
+      
       // Explicitly fetch the new page data and display it
       const documentId = instance.currentDocument.get();
       if (documentId) {
         const doc = Documents.findOne({_id: documentId});
-        if (doc && doc.pages && doc.pages[newPage]) {
-          const page = doc.pages[newPage];
-          console.log("Navigating to page:", page);
-          
-          // Update the image manually
-          if (page.pageId) {
-            const file = Files.findOne({_id: page.pageId});
-            if (file) {
-              $('#pageImage').attr('src', file.link());
-              console.log("Image updated to:", file.link());
-            } else {
-              console.error("File not found for pageId:", page.pageId);
-            }
+        if (doc && doc.pages && doc.pages[newPage] && doc.pages[newPage].pageId) {
+          const file = Files.findOne({_id: doc.pages[newPage].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+            console.log("Image updated to:", file.link());
           } else {
-            console.error("No pageId found for page:", newPage);
+            console.error("File not found for pageId:", doc.pages[newPage].pageId);
           }
         } else {
           console.error("Page not found for index:", newPage);
@@ -1502,9 +1564,15 @@ Template.viewPage.events({
       const doc = Documents.findOne({_id: documentId});
       const totalPages = doc.pages.length;
       if (currentPage < totalPages - 1) {
-        // Set the new page as a number
-        instance.currentPage.set(Number(currentPage + 1));
-        console.log("Setting page to:", Number(currentPage + 1));
+        // Set the new page as a number, keeping 0-indexed internally
+        const newPage = Number(currentPage + 1);
+        instance.currentPage.set(newPage);
+        
+        // Update UI to show correct 1-indexed page number
+        const displayPageNumber = newPage + 1;
+        $('.current-page-indicator').text(displayPageNumber);
+        
+        console.log("Setting page to:", newPage, "Display page:", displayPageNumber);
       }
     }
   },
@@ -2702,7 +2770,89 @@ Template.viewPage.events({
     console.log("clearCanvas");
     const context = $('#glyphImageDraw')[0].getContext('2d');
     context.clearRect(0, 0, 200, 200);
+  },
+  // Handle page selection click
+  'click .pagesel'(event, instance) {
+    // Don't trigger page change if clicking on the control buttons
+    if ($(event.target).closest('.page-controls').length) {
+      return;
+    }
+    
+    // Get the 0-indexed page number from data attribute
+    const pageIndex = Number($(event.currentTarget).data('id'));
+    console.log("Page selected:", pageIndex, "Display page:", pageIndex + 1);
+    
+    if (!isNaN(pageIndex)) {
+      // Set current page (0-indexed internally)
+      instance.currentPage.set(pageIndex);
+      
+      // Update UI to show 1-indexed page number
+      $('.current-page-indicator').text(pageIndex + 1);
+      
+      // Update the page image
+      const documentId = instance.currentDocument.get();
+      if (documentId) {
+        const doc = Documents.findOne({_id: documentId});
+        if (doc && doc.pages && doc.pages[pageIndex] && doc.pages[pageIndex].pageId) {
+          const file = Files.findOne({_id: doc.pages[pageIndex].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+          }
+        }
+      }
+    }
+  },
+  
+  // Handle sidebar tab switching
+  'shown.bs.tab #sidebarTabs .nav-link'(event, instance) {
+    const tabId = $(event.target).attr('data-bs-target');
+    
+    if (tabId === '#page-selection-content') {
+      // After switching to page selection tab, scroll to the active page
+      setTimeout(() => {
+        const activePage = $('#page-selection-content .active-page');
+        if (activePage.length) {
+          const container = $('#page-selection-content .page-thumbnails');
+          container.animate({
+            scrollTop: activePage.position().top + container.scrollTop() - container.height()/2 + activePage.height()/2
+          }, 200);
+        }
+      }, 100);
+    }
   }
+});
+
+// Ensure sidebar tabs are initialized correctly on render
+Template.viewPage.onRendered(function() {
+  const instance = this;
+  
+  // ...existing onRendered code...
+  
+  // Initialize Bootstrap tabs
+  const tabEl = document.querySelector('#data-browser-tab');
+  if (tabEl) {
+    const tab = new bootstrap.Tab(tabEl);
+  }
+  
+  // Update page selection when document/page changes
+  this.autorun(() => {
+    const currentPage = instance.currentPage.get();
+    const currentDocument = instance.currentDocument.get();
+    
+    // If both document and page are set and the page selection tab is visible, highlight the current page
+    if (currentDocument && currentPage !== undefined && 
+        $('#page-selection-tab').hasClass('active')) {
+      setTimeout(() => {
+        const activePage = $(`#page-selection-content .pagesel[data-id="${currentPage}"]`);
+        if (activePage.length) {
+          const container = $('#page-selection-content .page-thumbnails');
+          container.animate({
+            scrollTop: activePage.position().top + container.scrollTop() - container.height()/2 + activePage.height()/2
+          }, 200);
+        }
+      }, 100);
+    }
+  });
 });
   
 //upload document onCreated function

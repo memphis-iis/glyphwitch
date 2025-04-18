@@ -300,34 +300,98 @@
 <!-- template for document viewing UI, with a left side -->
 <template name="viewPage">
   <div class="container-fluid d-flex flex-nowrap">
-    <!-- Improved sidebar with jsTree -->
+    <!-- Improved sidebar with tabs for Data Browser and Page Selection -->
     <div class="bg-light border" id="sidebar" style="width: 250px; min-width: 180px; max-width: 500px;">
       <div class="p-2">
-        <h6 class="text-muted mb-2">Data Browser</h6>
-        <!-- Add a visible container with minimum height -->
-        <div id="documentTree" style="text-align: left; min-height: 200px;">
-          <div class="text-center p-3">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
+        <!-- Tabs for sidebar navigation -->
+        <ul class="nav nav-tabs nav-fill mb-2" id="sidebarTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="data-browser-tab" data-bs-toggle="tab" data-bs-target="#data-browser-content" 
+              type="button" role="tab" aria-controls="data-browser-content" aria-selected="true">
+              <i class="bi bi-diagram-3"></i> Data Browser
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="page-selection-tab" data-bs-toggle="tab" data-bs-target="#page-selection-content" 
+              type="button" role="tab" aria-controls="page-selection-content" aria-selected="false">
+              <i class="bi bi-images"></i> Pages
+            </button>
+          </li>
+        </ul>
+        
+        <!-- Tab content -->
+        <div class="tab-content" id="sidebarTabsContent">
+          <!-- Data Browser tab content -->
+          <div class="tab-pane fade show active" id="data-browser-content" role="tabpanel" aria-labelledby="data-browser-tab">
+            <h6 class="text-muted mb-2">Data Browser</h6>
+            <!-- Button group for Data Browser -->
+            <div class="btn-group mb-2 d-flex justify-content-center">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="expandAll" title="Expand All">
+                <i class="bi bi-arrows-expand"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshTree" title="Refresh Tree">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAll" title="Collapse All">
+                <i class="bi bi-arrows-collapse"></i>
+              </button>
             </div>
-            <p class="mt-2">Loading Data Browser...</p>
+            
+            <!-- Data Browser tree content -->
+            <div id="documentTree" style="text-align: left; min-height: 200px;">
+              <div class="text-center p-3">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading Data Browser...</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Page Selection tab content -->
+          <div class="tab-pane fade" id="page-selection-content" role="tabpanel" aria-labelledby="page-selection-tab">
+            <h6 class="text-muted mb-2">Page Selection</h6>
+            
+            <!-- Page list section -->
+            <div class="page-thumbnails" style="overflow-y: auto; max-height: calc(100vh - 180px);">
+              {{#if currentDocument}}
+                {{#each pageInDocument}}
+                  <div class="pagesel mb-2 {{#if isCurrentPage page}}active-page{{/if}}" data-id="{{page}}">
+                    <img src="{{pageImage}}" alt="Page {{displayNumber}}" class="img-fluid">
+                    <div class="page-info p-1 bg-light">
+                      <span class="title-text">Page {{displayNumber}}</span>
+                      <div class="page-controls">
+                        <button class="btn btn-sm btn-outline-secondary move-up" data-id="{{page}}" title="Move Up">
+                          <i class="bi bi-arrow-up"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary move-down" data-id="{{page}}" title="Move Down">
+                          <i class="bi bi-arrow-down"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                {{/each}}
+                
+                <div class="text-center mt-3 mb-3">
+                  <button id="addPage" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Add Page
+                  </button>
+                </div>
+              {{else}}
+                <div class="alert alert-info">
+                  <i class="bi bi-info-circle me-2"></i>
+                  Select a document to view its pages
+                </div>
+              {{/if}}
+            </div>
           </div>
         </div>
       </div>
-      <div class="btn-group m-2 d-flex justify-content-center">
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="expandAll" title="Expand All">
-          <i class="bi bi-arrows-expand"></i>
-        </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshTree" title="Refresh Tree">
-          <i class="bi bi-arrow-clockwise"></i>
-        </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAll" title="Collapse All">
-          <i class="bi bi-arrows-collapse"></i>
-        </button>
-      </div>
     </div>
+    
     <!-- Add resize handle here -->
     <div id="sidebar-resize-handle" title="Drag to resize"></div>
+    
     <div class="col position-relative border">
       <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -447,7 +511,7 @@
       <div class="container">
         <div class="row">
           <div class="col text-center w-100">
-            <span class="badge bg-secondary float-start mx-2">Document: {{currentDocument.title}} - Page: {{currentPageNumber}}</span>
+            <span class="badge bg-secondary float-start mx-2">Document: {{currentDocument.title}} - Page: <span class="current-page-indicator">{{currentPageNumber}}</span></span>
             <span class="badge bg-secondary float-start mx-2">Current View: {{currentView}}</span>
             <span class="badge bg-secondary float-start mx-2">Current Tool: {{currentTool}}</span>
             {{#if isEqual currentView "line"}}
