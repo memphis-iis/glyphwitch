@@ -138,7 +138,8 @@ body, html {
 /* Make toolbox containers responsive */
 .toolbox-container {
   max-width: 95%;
-  z-index: 15000; /* Lower than HelpBox but higher than most elements */
+  z-index: 91000 !important; /* Higher than the cropper but lower than the HelpBox */
+  
 }
 
 /* Adjust help containers to fit within viewport and ensure highest z-index */
@@ -146,7 +147,7 @@ body, html {
   max-width: calc(100% - 40px);
   right: 0;
   word-wrap: break-word;
-  z-index: 20000 !important; /* Ensure help box is always on top */
+  z-index: 91000 !important; /* Higher than the cropper but lower than the HelpBox */
 }
 
 /* Fix fixed positioning on small screens */
@@ -171,9 +172,9 @@ body, html {
 .main-content-area {
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
   max-height: calc(100vh - 120px);
   height: calc(100vh - 120px); /* Set explicit height */
+  overflow-y: auto;
 }
 
 /* Improved scrollable container */
@@ -221,17 +222,7 @@ body, html {
   max-height: 70vh;
 }
 
-/* Improve image container and scaling behavior */
-.image-container {
-  position: relative;
-  height: calc(100vh - 180px); /* Subtract header/footer height */
-  width: 100%;
-  display: flex;
-  justify-content: flex-start; /* Align to start instead of center */
-  align-items: flex-start; /* Align to top instead of center */
-  overflow: hidden;
-  z-index: 1000; /* Base z-index for the image container */
-}
+
 
 /* Updated image styling for proper scaling without centering */
 #pageImage, #lineImage, #wordImage, #glyphImage, #elementImage {
@@ -246,7 +237,8 @@ body, html {
 
 /* Style for cropper elements to ensure proper visibility */
 .cropper-container {
-  z-index: 10000 !important; /* Higher than regular content but lower than HelpBox/toolbox */
+  z-index: 90020 !important; /* Higher than regular content but lower than HelpBox/toolbox */
+  height: 100vh; /* Full viewport height */
 }
 
 /* Ensure the cropper view box and drag handles are visible */
@@ -278,4 +270,86 @@ body, html {
 /* Ensure the proper z-index hierarchy for existing line/word outlines */
 .preserve-canvas, .selectElement, .showReferences {
   z-index: 10015 !important; /* Between container and face/view-box */
+}
+/* Bootstrap Overrides */
+.btn-primary {
+  background-color: green !important;
+  border-color: green !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  background-color: darkgreen !important;
+  border-color: darkgreen !important;
+}
+
+.text-primary {
+  color: green !important;
+}
+
+.bg-primary {
+  background-color: green !important;
+}
+
+.border-primary {
+  border-color: green !important;
+}
+
+.navbar-light .navbar-nav .nav-link.active,
+.navbar-light .navbar-nav .nav-link:hover {
+  color: darkgreen !important;
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-link:hover {
+  color: white !important;
+  background-color: green !important;
+  border-color: green green transparent !important;
+}
+
+.nav-pills .nav-link.active,
+.nav-pills .nav-link:hover {
+  color: white !important;
+  background-color: green !important;
+}
+
+/* inactive tabs should be light green */
+.nav-tabs .nav-link {
+  color: rgb(149, 192, 149) !important;
+}
+.nav-pills .nav-link {
+  color: rgb(149, 192, 149) !important;
+}
+
+a {
+  color: green !important;
+}
+a:hover {
+  color: darkgreen !important;
+}
+a:visited {
+  color: green !important;
+} 
+a:active {
+  color: darkgreen !important;
+}
+a:focus {
+  color: darkgreen !important;
+}
+a:focus-visible {
+  color: darkgreen !important;
+}
+
+.footer-light-text {
+  color: rgb(149, 192, 149) !important;
+}
+
+/* form focus effect */
+.form-control:focus {
+  border-color: green !important;
+  box-shadow: 0 0 0 0.2rem rgba(0, 255, 0, 0.25) !important;
+}
+.form-control {
+  border: 1px solid green !important;
 }

@@ -26,7 +26,23 @@ Meteor.startup(() => {
   Meteor.subscribe('files.images.all');
   Meteor.subscribe('all');
   Meteor.subscribe('userData');
+
+  //set a state session variable
+  Session.set('state', {
+    currentDocument: false,
+    currentPage: false,
+    currentLine: false,
+    currentWord: false,
+    currentPhoneme: false,
+    currentGlyph: false,
+    currentDiscussion: false,
+    currentTool: 'view',
+    currentView: 'simple',
+    subTool: false,
+  });
 });
+
+
 
 
 //gLobal helpers
@@ -86,6 +102,20 @@ Template.registerHelper('currentYear', function() {
 Template.registerHelper('add', function(a, b) {
   return Number(a) + Number(b);
 });
+
+
+//helper for displaying the state
+Template.registerHelper('state', function() {
+  //return the state session variable
+  var state = Session.get('state');
+  console.log("state is " + state);
+  return state;
+});
+
+
+
+
+
 
 //login template (handles login and signup)
 Template.login.events({
@@ -337,6 +367,20 @@ Template.selectDocument.helpers({
       doc.pages.forEach(function(page) {
         page.image = Files.findOne({_id: page.pageId}).link();
       });
+      //set state to the document
+      Session.set('state', {
+        currentDocument: doc,
+        currentPage: 0,
+        currentLine: false,
+        currentWord: false,
+        currentPhoneme: false,
+        currentGlyph: false,
+        currentDiscussion: false,
+        currentTool: 'view',
+        currentView: 'simple',
+        subTool: false,
+      });
+
       return doc;
 
     } else {
@@ -433,7 +477,7 @@ Template.viewPage.onRendered(function() {
     $('#openModal').modal('show');
   } else {
     $('#openModal').modal('hide');
-    currentPage = Te  
+    currentPage = Template.instance().currentPage.get();
     currentDocument = Template.instance().currentDocument.get();
     console.log("currentDocument is " + currentDocument);
     console.log("currentPage is " + currentPage);
@@ -838,15 +882,6 @@ function initCropper(type) {
   if (type == 'page') {
     divId = document.getElementById('pageImage');
     
-    // Create a visual clone to prevent the white flash
-    const visualClone = divId.cloneNode(true);
-    visualClone.id = 'temp-image-clone';
-    visualClone.style.position = 'absolute';
-    visualClone.style.top = '0';
-    visualClone.style.left = '0';
-    visualClone.style.zIndex = '1000';
-    visualClone.style.pointerEvents = 'none'; // Don't interfere with interactions
-    divId.parentNode.appendChild(visualClone);
   }
   if (type == 'line') {
     divId = document.getElementById('lineImage');
@@ -898,8 +933,8 @@ function initCropper(type) {
   console.log(`Image dimensions: width=${image.width}, height=${image.height}`);
   console.log(`Canvas dimensions: width=${canvas.width}, height=${canvas.height}`);
   
-  // Set the height on the canvas style
-  canvas.style.height = height;
+  // Set the height on the canvas style to match the parent container
+  canvas.style.height = `${window.innerHeight}px`;
   
   const context = canvas.getContext('2d');
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -912,6 +947,8 @@ function initCropper(type) {
   Template.instance().yScaling.set(yScaling);
   Template.instance().xScaling.set(xScaling);
 
+  
+
   //set the width and height of the canvas to the width and height of the div
   canvas.style.width = divId.style.width;
   canvas.style.height = divId.style.height / yScaling;
@@ -921,9 +958,8 @@ function initCropper(type) {
   canvas.style.left = '0';
   canvas.style.top = '0';
   canvas.style.zIndex = '9999'; // Set high z-index but below the cropper elements
-
-  //center the canvas vertically
-  canvas.style.marginTop = (parseInt(height) - parseInt(canvas.style.height)) / 2 + 'px';
+//center the canvas vertically
+canvas.style.marginTop = (parseInt(height) - parseInt(canvas.style.height)) / 2 + 'px';
 
   //set the id to the same id as the div
   canvas.id = divId.id;
@@ -985,7 +1021,7 @@ function replaceWithOriginalImage() {
   // We need to be more selective here - only remove canvas elements that were created
   // for the cropper, not the ones used for drawing rectangles
   if (instance.currentView.get() === 'simple') {
-    $('#pageImage').parent().children('canvas:not(.preserve-canvas)').remove();
+    $('#pageImage').parent().children('canvas').remove();
   } else {
     const imageId = instance.currentView.get() === 'line' ? 'lineImage' : 
                     instance.currentView.get() === 'word' ? 'wordImage' : 
@@ -1206,27 +1242,13 @@ Template.viewPage.helpers({
 });
 
 Template.viewPage.events({
-  'mouseover #ToolBox'(event, instance) {
-    console.log("mouseover");
-    //make sure the opacity is 1
-    $('#ToolBox').fadeTo(100, 1);
-    //set the background color to bootstrap's light color
-    $('#ToolBox').css('background-color', '#f8f9fa');
-  },
-  'mouseleave #ToolBox'(event, instance) {
-    console.log("mouseout");
-    //fade out the toolbox
-    $('#ToolBox').fadeTo(100, 0.8);
-    //set background color to transparent
-    $('#ToolBox').css('background-color', 'transparent');
-  },
   'mouseover #HelpBox'(event, instance) {
     //opacity on mouseover if the currentTool is 'createLine', 'createWord', or 'createPhoneme'
-    $('#HelpBox').fadeTo(100, 1);
+    $('#HelpBox').fadeTo(100, 0.0);
   },
   'mouseleave #HelpBox'(event, instance) {
     //opacity on mouseleave if the currentTool is 'createLine', 'createWord', or 'createPhoneme'
-    $('#HelpBox').fadeTo(100, 0.2);    
+    $('#HelpBox').fadeTo(100, 0.7);    
   },
 
   'click #exitTool'(event, instance) {
@@ -2171,7 +2193,9 @@ Template.viewPage.events({
     setCurrentHelp('To create a bounding box to represent a line in the document, use the cropping bounds to select the area of the page that contains the line. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
     //se the image css to display block and max-width 100%
     image.style.display = 'block';
-    image.style.maxWidth = '100%';   
+    image.style.maxWidth = '100%';
+    image.style.height = 'auto';
+
     //create a cropper object for the pageImage
     cropDetails = {};
     //add a event listener for hitting the enter key, which will confirm the selection
@@ -2180,6 +2204,7 @@ Template.viewPage.events({
       aspectRatio: 0,
       zIndex: 10000,  // Ensure consistent z-index with other croppers
       viewMode: 1,
+      responsive: true,
       modal: true,   // Enable grey background overlay
       background: true, // Show background grid
       autoCropArea: 0.8, // Default to selecting most of the image
@@ -2252,6 +2277,7 @@ Template.viewPage.events({
       aspectRatio: 0,
       zIndex: 10000,  // Ensure consistent z-index with other croppers
       viewMode: 1,
+      responsive: true,
       modal: true,    // Enable grey background overlay
       background: true, // Show background grid
       autoCropArea: 0.8, // Default to selecting most of the image
@@ -2328,6 +2354,7 @@ Template.viewPage.events({
       //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
+      responsive: true,
       zIndex: 10000,  // Ensure consistent z-index with other croppers
       crop(event) {
         cropDetails = event.detail;
@@ -2369,6 +2396,7 @@ Template.viewPage.events({
     const cropper = new Cropper(image, {
       dragMode: 'crop',
       aspectRatio: 0,
+      responsive: true,
       zIndex: 10000,  // Ensure consistent z-index with other croppers
       crop(event) {
         const cropDetails = event.detail;
@@ -2397,6 +2425,49 @@ Template.viewPage.events({
       $('.cropper-line').css('z-index', '10020');
       $('.cropper-point').css('z-index', '10030');
     }, 100);
+  },
+  'dblclick #documentName'(event, instance) {
+    // Hide the document name and show the input box
+    $('#documentName').hide();
+    $('#documentNameInput').show().focus();
+  },
+  'keypress #documentNameInput'(event, instance) {
+    if (event.key === 'Enter') {
+      // Get the new document name
+      const newTitle = $('#documentNameInput').val().trim();
+      const documentId = instance.currentDocument.get();
+      doc = Documents.findOne({_id: documentId});
+      doc.title = newTitle;
+
+      if (newTitle) {
+        // Call the server method to update the document title
+        Meteor.call('modifyDocument', documentId, doc, function(error, result) {
+          if (error) {
+            console.error('Error updating document title:', error);
+            alert('Failed to update document title.');
+          } else {
+            console.log('Document title updated successfully.');
+            // Update the UI
+            $('#documentName').text(newTitle).show();
+            $('#documentNameInput').hide();
+          }
+        });
+      } else {
+        // If the input is empty, revert to the original title
+        $('#documentName').show();
+        $('#documentNameInput').hide();
+      }
+    }
+  },
+  'blur #documentNameInput'(event, instance) {
+    // Revert to the original title if the input loses focus
+    $('#documentName').show();
+    $('#documentNameInput').hide();
+  },
+  'click #clearCanvas'(event, instance) {
+    console.log("clearCanvas");
+    const context = $('#glyphImageDraw')[0].getContext('2d');
+    context.clearRect(0, 0, 200, 200);
   },
   'click #createElement'(event, instance) {
     event.preventDefault();
@@ -2531,25 +2602,6 @@ Template.viewPage.events({
         }
       });
     }, 500);
-
-    // Force-style the modal background after cropper initialization
-    setTimeout(() => {
-      $('.cropper-modal').css({
-        'background-color': 'rgba(0, 0, 0, 0.5)',
-        'opacity': '1',
-        'z-index': '9990'
-      });
-      
-      // Ensure the view-box is above the modal
-      $('.cropper-view-box').css({
-        'z-index': '10010'
-      });
-      
-      // Make other cropper elements visible above the background
-      $('.cropper-face').css('z-index', '10010');
-      $('.cropper-line').css('z-index', '10020');
-      $('.cropper-point').css('z-index', '10030');
-    }, 100);
     
     console.log("DEBUG: createElement - end of handler");
   },
@@ -2568,8 +2620,11 @@ Template.viewPage.events({
         document.getElementById('pageImage').style.width = parseInt(width) * 1.1 + 'px';
       } else {
         //if the mouse wheel is scrolled down, decrease the height by 10%
-        document.getElementById('pageImage').style.height = parseInt(height) * 0.9 + 'px';
-        document.getElementById('pageImage').style.width = parseInt(width) * 0.9 + 'px';
+        const newHeight = parseInt(height) * 0.9;
+        if (newHeight >= window.innerHeight) {
+          document.getElementById('pageImage').style.height = newHeight + 'px';
+          document.getElementById('pageImage').style.width = parseInt(width) * 0.9 + 'px';
+        }
       }
 
     }
@@ -2628,10 +2683,7 @@ Template.viewPage.events({
             } else {
               console.log(result);
               alert('Page added');
-              // Clear these fields
-              $('#pageTitle').val('');
-              $('#newpageImage').val('');
-              // Re-enable and close
+              // Enable the submit button
               $('#submitNewPage').prop('disabled', false);
               $('#createPageModal').modal('hide');
             }
@@ -2670,49 +2722,6 @@ Template.viewPage.events({
         });
     }
   },
-  'dblclick #documentName'(event, instance) {
-    // Hide the document name and show the input box
-    $('#documentName').hide();
-    $('#documentNameInput').show().focus();
-  },
-  'keypress #documentNameInput'(event, instance) {
-    if (event.key === 'Enter') {
-      // Get the new document name
-      const newTitle = $('#documentNameInput').val().trim();
-      const documentId = instance.currentDocument.get();
-      doc = Documents.findOne({_id: documentId});
-      doc.title = newTitle;
-
-      if (newTitle) {
-        // Call the server method to update the document title
-        Meteor.call('modifyDocument', documentId, doc, function(error, result) {
-          if (error) {
-            console.error('Error updating document title:', error);
-            alert('Failed to update document title.');
-          } else {
-            console.log('Document title updated successfully.');
-            // Update the UI
-            $('#documentName').text(newTitle).show();
-            $('#documentNameInput').hide();
-          }
-        });
-      } else {
-        // If the input is empty, revert to the original title
-        $('#documentName').show();
-        $('#documentNameInput').hide();
-      }
-    }
-  },
-  'blur #documentNameInput'(event, instance) {
-    // Revert to the original title if the input loses focus
-    $('#documentName').show();
-    $('#documentNameInput').hide();
-  },
-  'click #clearCanvas'(event, instance) {
-    console.log("clearCanvas");
-    const context = $('#glyphImageDraw')[0].getContext('2d');
-    context.clearRect(0, 0, 200, 200);
-  }
 });
   
 //upload document onCreated function
@@ -3148,6 +3157,9 @@ function drawButton(image, x, y, width, height, type, text, id) {
   const button = document.createElement('button');
   button.setAttribute('data-id', id);
   button.setAttribute('data-type', type);
+
+  //add mx-5 and my-5 classes to the button
+  button.classList.add('mx-5', 'my-5');
 
   //get the canvas' container
   const parent = context.canvas.parentNode;

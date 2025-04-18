@@ -15,19 +15,41 @@
 </body>
 
 <template name="defaultLayout">
-  {{> header}}
-  {{> yield}}
+  <!-- if logged in, display the header -->
+  
+    <div class="container-fluid" style="max-width: 100vw; max-height: 100vh; overflow: hidden;">
+      <div class="row">
+      <div class="col-12">
+        {{#if currentUser}}
+          {{> header}}
+        {{/if}}
+
+          
+          {{> yield}}
+          
+        </div>
+      </div>
+    </div>
+
 
   
-  {{> footer}}
+  
 </template>
 
 <!-- header with topnav bar bootstrap 5.2. Needs Home and right side login/signup/logout -->
 <template name="header">
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
-      <a class="navbar-brand rounded px-4" href="/">GlyphWitch</a>
-      <small class="text-success">{{version}}</small>
+      <!-- logo -->
+      <a class="navbar-brand" href="/">
+        <img src="/logo.png" alt="GlyphWitch Logo" class="img-fluid" style="max-width: 50px;">
+      </a>
+      <!-- document title -->
+              <span class="document-name-container" >
+            <span class="document-name" id="documentName" contenteditable="true" style="border: 1px solid #ccc; padding: 5px; border-radius: 4px; display: inline-block; min-width: 150px;">{{state.currentDocument.title}}</span>
+          <input type="text" class="form-control document-name-input" id="documentNameInput" style="display: none;" placeholder="{{currentDocument.title}}">
+        </span>
+      
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -40,20 +62,22 @@
           </div>
         {{/if}}
       </div>
-      <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-        <ul class="navbar-nav">
-          {{#if currentUser}}
-            <li class="nav-item">
-              <a href="/logout" class="nav-link">Logout {{currentUser.username}}</a>
-            </li>
-          {{else}}
-            <li class="nav-item">
-              <a class="nav-link" href="/login">Login/Signup</a>
-            </li>
-          {{/if}}
-        </ul>
-      </div>
-    </div>  
+      <div class ="row">
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+          <ul class="navbar-nav">
+            {{#if currentUser}}
+              <li class="nav-item">
+                <a href="/logout" class="nav-link">Logout {{currentUser.username}}</a>
+              </li>
+            {{else}}
+              <li class="nav-item">
+                <a class="nav-link" href="/login">Login/Signup</a>
+              </li>
+            {{/if}}
+          </ul>
+        </div>
+      </div>  
+    </div>
   </nav>
 </template>
 
@@ -72,60 +96,72 @@
 
 <!-- login/signup template -->
 <template name="login">
-  <div class="container" style="margin-top: 10px;">
-    <div class="card">
-      <div class="card-header">
-        <h3>GlyphWitch</h3>
-      </div>
-      <div class="card-body">
-        <p class="card-text">Welcome to GlyphWitch. Please login or signup to continue.</p>
+
+  <div class="container" style="margin-top: 10vh; max-width: 500px;">
+    <div class="mb-4 text-center">
+      <div class="text-center">
+        <img src="/logo.png" alt="GlyphWitch Logo" class="img-fluid" style="max-width: 200px;">
+     </div> 
+     <!-- version number -->
+      <div class="text-center">
+        <small class="text-muted">Version {{version}}</small>
       </div>
     </div>
-    <br>
-    <ul class="nav nav-tabs mb-3" id="pills-tab" role="tablist">
-    <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-home" type="button" role="tab" aria-controls="pills-home" aria-selected="true">Login</button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" id="pills-profile-tab" data-bs-toggle="pill" data-bs-target="#pills-profile" type="button" role="tab" aria-controls="pills-profile" aria-selected="false">Signup</button>
-    </li>
-  </ul>
-  <div class="tab-content" id="pills-tabContent">
-    <div class="tab-pane fade show active" id="pills-home" role="tabpanel" aria-labelledby="pills-home-tab" tabindex="0">
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" class="form-control" id="email1" name="email">
+    <!-- Pills navs -->
+    <ul class="nav nav-pills nav-justified mb-3" id="pills-tab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <a class="nav-link active" id="tab-login" data-bs-toggle="pill" href="#pills-login" role="tab"
+          aria-controls="pills-login" aria-selected="true">Login</a>
+      </li>
+      <li class="nav-item" role="presentation">
+        <a class="nav-link" id="tab-register" data-bs-toggle="pill" href="#pills-register" role="tab"
+          aria-controls="pills-register" aria-selected="false">Signup</a>
+      </li>
+    </ul>
+    <!-- Pills navs -->
+
+    <!-- Pills content -->
+    <div class="tab-content" id="pills-tabContent">
+      <!-- Login Tab -->
+      <div class="tab-pane fade show active" id="pills-login" role="tabpanel" aria-labelledby="tab-login">
+        <form>
+          <div class="form-outline mb-4">
+            <label class="form-label" for="email1">Email</label>
+            <input type="email" class="form-control" id="email1" name="email">
+          </div>
+          <div class="form-outline mb-4">
+            <label class="form-label" for="password1">Password</label>
+            <input type="password" class="form-control" id="password1" name="password">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block mb-4" id="login-btn">Login</button>
+        </form>
       </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" class="form-control" id="password1" name="password">
+
+      <!-- Signup Tab -->
+      <div class="tab-pane fade" id="pills-register" role="tabpanel" aria-labelledby="tab-register">
+        <form>
+          <div class="alert alert-warning" role="alert">
+            Email and password are required.<br>
+            <ul>
+              <li>Email must be a valid email address.</li>
+              <li>Password must be at least 6 characters long.</li>
+              <li>Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.</li>
+            </ul>
+          </div>
+          <div class="form-outline mb-4">
+            <label class="form-label" for="email2">Email</label>
+            <input type="email" class="form-control" id="email2" name="email">
+          </div>
+          <div class="form-outline mb-4">
+            <label class="form-label" for="password2">Password</label>
+            <input type="password" class="form-control" id="password2" name="password">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block mb-4" id="signup">Signup</button>
+        </form>
       </div>
-      <br>
-      <button class="btn btn-primary" id="login-btn">Login</button>
     </div>
-    <div class="tab-pane fade" id="pills-profile" role="tabpanel" aria-labelledby="pills-profile-tab" tabindex="0">
-      <!-- alert box describing requirements for email and password -->
-      <div class="alert alert-warning" role="alert">
-        Email and password are required.<br>
-        <ul>
-          <li>Email must be a valid email address.</li>
-          <li>Password must be at least 6 characters long.</li>
-          <li>Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.</li>
-        </ul>
-      </div>   
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" class="form-control" id="email2" name="email">
-      </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" class="form-control" id="password2" name="password">
-      </div>
-      <br>
-      <button class="btn btn-primary" id="signup">Signup</button>
-    </div>
+    <!-- Pills content -->
   </div>
-</div>  
 </template>
 
 <!-- change email and password form for first admin login, for changing password, and for changing email -->
@@ -298,7 +334,7 @@
 <template name="viewPage">
   <div class="container-fluid d-flex flex-wrap main-container">
 
-    <div class="col-md-3 bg-light collapse show text-center border" id="sidebar">
+    <div class="col-md-2 bg-light collapse show text-center border" id="sidebar">
       {{#if currentDocument}}
       <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -311,10 +347,7 @@
       <!-- content for pagesel !-->
       <div class="tab-content" id="myTabContent">
         <div class="tab-pane fade show active" id="pagesel" role="tabpanel" aria-labelledby="pagesel-tab">     
-                <span class="document-name-container" >
-            <span class="document-name" id="documentName" contenteditable="true" style="border: 1px solid #ccc; padding: 5px; border-radius: 4px; display: inline-block; min-width: 150px;">{{currentDocument.title}}</span>
-          <input type="text" class="form-control document-name-input" id="documentNameInput" style="display: none;" placeholder="{{currentDocument.title}}">
-        </span>
+        
           <div class="mx-auto" style="line-height: 40px;">
         
         <br>
@@ -337,7 +370,7 @@
 
         {{#if currentDocument.pages}}
           {{#each currentDocument.pages}}
-          <div class="pagesel" id="{{this.pageId}}" style="position: relative; border: 1px solid gray;">
+          <div class="pagesel mx-3 my-3" id="{{this.pageId}}" style="position: relative; border: 1px solid gray;">
             <a href="#" class="changePage" data-id="{{@index}}">
               <img src="{{this.image}}" alt="page" class="img-fluid" loading="lazy">
             </a>
@@ -467,15 +500,18 @@
         </svg>
       </button>
       {{#if currentDocument}}
-      <!-- Remove inline styles from image element and update container -->
-      <div class="image-container">
-        {{#if currentPage.image}}
-          <img src="{{currentPage.image}}" class="img" alt="Image" id="pageImage">
-        {{else}}
-          <div class="alert alert-secondary" role="alert">
-            No page selected. Please select a page to view.
-          </div>
-        {{/if}}
+      <div class="right-pane py-5 px-5" style="background-color: #808080; height:100%;">
+        
+          <div class="image-container" style="height: 100%; width: 100%;">
+            {{#if currentPage.image}}
+              <img src="{{currentPage.image}}" class="img" alt="Image" style="max-height: 100%; max-width: 100%; object-fit: contain;" id="pageImage">
+            {{else}}
+              <div class="alert alert-secondary" role="alert">
+                No page selected. Please select a page to view.
+              </div>
+            {{/if}}
+        
+        </div>
       </div>
       {{/if}}
       <!-- Change fixed width 80vw to use 100% with auto width -->
@@ -523,8 +559,8 @@
           </button>
         </div>
       </div>
-      {{#if toolOptions}}
-      <div id="ToolOptions" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" style="margin-top: 120px; margin-right:20px; pointer-events: fill">
+      {{#if ToolOptionsData}}
+      <div id="ToolOptions" class="position-absolute top-0 end-10 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" style="margin-top: 120px; margin-right:20px; pointer-events: fill; max-width: 300px; overflow-x: auto; display:none;">
         
           {{> Template.dynamic template=toolOptions data=toolOptionsData}}
         
@@ -532,13 +568,13 @@
       </div>
       {{/if}}
       {{#if currentHelp}}
-        <div id="HelpBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border border-success p-2 rounded-end" style="margin-top: 140px; margin-right:20px; pointer-events: fill">
-          <div class="container" style="width:500px;">
-            <h4>{{currentToolHumanReadable}}</h4>
-            
-            <!-- two buttons, select line and create word and and exit tool button -->
-            <small>{{currentHelp}}</small>
-            <br>
+        <div id="HelpBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border border-success p-2 rounded-end" style="margin-top: 140px; margin-right:20px; pointer-events: fill; max-width: 300px; overflow-x: auto;">
+          <div class="container" style="width:300px;">
+        <h4>{{currentToolHumanReadable}}</h4>
+        
+        <!-- two buttons, select line and create word and and exit tool button -->
+        <small>{{currentHelp}}</small>
+        <br>
           </div>
         </div>
       {{/if}}
@@ -696,26 +732,26 @@
     </div>
   </div>
   <!-- full size modal for opening and uploading a document -->
-  <div class="modal fade" id="openModal" tabindex="-1" aria-labelledby="customModalLabel" aria-hidden="true">
+  <div class="modal fade" id="openModal" tabindex="-1" aria-labelledby="customModalLabel" aria-hidden="true" style="backdrop-filter: blur(5px); background-color: rgba(0, 0, 0, 0.5); z-index:99000">
     <div class="modal-dialog modal-dialog-centered modal-lg"> <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="customModalLabel">Start</h5>
+          <h5 class="modal-title" id="customModalLabel">Getting Started</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <!-- four bootstrap tabs, Open, New Blank, and Upload, and Upload Font -->
           <ul class="nav nav-tabs" id="myTab" role="tablist">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Open</button>
+              <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Open Existing</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="new-blank-tab" data-bs-toggle="tab" data-bs-target="#new-blank" type="button" role="tab" aria-controls="new-blank" aria-selected="false">New Blank</button>
+              <button class="nav-link" id="new-blank-tab" data-bs-toggle="tab" data-bs-target="#new-blank" type="button" role="tab" aria-controls="new-blank" aria-selected="false">New Blank Document</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload Document</button>
+              <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload PDF</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Glyphs</button>
+              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Glyphs from TTF</button>
             </li>
             {{#if isAdmin}}
             <li class="nav-item" role="presentation">
@@ -812,11 +848,13 @@
 </template>
 
 <template name="footer">
-  <hr>
-  <footer>
-    <p style="text-align: center;">GlyphWitch is a project by the University of Memphis' Institute for Intelligent Systems. (C) {{currentYear}}</p>
-
-  </footer>
+  <div class="container my-5">
+    <div class="row">
+      <div class="col text-center">
+        <p class="footer-light-text">GlyphWitch is a project by the University of Memphis' Institute for Intelligent Systems. (C) {{currentYear}}</p>
+      </div>
+    </div>
+  </div>
 </template>
 
 <!-- template for displaying glyph information -->
