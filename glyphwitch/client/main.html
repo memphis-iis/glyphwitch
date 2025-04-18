@@ -537,13 +537,15 @@
       </div>
       {{/if}}
       {{#if currentHelp}}
-        <div id="HelpBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border border-success p-2 rounded-end" style="margin-top: 140px; margin-right:20px; pointer-events: fill">
-          <div class="container" style="width:500px;">
-            <h4>{{currentToolHumanReadable}}</h4>
-            
-            <!-- two buttons, select line and create word and and exit tool button -->
+        <div id="HelpBox" class="position-absolute top-0 end-0 d-flex flex-column bg-light border border-success p-2 rounded-end {{#if isHelpBoxHidden}}helpbox-hidden{{/if}}" style="margin-top: 140px; margin-right:20px; pointer-events: fill">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4 class="m-0">{{currentToolHumanReadable}}</h4>
+            <button id="toggleHelpBox" class="btn btn-sm" title="{{#if isHelpBoxHidden}}Show help{{else}}Hide help{{/if}}">
+              <i class="bi {{#if isHelpBoxHidden}}bi-chevron-down{{else}}bi-chevron-up{{/if}}"></i>
+            </button>
+          </div>
+          <div class="helpbox-content">
             <small>{{currentHelp}}</small>
-            <br>
           </div>
         </div>
       {{/if}}

@@ -401,6 +401,7 @@ Template.viewPage.onCreated(function() {
   Template.instance().currentView = new ReactiveVar('simple');
   Template.instance().subTool = new ReactiveVar(false);
   Template.instance().currentHelp = new ReactiveVar("You can use [Shift] + Scroll to zoom in and out of the page image.");
+  Template.instance().isHelpBoxHidden = new ReactiveVar(false);  // Add new reactive var for HelpBox visibility
   Template.instance().drawing = new ReactiveVar(false);
   Template.instance().selectx1 = new ReactiveVar(false);
   Template.instance().selecty1 = new ReactiveVar(false);
@@ -1145,6 +1146,9 @@ Template.viewPage.helpers({
   currentDiscussion() {
     const instance = Template.instance();
     return instance.currentDiscussion.get();
+  },
+  isHelpBoxHidden() {
+    return Template.instance().isHelpBoxHidden.get();
   },
   // Keep only one totalPages helper and make sure it's correct
   totalPages() {
@@ -2714,6 +2718,12 @@ Template.viewPage.events({
     console.log("clearCanvas");
     const context = $('#glyphImageDraw')[0].getContext('2d');
     context.clearRect(0, 0, 200, 200);
+  },
+  'click #toggleHelpBox'(event, instance) {
+    event.preventDefault();
+    // Toggle the helpbox visibility state
+    const currentState = instance.isHelpBoxHidden.get();
+    instance.isHelpBoxHidden.set(!currentState);
   }
 });
   
