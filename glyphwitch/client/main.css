@@ -109,10 +109,12 @@ body {
 /* Sidebar resize styles */
 #sidebar {
   transition: width 0.05s ease;
-  overflow-x: hidden;
+  overflow-y: auto;
   position: relative;
   flex-shrink: 0;
   height: 100vh;
+  background-color: #f8f9fa;
+  border-right: 1px solid #dee2e6 !important;
 }
 
 #sidebar-resize-handle {
@@ -135,4 +137,57 @@ body.sidebar-resizing {
   -moz-user-select: none;
   -webkit-user-select: none;
   cursor: col-resize !important;
+}
+
+/* jsTree styles */
+#documentTree {
+  width: 100%;
+  height: calc(100vh - 100px);
+  min-height: 200px;
+  overflow: auto;
+  padding: 10px 5px;
+  background-color: #f8f9fa;
+  position: relative;
+  display: block !important; /* Force display */
+}
+
+.jstree-default .jstree-anchor {
+  color: #333;
+  padding: 4px 5px;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  height: auto !important;
+}
+
+.jstree-default .jstree-hovered {
+  background-color: #e7f4ff;
+  border-radius: 3px;
+}
+
+.jstree-default .jstree-clicked {
+  background-color: #beebff;
+  border-radius: 3px;
+}
+
+/* Fix for text overflow in jsTree nodes */
+.jstree-anchor {
+  white-space: normal !important;
+  height: auto !important;
+  width: 90% !important;
+}
+
+/* Visual indicator when tree is loading */
+.jstree-loading {
+  background: url('data:image/gif;base64,R0lGODlhEAAQAPQAAP///wAAAPDw8IqKiuDg4EZGRnp6egAAAFhYWCQkJKysrL6+vhQUFJycnAQEBDY2NmhoaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHdpdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAAFdyAgAgIJIeWoAkRCCMdBkKtIHIngyMKsErPBYbADpkSCwhDmQCBethRB6Vj4kFCkQPG4IlWDgrNRIwnO4UKBXDufzQvDMaoSDBgFb886MiQadgNABAokfCwzBA8LCg0Egl8jAggGAA1kBIA1BAYzlyILczULC2UhACH5BAkKAAAALAAAAAAQABAAAAV2ICACAmlAZTmOREEIyUEQjLKKxPHADhEvqxlgcGgkGI1DYSVAIAWMx+lwSKkICJ0QsHi9RgKBwnVTiRQQgwF4I4UFDQQEwi6/3YSGWRRmjhEETAJfIgMFCnAKM0KDV4EEEAQLiF18TAYNXDaSe3x6mjidN1s3IQAh+QQJCgAAACwAAAAAEAAQAAAFeCAgAgLZDGU5jgRECEUiCI+yioSDwDJyLKsXoHFQxBSHAoAAFBhqtMJg8DgQBgfrEsJAEAg4YhZIEiwgKtHiMBgtpg3wbUZXGO7kOb1MUKRFMysCChAoggJCIg0GC2aNe4gqQldfL4l/Ag1AXySJgn5LcoE3QXI3IQAh+QQJCgAAACwAAAAAEAAQAAAFdiAgAgLZNGU5joQhCEjxIssqEo8bC9BRjy9Ag7GILQ4QEoE0gBAEBcOpcBA0DoxSK/e8LRIHn+i1cK0IyKdg0VAoljYIg+GgnRrwVS/8IAkICyosBIQpBAMoKy9dImxPhS+GKkFrkX+TigtLlIyKXUF+NjagNiEAOw==') center center no-repeat !important;
+  height: 50px;
+}
+
+/* Style for debug button */
+#debugTree {
+  background-color: #ffeeba;
+  color: #856404;
+}
+
+#debugTree:hover {
+  background-color: #ffe8a1;
 }

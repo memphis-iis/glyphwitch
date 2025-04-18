@@ -6,8 +6,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js" integrity="sha384-cuYeSxntonz0PPNlHhBs68uyIAVpIIOZZ5JqeqvYYIcEL727kskC66kF92t6Xl2V" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <!-- add boostrap tabs -->
-
+  
+  <!-- Add jQuery and jsTree libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
 </head>
 
 <body>
@@ -296,163 +299,35 @@
 
 <!-- template for document viewing UI, with a left side -->
 <template name="viewPage">
-  <!-- document icon -->
   <div class="container-fluid d-flex flex-nowrap">
-    <div class="bg-light collapse show text-center border" id="sidebar" style="width: 250px; min-width: 180px; max-width: 500px;">
-      {{#if currentDocument}}
-      <ul class="nav nav-tabs" id="myTab" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="pagesel-tab" data-bs-toggle="tab" data-bs-target="#pagesel" type="button" role="tab" aria-controls="open" aria-selected="true">Page Selection</button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="databrowse-tab" data-bs-toggle="tab" data-bs-target="#databrowse" type="button" role="tab" aria-controls="upload" aria-selected="false">Data Browser</button>
-        </li>
-      </ul>
-      <!-- content for pagesel !-->
-      <div class="tab-content" id="myTabContent">
-        <div class="tab-pane fade show active" id="pagesel" role="tabpanel" aria-labelledby="pagesel-tab">     
-                <span class="document-name-container" >
-            <span class="document-name" id="documentName" contenteditable="true" style="border: 1px solid #ccc; padding: 5px; border-radius: 4px; display: inline-block; min-width: 150px;">{{currentDocument.title}}</span>
-          <input type="text" class="form-control document-name-input" id="documentNameInput" style="display: none;" placeholder="{{currentDocument.title}}">
-        </span>
-          <div class="mx-auto" style="line-height: 40px;">
-        
-        <br>
-            <button class="btn btn-light mb-3 me-2" id="lastPage">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L6.707 8l4.647 4.646a.5.5 0 0 1-.708.708l-5-5a.5.5 0 0 1 0-.708l5-5a.5.5 0 0 1 .708 0z"></path>
-              </svg>
-            </button>
-            {{currentPageNumber}} of {{totalPages}}
-            <button class="btn btn-light mb-3" id="nextPage">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l5 5a.5.5 0 0 1 0 .708l-5 5a.5.5 0 0 1-.708-.708L9.293 8 4.646 3.354a.5.5 0 0 1 0-.708z"></path>
-              </svg>
-            </button>
-          </div>
-          
-        <div class="d-flex flex-column align-items-center" style="overflow-y: auto; height: 100vh;">
-
-        
-
-        {{#if currentDocument.pages}}
-          {{#each currentDocument.pages}}
-          <div class="pagesel" id="{{this.pageId}}" style="position: relative; border: 1px solid gray;">
-            <a href="#" class="changePage" data-id="{{@index}}">
-              <img src="{{this.image}}" alt="page" class="img-fluid" loading="lazy">
-            </a>
-            <div class="page-controls">
-              <button class="btn btn-primary changePage" data-id="{{@index}}" title="Change Page">
-                <i class="bi bi-pencil"></i>
-              </button>
-              <button class="btn btn-secondary move-up" data-id="{{@index}}" title="Move Up">
-                <i class="bi bi-arrow-up"></i>
-              </button>
-              <button class="btn btn-secondary move-down" data-id="{{@index}}" title="Move Down">
-                <i class="bi bi-arrow-down"></i>
-              </button>
-              <button class="btn btn-secondary add-page-after" data-id="{{@index}}" title="Add Page After" id="addPage">
-                <i class="bi bi-plus"></i>
-              </button>
+    <!-- Improved sidebar with jsTree -->
+    <div class="bg-light border" id="sidebar" style="width: 250px; min-width: 180px; max-width: 500px;">
+      <div class="p-2">
+        <h6 class="text-muted mb-2">Data Browser</h6>
+        <!-- Add a visible container with minimum height -->
+        <div id="documentTree" style="text-align: left; min-height: 200px;">
+          <div class="text-center p-3">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
+            <p class="mt-2">Loading Data Browser...</p>
           </div>
-          <div class="page-title" data-id="{{@index}}">
-            <a href="#" class="changePage" data-id="{{@index}}">
-              {{#if this.title}} 
-                <span class="title-text">{{this.title}} #{{add @index 1}}</span>
-              {{else}} 
-                <span class="title-text">Untitled Page #{{add @index 1}}</span>
-              {{/if}}
-            </a>
-            <input type="text" class="title-input" value="{{this.title}}" style="display: none;">
-          </div>
-          <br>
-          {{/each}}
-        {{else}}
-          <div class="alert" role="alert">
-            <p>No pages found. Please add a page to the document.</p>
-            <button class="btn border" id="addPage"><i class="bi bi-plus"></i></button>
-          </div>
-        {{/if}}
-          
         </div>
       </div>
-    </div>
-    {{else}}
-    <div class="alert alert-warning" role="alert">
-      No document selected. Please select a document to view.
-    </div>
-    {{/if}}
-    <!-- data browser tab content-->
-    <div class="tab-pane fade" id="databrowse" role="tabpanel" aria-labelledby="databrowse-tab">
-      <div class="container vh-100">
-      <div class="row">
-        <div class="col-12 bg-secondary text-white">
-        <small>Title: {{currentDocument.title}}, Author: {{currentDocument.author}}</small>
-        </div>
-        <div class="col-12 my-2">
-        <div class="btn-group" role="group" aria-label="Toolbox">
-          <button type="button" class="btn rounded border" id="expandAll"><i class="bi bi-arrow-down"></i></button>
-          <button type="button" class="btn rounded border" id="collapseAll"><i class="bi bi-arrow-up"></i></button>
-          <!-- delete button -->
-          <button type="button" class="btn rounded border" id="deleteDocument"><i class="bi bi-x"></i></button>
-        </div>
-        </div>
-        <div class="col-12">
-        <ul class="file-tree">
-          {{#each currentDocument.pages}}
-            {{setIndex @index}}
-            <li>
-            <a data-bs-toggle="collapse" href="#page-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{@index}}">
-              <i class="bi bi-folder-fill"></i> Page {{add @index 1}}
-            </a>
-            <div class="collapse" id="page-{{@index}}">
-              <ul>
-              {{#each this.lines}}
-                {{setIndex @index}}
-                <li>
-                <a data-bs-toggle="collapse" href="#page-{{../index}}-line-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{../index}}-line-{{@index}}">
-                  <i class="bi bi-list"></i> Line {{add @index 1}}
-                </a>
-                <div class="collapse" id="page-{{../index}}-line-{{@index}}">
-                  <ul>
-                  {{#each this.words}}
-                    {{setIndex @index}}
-                    <li>
-                    <a data-bs-toggle="collapse" href="#page-{{../../index}}-line-{{../index}}-word-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{../../index}}-line-{{../index}}-word-{{@index}}">
-                      <i class="bi bi-file-word-fill"></i>Word {{add @index 1}}
-                    </a>
-                    <div class="collapse" id="page-{{../../index}}-line-{{../index}}-word-{{@index}}">
-                      <ul class="d-flex">
-                      {{#each this.phonemes}}
-                      <li><i class="bi bi-soundwave"></i> {{this.ipa}}<br></li>
-                      {{/each}}
-                      {{#each this.glyphs}}
-                      <li><i class="bi bi-wikipedia"></i> Glyph {{add @index 1}}<br></li>
-                      {{/each}}
-                      </ul>
-                    </div>
-                    </li>
-                  {{/each}}
-                  </ul>
-                </div>
-                </li>
-              {{/each}}
-              </ul>
-            </div>
-            </li>
-          {{/each}}
-        </ul>
-        </div>
-      </div>
+      <div class="btn-group m-2 d-flex justify-content-center">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="expandAll" title="Expand All">
+          <i class="bi bi-arrows-expand"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshTree" title="Refresh Tree">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAll" title="Collapse All">
+          <i class="bi bi-arrows-collapse"></i>
+        </button>
       </div>
     </div>
-  </div>
-    
-    <!-- Add resize handle -->
-    <div id="sidebar-resize-handle"></div>
-    
-    <!-- end of tab content -->
+    <!-- Add resize handle here -->
+    <div id="sidebar-resize-handle" title="Drag to resize"></div>
     <div class="col position-relative border">
       <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">

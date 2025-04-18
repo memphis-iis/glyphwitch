@@ -5,7 +5,7 @@ import { Session } from 'meteor/session';
 import Cropper from 'cropperjs';
 import go from 'gojs';
 import './views/versionInfo.js';
-
+import { initDocumentTree, addTreeButtonHandlers, ScriptLoader } from './jstree-sidebar.js';
 
 import './main.html';
 
@@ -429,66 +429,159 @@ Template.viewPage.onCreated(function() {
   Template.instance().x = new ReactiveVar(false);
   Template.instance().y = new ReactiveVar(false);
 
+  const instance = this;
+  // Set up an autorun to refresh the tree when document changes
+  this.autorun(() => {
+    const documentId = instance.currentDocument.get();
+    if (documentId) {
+      console.log("Document changed, refreshing tree:", documentId);
+      Meteor.setTimeout(() => {
+        if ($.jstree && $.jstree.reference('#documentTree')) {
+          initDocumentTree(documentId);
+        }
+      }, 300);
+    }
+  });
 });
 
 //Onrendered function for viewPage
 Template.viewPage.onRendered(function() {
-  //if the currentDocument is false, show the openModal
-  if (!Template.instance().currentDocument.get()) {
-    console.log("No document selected");
-    $('#openModal').modal('show');
-  } else {
-    $('#openModal').modal('hide');
-    currentPage = Te  
-    currentDocument = Template.instance().currentDocument.get();
-    console.log("currentDocument is " + currentDocument);
-    console.log("currentPage is " + currentPage);
-    instance = Template.instance();
-    instance.currentDocument.set(currentDocument);
-    instance.currentPage.set(currentPage);
-  }
+  const instance = this;
+  
+  console.log("viewPage template rendered");
+  
+  // Initialize sidebar resize functionality
+  initSidebarResize();
+  
+  // Add a more robust initialization sequence for the tree
+  const initTreeWithRetry = async (documentId, maxRetries = 3) => {
+    let retries = 0;
+    
+    const attemptInit = async () => {
+      console.log(`Attempting to initialize jsTree (attempt ${retries+1} of ${maxRetries})`);
+      
+      // Mark the container as loading
+      $('#documentTree').addClass('jstree-loading').html(`
+        <div class="text-center p-3">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading Data Browser...</p>
+          <small class="text-muted">(Attempt ${retries+1} of ${maxRetries})</small>
+        </div>
+      `);
+      
+      // First check if jsTree libraries are available
+      if (!ScriptLoader.isJsTreeLoaded()) {
+        console.log("jsTree not loaded, attempting to load scripts");
+        try {
+          await ScriptLoader.ensureJsTree();
+          console.log("jsTree successfully loaded");
+        } catch (error) {
+          console.error("Failed to load jsTree libraries:", error);
+          $('#documentTree').removeClass('jstree-loading').html(`
+            <div class="alert alert-danger m-2">
+              <strong>Library Error:</strong> Could not load jsTree. 
+              <button class="btn btn-sm btn-warning mt-2" id="retryScripts">Retry</button>
+            </div>
+          `);
+          
+          $('#retryScripts').on('click', function() {
+            if (retries < maxRetries) {
+              retries++;
+              attemptInit();
+            } else {
+              $('#documentTree').html(`
+                <div class="alert alert-danger m-2">
+                  <strong>Failed after ${maxRetries} attempts.</strong>
+                  <p>Please reload the page or check your network connection.</p>
+                </div>
+              `);
+            }
+          });
+          
+          return;
+        }
+      }
+      
+      // Check for document data
+      const doc = Documents.findOne({ _id: documentId });
+      if (!doc) {
+        console.error("Document not found for jsTree:", documentId);
+        $('#documentTree').removeClass('jstree-loading').html('<div class="alert alert-warning m-2">Document not found</div>');
+        return;
+      }
+      
+      // Initialize jsTree
+      try {
+        await initDocumentTree(documentId);
+        addTreeButtonHandlers();
+        console.log("Tree initialized successfully");
+      } catch (error) {
+        console.error("Error during jsTree initialization:", error);
+        $('#documentTree').removeClass('jstree-loading').html(`
+          <div class="alert alert-danger m-2">
+            <strong>Initialization Error:</strong> ${error.message}
+            <button class="btn btn-sm btn-warning mt-2" id="retryTree">Retry</button>
+          </div>
+        `);
+        
+        $('#retryTree').on('click', function() {
+          if (retries < maxRetries) {
+            retries++;
+            attemptInit();
+          } else {
+            $('#documentTree').html(`
+              <div class="alert alert-danger m-2">
+                <strong>Failed after ${maxRetries} attempts.</strong>
+                <p>Try opening the document again.</p>
+              </div>
+            `);
+          }
+        });
+      }
+    };
+    
+    // Start initialization attempt
+    await attemptInit();
+  };
+  
+  // Add a reactive handler for document changes
+  instance.autorun(() => {
+    const documentId = instance.currentDocument.get();
+    if (documentId) {
+      console.log("Document changed, initializing tree with document:", documentId);
+      
+      // Clear any existing content and show loading indicator
+      $('#documentTree').addClass('jstree-loading').html(`
+        <div class="text-center p-3">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading Data Browser...</p>
+        </div>
+      `);
+      
+      // Initialize tree with retry mechanism - use a shorter delay
+      Meteor.setTimeout(() => {
+        initTreeWithRetry(documentId);
+      }, 300);
+    } else {
+      // No document selected
+      $('#documentTree').removeClass('jstree-loading').html(`
+        <div class="alert alert-info m-2">
+          <i class="bi bi-info-circle me-2"></i>
+          Select a document to view its structure
+        </div>
+      `);
+    }
+  });
   
   // Clear the pageTitle field whenever the modal is closed
   $('#createPageModal').on('hidden.bs.modal', () => {
     $('#pageTitle').val('');
     $('#newpageImage').val('');
   });
-
-  // Initialize sidebar resizing
-  this.isDraggingSidebar = false;
-  
-  // Handle sidebar resize
-  const handleMouseMove = (e) => {
-    if (this.isDraggingSidebar) {
-      // Get the new sidebar width based on mouse position
-      let newWidth = e.clientX;
-      
-      // Apply constraints
-      if (newWidth < 180) newWidth = 180;
-      if (newWidth > 500) newWidth = 500;
-      
-      // Update sidebar width
-      $('#sidebar').css('width', newWidth + 'px');
-    }
-  };
-  
-  // Add event listeners for sidebar resize handle
-  $('#sidebar-resize-handle').on('mousedown', (e) => {
-    e.preventDefault();
-    this.isDraggingSidebar = true;
-    $('body').addClass('sidebar-resizing');
-    $('#sidebar-resize-handle').addClass('dragging');
-  });
-  
-  $(document).on('mouseup', (e) => {
-    if (this.isDraggingSidebar) {
-      this.isDraggingSidebar = false;
-      $('body').removeClass('sidebar-resizing');
-      $('#sidebar-resize-handle').removeClass('dragging');
-    }
-  });
-  
-  $(document).on('mousemove', handleMouseMove);
 
   // Add debugging for the collapsible elements
   $(document).on('click', '.file-tree [data-bs-toggle="collapse"]', function(e) {
@@ -524,8 +617,8 @@ Template.viewPage.events({
   
   // Cleanup sidebar resize event handlers when the template is destroyed
   'template.viewPage.destroyed'() {
-    $(document).off('mousemove');
-    $(document).off('mouseup');
+    $(document).off('mousemove.sidebarResize');
+    $(document).off('mouseup.sidebarResize');
   },
   
   'click #expandAll'(event, instance) {
@@ -1300,6 +1393,9 @@ Template.viewPage.helpers({
       }
     }
     return 0;
+  },
+  jsTreeInitialized() {
+    return $.fn.jstree && $('#documentTree').data('jstree') !== undefined;
   },
 });
 
@@ -3236,4 +3332,48 @@ function debugCollapsibleElements() {
   });
   
   console.groupEnd();
+}
+
+/**
+ * Initialize sidebar resize functionality - basic version without saving preference
+ */
+function initSidebarResize() {
+  const $sidebar = $('#sidebar');
+  const $handle = $('#sidebar-resize-handle');
+  
+  let isResizing = false;
+  let startX, startWidth;
+  
+  $handle.on('mousedown', function(e) {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = $sidebar.width();
+    
+    // Add visual feedback during resizing
+    $handle.addClass('dragging');
+    
+    e.preventDefault();
+  });
+  
+  $(document).on('mousemove.sidebarResize', function(e) {
+    if (!isResizing) return;
+    
+    // Calculate new width based on mouse movement
+    const newWidth = startWidth + (e.clientX - startX);
+    
+    // Apply min/max constraints
+    const minWidth = parseInt($sidebar.css('min-width')) || 180;
+    const maxWidth = parseInt($sidebar.css('max-width')) || 500;
+    const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+    
+    // Set the new width
+    $sidebar.width(constrainedWidth);
+  });
+  
+  $(document).on('mouseup.sidebarResize', function() {
+    if (isResizing) {
+      isResizing = false;
+      $handle.removeClass('dragging');
+    }
+  });
 }
