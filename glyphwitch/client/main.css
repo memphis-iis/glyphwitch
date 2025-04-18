@@ -1,6 +1,12 @@
 body {
   padding: 10px;
   font-family: sans-serif;
+  padding-bottom: 0;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-y: hidden;
 }
 
 .navbar{
@@ -30,6 +36,7 @@ body {
 .line-element{
   /*light green transparent box with a light green border*/
   background-color: rgba(0, 255, 0, 0.1);
+  z-index: 10015 !important; /* Match other selection elements */
 }
 
 .file-tree {
@@ -104,4 +111,171 @@ body {
   justify-content: center;
   align-items: center;
   padding: 0;
+}
+
+/* Prevent horizontal scrolling */
+body, html {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Make images responsive */
+.img-fluid {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Ensure the sidebar doesn't cause overflow */
+#sidebar {
+  max-width: 100%;
+  flex-shrink: 0;
+  overflow-y: hidden;
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make toolbox containers responsive */
+.toolbox-container {
+  max-width: 95%;
+  z-index: 15000; /* Lower than HelpBox but higher than most elements */
+}
+
+/* Adjust help containers to fit within viewport and ensure highest z-index */
+#HelpBox, #DiscussionBox, #ToolOptions {
+  max-width: calc(100% - 40px);
+  right: 0;
+  word-wrap: break-word;
+  z-index: 20000 !important; /* Ensure help box is always on top */
+}
+
+/* Fix fixed positioning on small screens */
+@media (max-width: 768px) {
+  .position-absolute {
+    position: relative !important;
+    margin-top: 10px !important;
+    margin-right: 0 !important;
+    width: 100%;
+  }
+}
+
+/* Better container structure to prevent double scrollbars */
+.main-container {
+  display: flex;
+  flex-direction: row;
+  min-height: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+/* Main content area should be flexible */
+.main-content-area {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: calc(100vh - 120px);
+  height: calc(100vh - 120px); /* Set explicit height */
+}
+
+/* Improved scrollable container */
+.scrollable-container {
+  overflow-y: auto;
+  height: calc(100vh - 220px); /* Adjust based on other elements */
+  width: 100%;
+  padding-right: 5px;
+}
+
+/* Fix for data browser height */
+#databrowse {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* Make status footer stay at bottom without creating extra space */
+.status-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 0.5rem 0;
+}
+
+/* Ensure images don't create excess height */
+.img {
+  max-height: 100%;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Remove unnecessary padding that may cause extra space */
+.container-fluid {
+  padding-bottom: 0;
+}
+
+/* Adjust page selection area to prevent overflow */
+#pagesel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure proper spacing for the page content */
+.modal-body {
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+/* Improve image container and scaling behavior */
+.image-container {
+  position: relative;
+  height: calc(100vh - 180px); /* Subtract header/footer height */
+  width: 100%;
+  display: flex;
+  justify-content: flex-start; /* Align to start instead of center */
+  align-items: flex-start; /* Align to top instead of center */
+  overflow: hidden;
+  z-index: 1000; /* Base z-index for the image container */
+}
+
+/* Updated image styling for proper scaling without centering */
+#pageImage, #lineImage, #wordImage, #glyphImage, #elementImage {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0; /* Remove auto margins that center the image */
+}
+
+/* Style for cropper elements to ensure proper visibility */
+.cropper-container {
+  z-index: 10000 !important; /* Higher than regular content but lower than HelpBox/toolbox */
+}
+
+/* Ensure the cropper view box and drag handles are visible */
+.cropper-view-box, .cropper-face {
+  z-index: 90010 !important;
+  border: 1px solid #fff !important;
+}
+
+.cropper-crop-box {
+  z-index: 90010 !important;
+}
+
+.cropper-line, .cropper-point {
+  z-index: 90020 !important;
+}
+
+/* Make sure the cropper modal box is properly visible */
+.cropper-modal {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  opacity: 1 !important;
+  z-index: 9990 !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
+/* Ensure the proper z-index hierarchy for existing line/word outlines */
+.preserve-canvas, .selectElement, .showReferences {
+  z-index: 10015 !important; /* Between container and face/view-box */
 }

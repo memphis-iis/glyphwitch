@@ -296,14 +296,7 @@
 
 <!-- template for document viewing UI, with a left side -->
 <template name="viewPage">
-  <!-- document icon -->
-  <div class="container-fluid d-flex flex-nowrap">
-
-
-
-
-
-        
+  <div class="container-fluid d-flex flex-wrap main-container">
 
     <div class="col-md-3 bg-light collapse show text-center border" id="sidebar">
       {{#if currentDocument}}
@@ -333,12 +326,12 @@
             {{currentPageNumber}} of {{totalPages}}
             <button class="btn btn-light mb-3" id="nextPage">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l5 5a.5.5 0 0 1 0 .708l-5 5a.5.5 0 0 1-.708-.708L9.293 8 4.646 3.354a.5.5 0 0 1 0-.708z"></path>
+                <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l5 5a.5.5 0 0 1 0 .708l5-5a.5.5 0 0 1-.708-.708L9.293 8 4.646 3.354a.5.5 0 0 1 0-.708z"></path>
               </svg>
             </button>
           </div>
           
-        <div class="d-flex flex-column align-items-center" style="overflow-y: auto; height: 100vh;">
+        <div class="d-flex flex-column align-items-center scrollable-container" style="overflow-y: auto; max-height: 100vh;">
 
         
 
@@ -392,7 +385,7 @@
     {{/if}}
     <!-- data browser tab content-->
     <div class="tab-pane fade" id="databrowse" role="tabpanel" aria-labelledby="databrowse-tab">
-      <div class="container vh-100">
+      <div class="container">
       <div class="row">
         <div class="col-12 bg-secondary text-white">
         <small>Title: {{currentDocument.title}}, Author: {{currentDocument.author}}</small>
@@ -455,7 +448,7 @@
     
     
     <!-- end of tab content -->
-    <div class="col position-relative border">
+    <div class="col position-relative border main-content-area">
       <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
           <button id="simple-tab" class="nav-link active open-tab" data-tab-id="simple" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Simple View</button>
@@ -474,9 +467,10 @@
         </svg>
       </button>
       {{#if currentDocument}}
-      <div class="image-container" style="position: relative; height: 90vh; width: 80vw;">
+      <!-- Remove inline styles from image element and update container -->
+      <div class="image-container">
         {{#if currentPage.image}}
-          <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; height:100%; object-fit: cover; " id="pageImage">
+          <img src="{{currentPage.image}}" class="img" alt="Image" id="pageImage">
         {{else}}
           <div class="alert alert-secondary" role="alert">
             No page selected. Please select a page to view.
@@ -484,7 +478,8 @@
         {{/if}}
       </div>
       {{/if}}
-      <div class="flow-container" style="position: relative; height: 90vh; width: 80vw; display: none;">
+      <!-- Change fixed width 80vw to use 100% with auto width -->
+      <div class="flow-container" style="position: relative; min-height: 400px; width: 100%; display: none;">
         <div class="flow" id="flow"></div>
       </div>
       <div class="toolbox-container" style="display: flex; flex-direction: column; position: absolute; top: 50px; right: 0; margin-right: 50px; opacity: 1;">
@@ -570,7 +565,7 @@
       </div>
       {{/if}}
     </div>
-    <div class="fixed-bottom bg-light border-top">
+    <div class="w-100 bg-light border-top status-footer">
       <div class="container">
         <div class="row">
           <div class="col text-center w-100">
@@ -641,10 +636,10 @@
       </div>
     </div>
   </div>
-  <!-- bootstrap modal for creating a word -->
+  <!-- Fix overly wide modals by removing the inline width styles -->
   <div class="modal fade" id="createWordModal" tabindex="-1" aria-labelledby="createWordModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content" style="width: 75vw; right: 25vw;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="createWordModalLabel">Create Word</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -659,10 +654,10 @@
       </div>
     </div>
   </div>
-    <!-- bootstrap modal for creating a phoneme -->
+  <!-- Fix overly wide modals by removing the inline width styles -->
   <div class="modal fade" id="createPhonemeModal" tabindex="-1" aria-labelledby="createWordModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content" style="width: 75vw; right: 25vw;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="createWordModalLabel">Create Phoneme</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -679,10 +674,10 @@
       </div>
     </div>
   </div>
-  <!-- bootstrap modal for creating a glyph, includes a canvas to draw on -->
+  <!-- Fix overly wide modals by removing the inline width styles -->
   <div class="modal fade" id="createGlyphModal" tabindex="-1" aria-labelledby="createGlyphModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content" style="width: 75vw; right: 25vw;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="createGlyphModalLabel">Create Glyph</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
