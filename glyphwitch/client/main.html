@@ -303,6 +303,14 @@
     <!-- Improved sidebar with tabs for Data Browser and Page Selection -->
     <div class="bg-light border" id="sidebar" style="width: 250px; min-width: 180px; max-width: 500px;">
       <div class="p-2">
+        <!-- Add document title container -->
+        {{#if currentDocument}}
+        <div class="document-title-container mb-2">
+          <h5 class="document-title" id="documentName">{{currentDocument.title}}</h5>
+          <input type="text" class="form-control d-none" id="documentNameInput" value="{{currentDocument.title}}" placeholder="Document Title">
+        </div>
+        {{/if}}
+        
         <!-- Tabs for sidebar navigation - changed order and default active tab -->
         <ul class="nav nav-tabs nav-fill mb-2" id="sidebarTabs" role="tablist">
           <li class="nav-item" role="presentation">
@@ -339,6 +347,10 @@
                         </button>
                         <button class="btn btn-sm btn-outline-secondary move-down" data-id="{{page}}" title="Move Down">
                           <i class="bi bi-arrow-down"></i>
+                        </button>
+                        <!-- Add "Add page after" button -->
+                        <button class="btn btn-sm btn-outline-primary add-page-after" data-id="{{page}}" title="Add Page After">
+                          <i class="bi bi-plus-circle"></i>
                         </button>
                       </div>
                     </div>
@@ -541,15 +553,16 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <p> Please specify the title and image of the new page. This page will be created after the current page.</p>
+          <p id="pageInsertionMessage">Please specify the title and image of the new page. This page will be created at the end of the document.</p>
           <form id="createPageForm">
             <div class="form-group">
               <label for="title">Title</label>
               <input type="text" class="form-control" id="pageTitle" name="title">
-              <input type="file" class="form-control-file" id="newpageImage" name="image">
-              <!-- unchangable input for page index -->
+              <input type="file" class="form-control-file mt-2" id="newpageImage" name="image">
+              <!-- Add hidden fields for insertion position -->
               <input type="hidden" class="form-control" id="pageIndex" name="index" value="{{currentPageNumber}}">
-              <button type="submit" class="btn btn-primary" id="submitNewPage">Create</button>
+              <input type="hidden" class="form-control" id="insertAfter" name="insertAfter" value="end">
+              <button type="submit" class="btn btn-primary mt-3" id="submitNewPage">Create</button>
             </div>
           </form>
         </div>

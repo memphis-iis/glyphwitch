@@ -707,7 +707,139 @@ Template.viewPage.events({
     $('.file-tree .collapse').removeClass('show');
     // Update aria-expanded attribute for all toggler elements
     $('.file-tree [data-bs-toggle="collapse"]').attr('aria-expanded', 'false');
-  }
+  },
+  
+  // Add handler for "Add page after" button
+  'click .add-page-after': function(event, instance) {
+    event.preventDefault();
+    const pageIndex = $(event.currentTarget).data('id');
+    // Store the page index to insert after
+    $('#insertAfter').val(pageIndex);
+    $('#pageInsertionMessage').text(`Please specify the title and image of the new page. This page will be inserted after page ${pageIndex + 1}.`);
+    $('#createPageModal').modal('show');
+  },
+  
+  'submit #createPageForm'(event, template) {
+    event.preventDefault();
+    console.log("submitNewPage");
+
+    // Disable the submit button
+    $('#submitNewPage').prop('disabled', true);
+
+    // Get the title and file from the form
+    const title = $('#pageTitle').val();
+    const file = $('#newpageImage').get(0).files[0];
+    const documentId = template.currentDocument.get();
+    const insertAfter = $('#insertAfter').val(); // Get insertion position
+    console.log(`Filename: ${file.name}, Title: ${title}, DocumentId: ${documentId}, Insert after: ${insertAfter}`);
+
+    if (file) {
+      const upload = Files.insert({
+        file: file,
+        chunkSize: 'dynamic'
+      }, false);
+
+      upload.on('end', function(error, fileObj) {
+        if (error) {
+          console.log(error);
+          alert('Error uploading file');
+          $('#submitNewPage').prop('disabled', false);
+        } else {
+          console.log(fileObj);
+          
+          // Use insertPage method instead of addPageToDocument when inserting after a specific page
+          if (insertAfter !== 'end') {
+            Meteor.call('insertPage', documentId, fileObj._id, insertAfter, title, function(error, result) {
+              if (error) {
+                console.log(error);
+                alert('Error adding page');
+              } else {
+                console.log(result);
+                alert('Page added');
+                // Clear fields
+                $('#pageTitle').val('');
+                $('#newpageImage').val('');
+                // Reset insertion point back to 'end'
+                $('#insertAfter').val('end');
+              }
+              
+              // Re-enable button and close modal
+              $('#submitNewPage').prop('disabled', false);
+              $('#createPageModal').modal('hide');
+            });
+          } else {
+            // Use original method for adding at the end
+            Meteor.call('addPageToDocument', documentId, fileObj._id, insertAfter, title, function(error, result) {
+              if (error) {
+                console.log(error);
+                alert('Error adding page');
+              } else {
+                console.log(result);
+                alert('Page added');
+                // Clear fields
+                $('#pageTitle').val('');
+                $('#newpageImage').val('');
+              }
+              
+              // Re-enable button and close modal
+              $('#submitNewPage').prop('disabled', false);
+              $('#createPageModal').modal('hide');
+            });
+          }
+        }
+      });
+      upload.start();
+    } else {
+      alert('Please select an image file for the page.');
+      $('#submitNewPage').prop('disabled', false);
+    }
+  },
+  
+  // Document renaming handlers are already in the code but make sure they work
+  'dblclick #documentName'(event, instance) {
+    // Hide the document name and show the input box
+    $('#documentName').addClass('d-none');
+    $('#documentNameInput').removeClass('d-none').focus();
+  },
+  
+  'keypress #documentNameInput'(event, instance) {
+    if (event.key === 'Enter') {
+      // Get the new document name
+      const newTitle = $('#documentNameInput').val().trim();
+      const documentId = instance.currentDocument.get();
+
+      if (newTitle) {
+        // Call the server method to update the document title
+        Meteor.call('modifyDocument', documentId, { title: newTitle }, function(error, result) {
+          if (error) {
+            console.error("Error updating document:", error);
+          } else {
+            console.log("Document updated successfully:", result);
+          }
+        });
+      }
+      // Revert to display mode
+      $('#documentName').text(newTitle).show();
+      $('#documentNameInput').hide();
+    }
+  },
+  
+  'blur #documentNameInput'(event, instance) {
+    // Revert to display when input loses focus
+    $('#documentNameInput').addClass('d-none');
+    $('#documentName').removeClass('d-none');
+  },
+  
+  // Update addPage click handler to set insertion point to "end"
+  'click #addPage': function(event, instance) {
+    event.preventDefault();
+    // Set insertion point to "end" to add at the end of document
+    $('#insertAfter').val('end');
+    $('#pageInsertionMessage').text('Please specify the title and image of the new page. This page will be added at the end of the document.');
+    $('#createPageModal').modal('show');
+  },
+  
+  // ...existing code...
 });
 
 //function to reset all buttons in toolbox-container to btn-light
@@ -2840,8 +2972,6 @@ Template.viewPage.events({
 // Ensure sidebar tabs are initialized correctly on render
 Template.viewPage.onRendered(function() {
   const instance = this;
-  
-  // ...existing onRendered code...
   
   // Initialize Bootstrap tabs
   const tabEl = document.querySelector('#page-selection-tab');
