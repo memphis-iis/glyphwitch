@@ -1638,6 +1638,10 @@ Template.viewPage.events({
   
   'click .open-tab'(event, instance) {
     event.preventDefault();
+    
+    // Clean up selection tool if active
+    cleanupSelectionTool(instance);
+    
     const tabId = event.target.getAttribute('data-tab-id');
     $(event.target).attr('aria-selected', 'true').addClass('active');
 
@@ -1749,6 +1753,10 @@ Template.viewPage.events({
   
   'click .close-tab' (event, instance) {
     event.preventDefault();
+    
+    // Clean up selection tool if active
+    cleanupSelectionTool(instance);
+    
     const grandparent = event.target.parentElement.parentElement;
     const type = grandparent.getAttribute('data-type');
     const closedTabId = grandparent.getAttribute('id');
@@ -3231,4 +3239,35 @@ function drawRect(canvas, x, y, width, height, type, index, subIndex) {
   
   ctx.fillRect(x, y, width, height);
   ctx.strokeRect(x, y, width, height);
+}
+
+// Add this helper function near other utility functions
+function cleanupSelectionTool(instance) {
+  // Check if select tool is active
+  if (instance.currentTool.get() === 'select') {
+    console.log("Cleaning up selection tool before tab switch");
+    
+    // Remove all selection elements
+    $('.selectElement').remove();
+    $('.showReferences').remove();
+    
+    // Destroy any active croppers
+    const cropper = instance.cropper.get();
+    if (cropper) {
+      cropper.destroy();
+      instance.cropper.set(false);
+    }
+    
+    // Remove any canvas elements created for selection
+    $('canvas#pageImage, canvas#lineImage, canvas#wordImage, canvas#glyphImage, canvas#elementImage').each(function() {
+      // Only remove canvas duplicates, not original images
+      if ($(this).siblings('img#' + this.id).length) {
+        $(this).remove();
+      }
+    });
+    
+    // Reset to view mode
+    instance.currentTool.set('view');
+    resetToolbox();
+  }
 }
