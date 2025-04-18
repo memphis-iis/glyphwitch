@@ -36,6 +36,7 @@ body {
 .line-element{
   /*light green transparent box with a light green border*/
   background-color: rgba(0, 255, 0, 0.1);
+  z-index: 10015 !important; /* Match other selection elements */
 }
 
 .file-tree {
@@ -137,13 +138,15 @@ body, html {
 /* Make toolbox containers responsive */
 .toolbox-container {
   max-width: 95%;
+  z-index: 15000; /* Lower than HelpBox but higher than most elements */
 }
 
-/* Adjust help containers to fit within viewport */
+/* Adjust help containers to fit within viewport and ensure highest z-index */
 #HelpBox, #DiscussionBox, #ToolOptions {
   max-width: calc(100% - 40px);
   right: 0;
   word-wrap: break-word;
+  z-index: 20000 !important; /* Ensure help box is always on top */
 }
 
 /* Fix fixed positioning on small screens */
@@ -227,6 +230,7 @@ body, html {
   justify-content: flex-start; /* Align to start instead of center */
   align-items: flex-start; /* Align to top instead of center */
   overflow: hidden;
+  z-index: 1000; /* Base z-index for the image container */
 }
 
 /* Updated image styling for proper scaling without centering */
@@ -238,4 +242,40 @@ body, html {
   object-fit: contain;
   display: block;
   margin: 0; /* Remove auto margins that center the image */
+}
+
+/* Style for cropper elements to ensure proper visibility */
+.cropper-container {
+  z-index: 10000 !important; /* Higher than regular content but lower than HelpBox/toolbox */
+}
+
+/* Ensure the cropper view box and drag handles are visible */
+.cropper-view-box, .cropper-face {
+  z-index: 90010 !important;
+  border: 1px solid #fff !important;
+}
+
+.cropper-crop-box {
+  z-index: 90010 !important;
+}
+
+.cropper-line, .cropper-point {
+  z-index: 90020 !important;
+}
+
+/* Make sure the cropper modal box is properly visible */
+.cropper-modal {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  opacity: 1 !important;
+  z-index: 9990 !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
+/* Ensure the proper z-index hierarchy for existing line/word outlines */
+.preserve-canvas, .selectElement, .showReferences {
+  z-index: 10015 !important; /* Between container and face/view-box */
 }

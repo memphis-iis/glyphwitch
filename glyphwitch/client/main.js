@@ -920,7 +920,7 @@ function initCropper(type) {
   canvas.style.position = 'absolute';
   canvas.style.left = '0';
   canvas.style.top = '0';
-  canvas.style.zIndex = '9999'; 
+  canvas.style.zIndex = '9999'; // Set high z-index but below the cropper elements
 
   //center the canvas vertically
   canvas.style.marginTop = (parseInt(height) - parseInt(canvas.style.height)) / 2 + 'px';
@@ -2176,11 +2176,13 @@ Template.viewPage.events({
     cropDetails = {};
     //add a event listener for hitting the enter key, which will confirm the selection
     const cropper = new Cropper(image, {
-      // Use the same cropper options as for createWord
       dragMode: 'crop',
       aspectRatio: 0,
-      // Set a higher zIndex to ensure the cropper appears above other elements
-      zIndex: 9999,
+      zIndex: 10000,  // Ensure consistent z-index with other croppers
+      viewMode: 1,
+      modal: true,   // Enable grey background overlay
+      background: true, // Show background grid
+      autoCropArea: 0.8, // Default to selecting most of the image
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -2189,10 +2191,28 @@ Template.viewPage.events({
         instance.selectheight.set(cropDetails.height);
       }
     });
-    // Use the same initial crop box as createWord
     cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
     // Store the cropper instance to properly clean it up later
     instance.cropper.set(cropper);
+
+    // Force-style the modal background after cropper initialization
+    setTimeout(() => {
+      $('.cropper-modal').css({
+        'background-color': 'rgba(0, 0, 0, 0.5)',
+        'opacity': '1',
+        'z-index': '9990'
+      });
+      
+      // Ensure the view-box is above the modal
+      $('.cropper-view-box').css({
+        'z-index': '10010'
+      });
+      
+      // Make other cropper elements visible above the background
+      $('.cropper-face').css('z-index', '10010');
+      $('.cropper-line').css('z-index', '10020');
+      $('.cropper-point').css('z-index', '10030');
+    }, 100);
   },
   'click #createWord'(event, instance) {
     event.preventDefault();
@@ -2228,11 +2248,13 @@ Template.viewPage.events({
     cropDetails = {};
     //add a event listener for hitting the enter key, which will confirm the selection
     const cropper = new Cropper(image, {
-      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
-      // Set a higher zIndex to ensure the cropper appears above other elements
-      zIndex: 9999,
+      zIndex: 10000,  // Ensure consistent z-index with other croppers
+      viewMode: 1,
+      modal: true,    // Enable grey background overlay
+      background: true, // Show background grid
+      autoCropArea: 0.8, // Default to selecting most of the image
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -2244,6 +2266,25 @@ Template.viewPage.events({
     // Store the cropper instance to properly clean it up later
     instance.cropper.set(cropper);
     cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
+
+    // Force-style the modal background after cropper initialization
+    setTimeout(() => {
+      $('.cropper-modal').css({
+        'background-color': 'rgba(0, 0, 0, 0.5)',
+        'opacity': '1',
+        'z-index': '9990'
+      });
+      
+      // Ensure the view-box is above the modal
+      $('.cropper-view-box').css({
+        'z-index': '10010'
+      });
+      
+      // Make other cropper elements visible above the background
+      $('.cropper-face').css('z-index', '10010');
+      $('.cropper-line').css('z-index', '10020');
+      $('.cropper-point').css('z-index', '10030');
+    }, 100);
   },
   'click #createPhoneme'(event, instance) {
     event.preventDefault();
@@ -2287,6 +2328,7 @@ Template.viewPage.events({
       //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
+      zIndex: 10000,  // Ensure consistent z-index with other croppers
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -2327,6 +2369,7 @@ Template.viewPage.events({
     const cropper = new Cropper(image, {
       dragMode: 'crop',
       aspectRatio: 0,
+      zIndex: 10000,  // Ensure consistent z-index with other croppers
       crop(event) {
         const cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -2335,6 +2378,25 @@ Template.viewPage.events({
         instance.selectheight.set(cropDetails.height);
       }
     });
+
+    // Force-style the modal background after cropper initialization
+    setTimeout(() => {
+      $('.cropper-modal').css({
+        'background-color': 'rgba(0, 0, 0, 0.5)',
+        'opacity': '1',
+        'z-index': '9990'
+      });
+      
+      // Ensure the view-box is above the modal
+      $('.cropper-view-box').css({
+        'z-index': '10010'
+      });
+      
+      // Make other cropper elements visible above the background
+      $('.cropper-face').css('z-index', '10010');
+      $('.cropper-line').css('z-index', '10020');
+      $('.cropper-point').css('z-index', '10030');
+    }, 100);
   },
   'click #createElement'(event, instance) {
     event.preventDefault();
@@ -2469,6 +2531,25 @@ Template.viewPage.events({
         }
       });
     }, 500);
+
+    // Force-style the modal background after cropper initialization
+    setTimeout(() => {
+      $('.cropper-modal').css({
+        'background-color': 'rgba(0, 0, 0, 0.5)',
+        'opacity': '1',
+        'z-index': '9990'
+      });
+      
+      // Ensure the view-box is above the modal
+      $('.cropper-view-box').css({
+        'z-index': '10010'
+      });
+      
+      // Make other cropper elements visible above the background
+      $('.cropper-face').css('z-index', '10010');
+      $('.cropper-line').css('z-index', '10020');
+      $('.cropper-point').css('z-index', '10030');
+    }, 100);
     
     console.log("DEBUG: createElement - end of handler");
   },
