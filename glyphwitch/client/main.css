@@ -89,12 +89,13 @@ body {
 
 .page-controls {
   position: absolute;
-  bottom: 10px;
+  bottom: 35px; /* was 10px, moves buttons up */
   left: 10px;
   display: flex;
   gap: 10px;
   opacity: 0;
   transition: opacity 0.3s ease;
+  background-color: white;
 }
 
 .pagesel:hover .page-controls {
