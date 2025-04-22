@@ -113,7 +113,7 @@ body {
 /* Sidebar resize styles */
 #sidebar {
   transition: width 0.05s ease;
-  overflow-y: auto;
+  overflow-y: hidden; /* Changed from auto to hidden to prevent sidebar scrollbar */
   position: relative;
   flex-shrink: 0;
   height: 100vh;
@@ -121,13 +121,16 @@ body {
   border-right: 1px solid #dee2e6 !important;
 }
 
-/* Add responsive thumbnail styles */
+/* Removed overflow-y: auto from page-thumbnails since the parent element will scroll */
 .page-thumbnails {
-  overflow-y: auto;
-  max-height: calc(100vh - 180px);
+  /* Remove overflow-y property to prevent double scrollbar */
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* Remove max-height constraint so it can expand within scrollable parent */
+  overflow-y: auto; /* This container should scroll */
+  flex-grow: 1; /* Take up all remaining space */
+  padding-bottom: 20px; /* Move the padding here from the parent */
 }
 
 #sidebar-resize-handle {
@@ -154,13 +157,15 @@ body.sidebar-resizing {
 
 /* jsTree styles */
 #documentTree {
+  /* Adjust height to fit within the scrollable container */
+  height: calc(100% - 40px); /* Reduced from 70px to avoid extra space */
+  /* Remove duplicate overflow property - parent already scrolls */
+  position: relative;
   width: 100%;
-  height: calc(100vh - 100px);
   min-height: 200px;
   overflow: auto;
   padding: 10px 5px;
   background-color: #f8f9fa;
-  position: relative;
   display: block !important; /* Force display */
 }
 
@@ -218,12 +223,27 @@ body.sidebar-resizing {
 /* Tab content container styling */
 #sidebarTabsContent {
   height: calc(100vh - 160px);
-  overflow: hidden;
+  overflow: hidden; /* Keep parent container from scrolling */
 }
 
+/* Each tab content pane should have fixed header and scrollable content */
 #data-browser-content, #page-selection-content {
   height: 100%;
-  overflow-y: auto;
+  overflow-y: hidden; /* Changed from auto to prevent the header from scrolling */
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0; /* Remove padding since it will be on the content area */
+}
+
+/* The heading should not scroll */
+#page-selection-content h6, #data-browser-content h6 {
+  flex-shrink: 0; /* Prevent the heading from shrinking */
+  padding: 0 0 8px 0; /* Add some bottom padding to the heading */
+  margin-bottom: 0; /* Remove default margin to control spacing precisely */
+  position: sticky;
+  top: 0;
+  background-color: #f8f9fa;
+  z-index: 1; /* Ensure it stays on top of the scrolling content */
 }
 
 /* Page selection styles */
@@ -278,13 +298,6 @@ body.sidebar-resizing {
 .page-controls .btn {
   padding: 0.1rem 0.25rem;
   font-size: 0.7rem;
-}
-
-/* Ensure the document tree container remains properly sized */
-#documentTree {
-  height: calc(100% - 70px);
-  overflow-y: auto;
-  position: relative;
 }
 
 /* Document title styling */
