@@ -462,4 +462,43 @@ Meteor.methods({
       throw error;
     }
   },
+
+  // Add new method for inserting pages at specific index
+  insertPageAtIndex: function(documentId, fileObjId, insertAfterIndex, title) {
+    // Ensure the user is logged in
+    if (!this.userId) {
+      throw new Meteor.Error('not-authorized', 'You must be logged in to insert a page');
+    }
+    
+    console.log(`Server: inserting page after index ${insertAfterIndex} in document ${documentId}`);
+    
+    // Convert insertAfterIndex to a number to ensure proper comparison
+    insertAfterIndex = Number(insertAfterIndex);
+    
+    // Get the current document
+    const doc = Documents.findOne({_id: documentId});
+    if (!doc) {
+      throw new Meteor.Error('not-found', 'Document not found');
+    }
+    
+    // Create the new page object
+    const newPage = {
+      pageId: fileObjId,
+      title: title || `Page ${insertAfterIndex + 2}`, // Default title if none provided
+      addedBy: this.userId,
+      lines: []
+    };
+    
+    // Create a copy of the pages array
+    let pages = [...doc.pages];
+    
+    // Use splice to insert the new page at the correct position (after the specified index)
+    // Add 1 to insertAfterIndex because splice inserts before the index
+    pages.splice(insertAfterIndex + 1, 0, newPage);
+    
+    // Update the document with the modified pages array
+    Documents.update({_id: documentId}, {$set: {pages: pages}});
+    
+    return {success: true, message: 'Page inserted successfully'};
+  }
 });

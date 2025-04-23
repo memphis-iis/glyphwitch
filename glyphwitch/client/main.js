@@ -747,15 +747,16 @@ Template.viewPage.events({
         } else {
           console.log(fileObj);
           
-          // Use insertPage method instead of addPageToDocument when inserting after a specific page
+          // Decide which method to use based on insertion point
           if (insertAfter !== 'end') {
-            Meteor.call('insertPage', documentId, fileObj._id, insertAfter, title, function(error, result) {
+            // Use new method for inserting at a specific index
+            Meteor.call('insertPageAtIndex', documentId, fileObj._id, Number(insertAfter), title, function(error, result) {
               if (error) {
-                console.log(error);
-                alert('Error adding page');
+                console.error('Error inserting page:', error);
+                alert('Error inserting page: ' + (error.reason || error.message));
               } else {
-                console.log(result);
-                alert('Page added');
+                console.log('Page inserted successfully:', result);
+                alert('Page inserted successfully');
                 // Clear fields
                 $('#pageTitle').val('');
                 $('#newpageImage').val('');
@@ -769,16 +770,18 @@ Template.viewPage.events({
             });
           } else {
             // Use original method for adding at the end
-            Meteor.call('addPageToDocument', documentId, fileObj._id, insertAfter, title, function(error, result) {
+            Meteor.call('addPageToDocument', documentId, fileObj._id, 'end', title, function(error, result) {
               if (error) {
-                console.log(error);
-                alert('Error adding page');
+                console.error('Error adding page:', error);
+                alert('Error adding page: ' + (error.reason || error.message));
               } else {
-                console.log(result);
-                alert('Page added');
+                console.log('Page added successfully:', result);
+                alert('Page added successfully');
                 // Clear fields
                 $('#pageTitle').val('');
                 $('#newpageImage').val('');
+                // Reset insertion point back to 'end'
+                $('#insertAfter').val('end');
               }
               
               // Re-enable button and close modal
@@ -794,7 +797,7 @@ Template.viewPage.events({
       $('#submitNewPage').prop('disabled', false);
     }
   },
-  
+
   // Document renaming handlers are already in the code but make sure they work
   'dblclick #documentName'(event, instance) {
     // Hide the document name and show the input box
