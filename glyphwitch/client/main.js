@@ -923,74 +923,180 @@ Template.viewPage.events({
 
   'click #deleteSelection'(event, instance) {
     event.preventDefault();
-    console.group('Delete Button Action');
+    console.group('CLIENT: Delete Button Action - Detailed Debug');
+    console.time('deleteOperation');
     
-    // Get the selected node from jsTree
-    const tree = $('#documentTree').jstree(true);
-    if (!tree) {
-      console.error('jsTree not initialized');
-      console.groupEnd();
-      return;
-    }
-    
-    const selectedNodeIds = tree.get_selected();
-    if (!selectedNodeIds || selectedNodeIds.length === 0) {
-      console.log('Nothing selected to delete');
-      alert('Please select an item to delete');
-      console.groupEnd();
-      return;
-    }
-    
-    const selectedNodeId = selectedNodeIds[0]; // Take the first selected node
-    const selectedNode = tree.get_node(selectedNodeId);
-    
-    console.log('Selected node:', selectedNode);
-    
-    // Parse the node ID to extract type and path
-    // Node IDs in jsTree are formatted like: page-0-line-0-word-0
-    const parsedData = parseNodeId(selectedNodeId);
-    if (!parsedData) {
-      console.error('Failed to parse node ID:', selectedNodeId);
-      alert('Cannot determine item type to delete');
-      console.groupEnd();
-      return;
-    }
-    
-    const { nodeType, path } = parsedData;
-    console.log('Node type:', nodeType, 'Path:', path);
-    
-    // Get document ID
-    const documentId = instance.currentDocument.get();
-    if (!documentId) {
-      console.error('No document selected');
-      console.groupEnd();
-      return;
-    }
-    
-    // Confirm deletion
-    if (!confirm(`Are you sure you want to delete this ${nodeType} and all its children?`)) {
-      console.log('Deletion cancelled by user');
-      console.groupEnd();
-      return;
-    }
-    
-    // Call the server method to delete the item
-    Meteor.call('deleteDocumentItem', documentId, nodeType, path, (error, result) => {
-      if (error) {
-        console.error('Error deleting item:', error);
-        alert(`Error deleting ${nodeType}: ${error.message}`);
-      } else {
-        console.log('Item deleted successfully:', result);
-        alert(`${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)} deleted successfully`);
-        
-        // Refresh the document tree
-        if ($.jstree && $.jstree.reference('#documentTree')) {
-          initDocumentTree(documentId);
+    try {
+      // Get the selected node from jsTree
+      console.log('Getting selected node from jsTree...');
+      const tree = $('#documentTree').jstree(true);
+      if (!tree) {
+        console.error('jsTree not initialized');
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        alert('Tree component not initialized. Please try refreshing the page.');
+        return;
+      }
+      
+      const selectedNodeIds = tree.get_selected();
+      console.log('Selected node IDs:', selectedNodeIds);
+      
+      if (!selectedNodeIds || selectedNodeIds.length === 0) {
+        console.log('Nothing selected to delete');
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        alert('Please select an item to delete');
+        return;
+      }
+      
+      const selectedNodeId = selectedNodeIds[0]; // Take the first selected node
+      const selectedNode = tree.get_node(selectedNodeId);
+      
+      console.log('Selected node details:', {
+        id: selectedNode.id,
+        text: selectedNode.text,
+        type: selectedNode.type,
+        parent: selectedNode.parent
+      });
+      
+      // Extract the node type and path from the node id
+      // Node IDs in jsTree are formatted like: page-0-line-0-word-0-glyph-0-element-0
+      console.log('Extracting node type and path from ID:', selectedNodeId);
+      const parts = selectedNodeId.split('-');
+      console.log('Split ID parts:', parts);
+      
+      if (parts.length < 2) {
+        console.error('Invalid node ID format:', selectedNodeId);
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        alert('Cannot determine item type to delete (invalid node ID format)');
+        return;
+      }
+      
+      // CRITICAL FIX: Instead of using the first part as the type,
+      // we need to determine the real item type based on the full path
+      // The type we want to delete is the last type in the path
+      const path = [];
+      let nodeType = '';
+      
+      // Extract indices from the ID (every odd position)
+      console.log('Extracting path indices and determining correct item type...');
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) {
+          // This is a type part (page, line, word, etc.)
+          nodeType = parts[i]; // Keep updating, so we'll end with the last type
+        } else {
+          // This is an index part
+          const index = parseInt(parts[i], 10);
+          if (isNaN(index)) {
+            console.error('Invalid path index in node ID:', selectedNodeId, 'at position', i);
+            console.timeEnd('deleteOperation');
+            console.groupEnd();
+            alert('Cannot determine item path to delete (invalid index in node ID)');
+            return;
+          }
+          path.push(index);
         }
       }
-    });
-    
-    console.groupEnd();
+      
+      console.log('Extracted node type and path:', {
+        nodeType: nodeType,
+        path: path,
+        pathString: path.join(',')
+      });
+      
+      // Get document ID
+      const documentId = instance.currentDocument.get();
+      if (!documentId) {
+        console.error('No document selected');
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        alert('No document selected. Please select a document first.');
+        return;
+      }
+      
+      console.log('Current document ID:', documentId);
+      
+      // Confirm deletion with a more descriptive message based on the item type
+      const itemTypeDisplay = nodeType.charAt(0).toUpperCase() + nodeType.slice(1);
+      
+      // Build a descriptive confirmation message
+      let confirmMessage;
+      switch(nodeType) {
+        case 'page':
+          confirmMessage = `Are you sure you want to delete Page ${path[0] + 1} and all its contents (lines, words, etc.)?`;
+          break;
+        case 'line':
+          confirmMessage = `Are you sure you want to delete Line ${path[1] + 1} on Page ${path[0] + 1} and all its contents (words, glyphs, etc.)?`;
+          break;
+        case 'word':
+          confirmMessage = `Are you sure you want to delete Word ${path[2] + 1} from Line ${path[1] + 1} on Page ${path[0] + 1} and all its contents?`;
+          break;
+        case 'glyph':
+          confirmMessage = `Are you sure you want to delete Glyph ${path[3] + 1} from Word ${path[2] + 1}, Line ${path[1] + 1} on Page ${path[0] + 1} and all its contents?`;
+          break;
+        case 'phoneme':
+          confirmMessage = `Are you sure you want to delete Phoneme ${path[3] + 1} from Word ${path[2] + 1}, Line ${path[1] + 1} on Page ${path[0] + 1}?`;
+          break;
+        case 'element':
+          confirmMessage = `Are you sure you want to delete Element ${path[4] + 1} from Glyph ${path[3] + 1}, Word ${path[2] + 1}, Line ${path[1] + 1} on Page ${path[0] + 1}?`;
+          break;
+        default:
+          confirmMessage = `Are you sure you want to delete this ${itemTypeDisplay} and all its children?`;
+      }
+      
+      console.log('Displaying confirmation dialog with message:', confirmMessage);
+      
+      if (!confirm(confirmMessage)) {
+        console.log('Deletion cancelled by user');
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        return;
+      }
+      
+      console.log('User confirmed deletion. Calling server method...');
+      
+      // Call the server method to delete the item
+      console.log('Invoking Meteor.call with parameters:', {
+        method: 'deleteDocumentItem',
+        documentId: documentId,
+        nodeType: nodeType,
+        path: path
+      });
+      
+      Meteor.call('deleteDocumentItem', documentId, nodeType, path, (error, result) => {
+        if (error) {
+          console.error('Error from server:', error);
+          console.timeEnd('deleteOperation');
+          console.groupEnd();
+          alert(`Error deleting ${nodeType}: ${error.message}`);
+        } else {
+          console.log('Server response:', result);
+          console.timeEnd('deleteOperation');
+          console.log('Item deleted successfully. Refreshing tree...');
+          
+          // Refresh the document tree
+          if ($.jstree && $.jstree.reference('#documentTree')) {
+            console.log('Reinitializing document tree');
+            
+            // Add a delay to allow the database to update
+            setTimeout(() => {
+              initDocumentTree(documentId);
+              alert(`${itemTypeDisplay} deleted successfully`);
+            }, 300);
+          } else {
+            console.warn('jsTree reference not available for refresh');
+            alert(`${itemTypeDisplay} deleted successfully. Please refresh the page to see changes.`);
+          }
+          console.groupEnd();
+        }
+      });
+    } catch (err) {
+      console.error('Unexpected error in delete handler:', err);
+      console.timeEnd('deleteOperation');
+      console.groupEnd();
+      alert(`An unexpected error occurred: ${err.message}`);
+    }
   },
 
   // ...existing code...
