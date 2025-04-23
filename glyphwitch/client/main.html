@@ -333,9 +333,15 @@
           <div class="tab-pane fade show active" id="page-selection-content" role="tabpanel" aria-labelledby="page-selection-tab">
             <h6 class="text-muted mb-2">Pages</h6>
             
-            <!-- Add page counter -->
-            <div class="text-center mb-2">
+            <!-- Add page counter with navigation arrows -->
+            <div class="text-center mb-2 d-flex justify-content-center align-items-center">
+              <button class="btn btn-sm btn-outline-secondary me-2" id="prevPage" title="Previous Page">
+                <i class="bi bi-arrow-left"></i>
+              </button>
               <span class="badge bg-secondary page-counter">{{currentPageNumber}} of {{totalPages}}</span>
+              <button class="btn btn-sm btn-outline-secondary ms-2" id="nextPage" title="Next Page">
+                <i class="bi bi-arrow-right"></i>
+              </button>
             </div>
             
             <!-- Page list section -->

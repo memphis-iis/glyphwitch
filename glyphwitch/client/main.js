@@ -839,7 +839,101 @@ Template.viewPage.events({
     $('#createPageModal').modal('show');
   },
   
+  // Fix the previous page button by changing lastPage to prevPage
+  'click #prevPage'(event, instance) {
+    event.preventDefault();
+    
+    // Critical fix: Stop any other handlers from running
+    event.stopImmediatePropagation();
+    
+    // Ensure currentPage is a number
+    const currentPage = Number(instance.currentPage.get());
+    console.log("Previous page clicked, current page:", currentPage);
+    if (currentPage > 0) {
+      // Set the new page as a number
+      const newPage = Number(currentPage - 1);
+      instance.currentPage.set(newPage);
+      console.log("Setting page to:", newPage);
+      
+      // Update the UI to show correct page number
+      const displayPageNumber = newPage + 1; // Display 1-indexed page number
+      $('.current-page-indicator').text(displayPageNumber);
+      
+      // Explicitly fetch the new page data and display it
+      const documentId = instance.currentDocument.get();
+      if (documentId) {
+        const doc = Documents.findOne({_id: documentId});
+        if (doc && doc.pages && doc.pages[newPage] && doc.pages[newPage].pageId) {
+          const file = Files.findOne({_id: doc.pages[newPage].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+            console.log("Image updated to:", file.link());
+          } else {
+            console.error("File not found for pageId:", doc.pages[newPage].pageId);
+          }
+        } else {
+          console.error("Page not found for index:", newPage);
+        }
+      }
+    } else {
+      console.log("Already at first page");
+    }
+  },
+  
+  // Update the nextPage handler with strict event control
+  'click #nextPage'(event, instance) {
+    // Prevent default browser behavior
+    event.preventDefault();
+    
+    // Critical fix: Stop any other handlers from running
+    event.stopImmediatePropagation();
+    
+    // Ensure currentPage is a number
+    const currentPage = Number(instance.currentPage.get());
+    console.log("Next page clicked, current page:", currentPage);
+    const documentId = instance.currentDocument.get();
+    
+    if (documentId) {
+      const doc = Documents.findOne({_id: documentId});
+      const totalPages = doc.pages.length;
+      if (currentPage < totalPages - 1) {
+        // Set the new page as a number, keeping 0-indexed internally
+        const newPage = Number(currentPage + 1);
+        instance.currentPage.set(newPage);
+        
+        // Update UI to show correct 1-indexed page number
+        const displayPageNumber = newPage + 1;
+        $('.current-page-indicator').text(displayPageNumber);
+        
+        console.log("Setting page to:", newPage, "Display page:", displayPageNumber);
+        
+        // Add image update logic for consistency with prev button
+        if (doc && doc.pages && doc.pages[newPage] && doc.pages[newPage].pageId) {
+          const file = Files.findOne({_id: doc.pages[newPage].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+            console.log("Image updated to:", file.link());
+          } else {
+            console.error("File not found for pageId:", doc.pages[newPage].pageId);
+          }
+        }
+      }
+    }
+  },
+
   // ...existing code...
+});
+
+// Remove direct jQuery event handlers to ensure no duplication
+Meteor.startup(() => {
+  Tracker.autorun(() => {
+    // Run after templates have rendered
+    Meteor.defer(() => {
+      // Clean up any directly attached event handlers
+      $('#nextPage').off('click.directHandler');
+      $('#prevPage').off('click.directHandler');
+    });
+  });
 });
 
 //function to reset all buttons in toolbox-container to btn-light
@@ -1704,6 +1798,10 @@ Template.viewPage.events({
   },
   'click #nextPage'(event, instance) {
     event.preventDefault();
+    
+    // Critical fix: Stop any other handlers from running
+    event.stopImmediatePropagation();
+    
     // Ensure currentPage is a number
     const currentPage = Number(instance.currentPage.get());
     const documentId = instance.currentDocument.get();
