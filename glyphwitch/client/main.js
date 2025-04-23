@@ -921,6 +921,78 @@ Template.viewPage.events({
     }
   },
 
+  'click #deleteSelection'(event, instance) {
+    event.preventDefault();
+    console.group('Delete Button Action');
+    
+    // Get the selected node from jsTree
+    const tree = $('#documentTree').jstree(true);
+    if (!tree) {
+      console.error('jsTree not initialized');
+      console.groupEnd();
+      return;
+    }
+    
+    const selectedNodeIds = tree.get_selected();
+    if (!selectedNodeIds || selectedNodeIds.length === 0) {
+      console.log('Nothing selected to delete');
+      alert('Please select an item to delete');
+      console.groupEnd();
+      return;
+    }
+    
+    const selectedNodeId = selectedNodeIds[0]; // Take the first selected node
+    const selectedNode = tree.get_node(selectedNodeId);
+    
+    console.log('Selected node:', selectedNode);
+    
+    // Parse the node ID to extract type and path
+    // Node IDs in jsTree are formatted like: page-0-line-0-word-0
+    const parsedData = parseNodeId(selectedNodeId);
+    if (!parsedData) {
+      console.error('Failed to parse node ID:', selectedNodeId);
+      alert('Cannot determine item type to delete');
+      console.groupEnd();
+      return;
+    }
+    
+    const { nodeType, path } = parsedData;
+    console.log('Node type:', nodeType, 'Path:', path);
+    
+    // Get document ID
+    const documentId = instance.currentDocument.get();
+    if (!documentId) {
+      console.error('No document selected');
+      console.groupEnd();
+      return;
+    }
+    
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete this ${nodeType} and all its children?`)) {
+      console.log('Deletion cancelled by user');
+      console.groupEnd();
+      return;
+    }
+    
+    // Call the server method to delete the item
+    Meteor.call('deleteDocumentItem', documentId, nodeType, path, (error, result) => {
+      if (error) {
+        console.error('Error deleting item:', error);
+        alert(`Error deleting ${nodeType}: ${error.message}`);
+      } else {
+        console.log('Item deleted successfully:', result);
+        alert(`${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)} deleted successfully`);
+        
+        // Refresh the document tree
+        if ($.jstree && $.jstree.reference('#documentTree')) {
+          initDocumentTree(documentId);
+        }
+      }
+    });
+    
+    console.groupEnd();
+  },
+
   // ...existing code...
 });
 
@@ -3804,4 +3876,31 @@ function initSidebarResize() {
   
   // Initialize thumbnail sizes
   updatePageThumbnails();
+}
+
+/**
+ * Parse jsTree node ID to extract type and path
+ * @param {string} nodeId - The jsTree node ID (e.g., "page-0-line-0-word-0")
+ * @returns {object|null} - Parsed data with nodeType and path, or null if invalid
+ */
+function parseNodeId(nodeId) {
+  const parts = nodeId.split('-');
+  if (parts.length < 2 || parts.length % 2 !== 0) {
+    console.error('Invalid node ID format:', nodeId);
+    return null;
+  }
+  
+  const nodeType = parts[0];
+  const path = [];
+  
+  for (let i = 1; i < parts.length; i += 2) {
+    const index = parseInt(parts[i], 10);
+    if (isNaN(index)) {
+      console.error('Invalid path index in node ID:', nodeId);
+      return null;
+    }
+    path.push(index);
+  }
+  
+  return { nodeType, path };
 }
