@@ -1075,6 +1075,66 @@ Template.viewPage.events({
           console.timeEnd('deleteOperation');
           console.log('Item deleted successfully. Refreshing tree...');
           
+          // Find and close the tab associated with the deleted item
+          console.log('Looking for tab to close with type:', nodeType, 'and id:', path[path.length - 1]);
+          
+          // Get the tab element based on node type and last index in path
+          const tabId = path[path.length - 1];
+          const tabToClose = $(`#view-tab-template`).parent().children(`[data-type="${nodeType}"][data-id="${tabId}"]`);
+          
+          if (tabToClose.length > 0) {
+            console.log('Found tab to close:', tabToClose);
+            
+            // Find the tab to the left that we'll activate
+            let tabToActivate = tabToClose.prev(':not(#view-tab-template)');
+            
+            // If there's no tab to the left, try the tab to the right
+            if (tabToActivate.length === 0) {
+              tabToActivate = tabToClose.next();
+            }
+            
+            // If still no tab, default to the simple view tab
+            if (tabToActivate.length === 0 || tabToActivate.attr('id') === 'view-tab-template') {
+              tabToActivate = $('#simple-tab').parent();
+            }
+            
+            console.log('Will activate tab:', tabToActivate.attr('id'));
+            
+            // Close the tab for the deleted item
+            tabToClose.find('.close-tab').click();
+            
+            // Explicitly activate the selected tab
+            if (tabToActivate.length > 0) {
+              tabToActivate.children().addClass('active').attr('aria-selected', 'true');
+              
+              // Also set the current view based on the activated tab
+              const activatedType = tabToActivate.attr('data-type') || 'simple';
+              instance.currentView.set(activatedType);
+              
+              // Make sure the appropriate image is visible
+              if (activatedType === 'simple') {
+                $('#pageImage').show();
+                $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+              } else if (activatedType === 'line') {
+                $('#lineImage').show();
+                $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+              } else if (activatedType === 'word') {
+                $('#wordImage').show();
+                $('#pageImage, img#lineImage, img#glyphImage, img#elementImage').hide();
+              } else if (activatedType === 'glyph') {
+                $('#glyphImage').show();
+                $('#pageImage, img#lineImage, img#wordImage, img#elementImage').hide();
+              } else if (activatedType === 'element') {
+                $('#elementImage').show();
+                $('#pageImage, img#lineImage, img#wordImage, img#glyphImage').hide();
+              }
+              
+              // Reset toolbox to view mode
+              instance.currentTool.set('view');
+              resetToolbox();
+            }
+          }
+          
           // Refresh the document tree
           if ($.jstree && $.jstree.reference('#documentTree')) {
             console.log('Reinitializing document tree');
