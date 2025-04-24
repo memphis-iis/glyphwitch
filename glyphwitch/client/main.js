@@ -858,10 +858,6 @@ Template.viewPage.events({
       instance.currentPage.set(newPage);
       console.log("Setting page to:", newPage);
       
-      // Update the UI to show correct page number
-      const displayPageNumber = newPage + 1; // Display 1-indexed page number
-      $('.current-page-indicator').text(displayPageNumber);
-      
       // Explicitly fetch the new page data and display it
       const documentId = instance.currentDocument.get();
       if (documentId) {
@@ -904,11 +900,7 @@ Template.viewPage.events({
         const newPage = Number(currentPage + 1);
         instance.currentPage.set(newPage);
         
-        // Update UI to show correct 1-indexed page number
-        const displayPageNumber = newPage + 1;
-        $('.current-page-indicator').text(displayPageNumber);
-        
-        console.log("Setting page to:", newPage, "Display page:", displayPageNumber);
+        console.log("Setting page to:", newPage, "Display page:", newPage + 1);
         
         // Add image update logic for consistency with prev button
         if (doc && doc.pages && doc.pages[newPage] && doc.pages[newPage].pageId) {
@@ -1215,10 +1207,6 @@ Template.viewPage.events({
       instance.currentPage.set(path[0]);
       console.log('Page set to:', path[0]);
       
-      // Update UI to show 1-indexed page number
-      $('.current-page-indicator').text(path[0] + 1);
-      console.log('Page indicator updated to:', path[0] + 1);
-      
       // Update the page image
       const documentId = instance.currentDocument.get();
       console.log('Document ID:', documentId);
@@ -1249,6 +1237,35 @@ Template.viewPage.events({
     
     console.timeEnd('nodeSelectionHandler');
     console.groupEnd();
+  },
+  
+  // Fix page selection click handler too
+  'click .pagesel'(event, instance) {
+    // Don't trigger page change if clicking on the control buttons
+    if ($(event.target).closest('.page-controls').length) {
+      return;
+    }
+    
+    // Get the 0-indexed page number from data attribute
+    const pageIndex = Number($(event.currentTarget).data('id'));
+    console.log("Page selected:", pageIndex, "Display page:", pageIndex + 1);
+    
+    if (!isNaN(pageIndex)) {
+      // Set current page (0-indexed internally)
+      instance.currentPage.set(pageIndex);
+      
+      // Update the page image
+      const documentId = instance.currentDocument.get();
+      if (documentId) {
+        const doc = Documents.findOne({_id: documentId});
+        if (doc && doc.pages && doc.pages[pageIndex] && doc.pages[pageIndex].pageId) {
+          const file = Files.findOne({_id: doc.pages[pageIndex].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+          }
+        }
+      }
+    }
   },
   
   // ...existing code...
@@ -2090,10 +2107,6 @@ Template.viewPage.events({
       instance.currentPage.set(newPage);
       console.log("Setting page to:", newPage);
       
-      // Update the UI to show correct page number
-      const displayPageNumber = newPage + 1; // Display 1-indexed page number
-      $('.current-page-indicator').text(displayPageNumber);
-      
       // Explicitly fetch the new page data and display it
       const documentId = instance.currentDocument.get();
       if (documentId) {
@@ -2131,11 +2144,7 @@ Template.viewPage.events({
         const newPage = Number(currentPage + 1);
         instance.currentPage.set(newPage);
         
-        // Update UI to show correct 1-indexed page number
-        const displayPageNumber = newPage + 1;
-        $('.current-page-indicator').text(displayPageNumber);
-        
-        console.log("Setting page to:", newPage, "Display page:", displayPageNumber);
+        console.log("Setting page to:", newPage, "Display page:", newPage + 1);
       }
     }
   },
@@ -3348,9 +3357,6 @@ Template.viewPage.events({
     if (!isNaN(pageIndex)) {
       // Set current page (0-indexed internally)
       instance.currentPage.set(pageIndex);
-      
-      // Update UI to show 1-indexed page number
-      $('.current-page-indicator').text(pageIndex + 1);
       
       // Update the page image
       const documentId = instance.currentDocument.get();

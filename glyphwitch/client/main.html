@@ -533,7 +533,8 @@
       <div class="container">
         <div class="row">
           <div class="col text-center w-100">
-            <span class="badge bg-secondary float-start mx-2">Document: {{currentDocument.title}} - Page: <span class="current-page-indicator">{{currentPageNumber}}</span></span>
+            <!-- Updated this line to ensure the page number is only displayed by the helper -->
+            <span class="badge bg-secondary float-start mx-2">Document: {{currentDocument.title}} - Page: {{currentPageNumber}}</span>
             <span class="badge bg-secondary float-start mx-2">Current View: {{currentView}}</span>
             <span class="badge bg-secondary float-start mx-2">Current Tool: {{currentTool}}</span>
             {{#if isEqual currentView "line"}}
