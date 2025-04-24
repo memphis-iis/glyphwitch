@@ -1162,19 +1162,96 @@ Template.viewPage.events({
     }
   },
 
+  // Add jsTree node selection handler with detailed logging
+  'select_node.jstree #documentTree'(event, instance) {
+    console.group('DEBUG: jsTree Node Selection Handler');
+    console.time('nodeSelectionHandler');
+    console.log('Event triggered:', event);
+    console.log('Event type:', event.type);
+    console.log('Event target:', event.target);
+    console.log('Event currentTarget:', event.currentTarget);
+    
+    // Get the jsTree instance and selected node
+    const tree = $('#documentTree').jstree(true);
+    if (!tree) {
+      console.error('jsTree instance not found');
+      console.timeEnd('nodeSelectionHandler');
+      console.groupEnd();
+      return;
+    }
+    
+    console.log('jsTree instance found:', tree);
+    
+    const selectedNodeId = tree.get_selected()[0];
+    if (!selectedNodeId) {
+      console.error('No node selected');
+      console.timeEnd('nodeSelectionHandler');
+      console.groupEnd();
+      return;
+    }
+    
+    console.log('Selected node ID:', selectedNodeId);
+    
+    const nodeData = tree.get_node(selectedNodeId);
+    console.log('Node data:', nodeData);
+    
+    // Parse the node ID to extract type and path
+    const parsed = parseNodeId(selectedNodeId);
+    if (!parsed) {
+      console.error('Failed to parse node ID:', selectedNodeId);
+      console.timeEnd('nodeSelectionHandler');
+      console.groupEnd();
+      return;
+    }
+    
+    const { nodeType, path } = parsed;
+    console.log('Parsed node info:', { nodeType, path });
+    
+    // For page nodes, set current page and open a tab
+    if (nodeType === 'page') {
+      console.log('Processing page node. Current page before:', instance.currentPage.get());
+      
+      // Set current page (0-indexed internally)
+      instance.currentPage.set(path[0]);
+      console.log('Page set to:', path[0]);
+      
+      // Update UI to show 1-indexed page number
+      $('.current-page-indicator').text(path[0] + 1);
+      console.log('Page indicator updated to:', path[0] + 1);
+      
+      // Update the page image
+      const documentId = instance.currentDocument.get();
+      console.log('Document ID:', documentId);
+      
+      if (documentId) {
+        const doc = Documents.findOne({_id: documentId});
+        if (doc && doc.pages && doc.pages[path[0]] && doc.pages[path[0]].pageId) {
+          const file = Files.findOne({_id: doc.pages[path[0]].pageId});
+          console.log('File found for page:', file ? file._id : 'not found');
+          
+          if (file) {
+            const imageUrl = file.link();
+            console.log('Setting page image URL:', imageUrl);
+            $('#pageImage').attr('src', imageUrl);
+          }
+        } else {
+          console.error('Page data not found for path:', path[0]);
+        }
+      }
+      
+      console.log('About to call handleElementSelection with:', {type: 'page', id: path[0]});
+      // Call handleElementSelection to create a tab
+      handleElementSelection('page', path[0], instance);
+      console.log('handleElementSelection completed');
+    } else {
+      console.log('Not a page node, ignoring');
+    }
+    
+    console.timeEnd('nodeSelectionHandler');
+    console.groupEnd();
+  },
+  
   // ...existing code...
-});
-
-// Remove direct jQuery event handlers to ensure no duplication
-Meteor.startup(() => {
-  Tracker.autorun(() => {
-    // Run after templates have rendered
-    Meteor.defer(() => {
-      // Clean up any directly attached event handlers
-      $('#nextPage').off('click.directHandler');
-      $('#prevPage').off('click.directHandler');
-    });
-  });
 });
 
 //function to reset all buttons in toolbox-container to btn-light
@@ -3523,12 +3600,19 @@ function setCurrentHelp(help) {
 
 // Create a shared function that both handlers can use
 function handleElementSelection(type, id, instance) {
-  console.log("Processing element selection, type is " + type + " and id is " + id);
-
+  console.group('DEBUG: handleElementSelection');
+  console.log('Called with type:', type, 'id:', id);
+  
   // Check if a tab with the same type and id already exists
   const existingTab = $(`#view-tab-template`).parent().children(`[data-type="${type}"][data-id="${id}"]`);
+  console.log('Existing tab found?', existingTab.length > 0);
+  
   if (existingTab.length > 0) {
-    console.log(`Tab for ${type} ${id} already exists. Redirecting to the existing tab.`);
+    console.log('Activating existing tab instead of creating new one');
+    
+    // Activate the existing tab
+    existingTab.children().addClass('active').attr('aria-selected', 'true');
+    console.log('Tab activated');
     
     // Clean up any overlay elements that might be active
     $('.selectElement').remove();
@@ -3553,12 +3637,6 @@ function handleElementSelection(type, id, instance) {
       $('#exitTool').click();
     }
     
-    // Activate the existing tab
-    existingTab.children().addClass('active').attr('aria-selected', 'true');
-    
-    // Deactivate other tabs
-    existingTab.siblings().children().removeClass('active').attr('aria-selected', 'false');
-    
     // Set the current view to match the tab type
     instance.currentView.set(type);
     
@@ -3580,8 +3658,11 @@ function handleElementSelection(type, id, instance) {
       console.log(`Selection cleanup complete for existing tab ${type} ${id}`);
     }, 100);
     
+    console.groupEnd();
     return; // Exit early to prevent creating a duplicate tab
   }
+  
+  console.log('Creating new tab for', type, id);
   
   // Clean up all overlay buttons before proceeding 
   // This ensures previous selection elements don't remain on screen
@@ -3684,6 +3765,7 @@ function handleElementSelection(type, id, instance) {
     $('.showReferences').remove();
     console.log(`Selection cleanup complete for ${type} ${id}`);
   }, 100);
+  console.groupEnd();
 }
 
 // Function to set image for an element within a glyph

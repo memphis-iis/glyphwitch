@@ -103,7 +103,65 @@ function documentToJsTreeData(doc) {
   return result;
 }
 
+export function debugJsTreeEvents() {
+  console.group('DEBUG: jsTree Event Bindings');
+  
+  // Safely check if our handler is registered
+  try {
+    const documentEvents = $._data && $(document)[0] ? $._data($(document)[0], 'events') || {} : {};
+    console.log('Document-level event handlers:', documentEvents);
+    
+    const treeEl = $('#documentTree')[0];
+    const treeEvents = treeEl && $._data ? $._data(treeEl, 'events') || {} : {};
+    console.log('Direct tree event handlers:', treeEvents);
+    
+    // Test by manually triggering an event
+    console.log('Attempting to manually trigger select_node.jstree event');
+    $('#documentTree').trigger('select_node.jstree', [{ node: { id: 'test-node', data: { type: 'page', index: 0 } } }]);
+  } catch (err) {
+    console.error('Error in debugJsTreeEvents:', err);
+  }
+  
+  console.groupEnd();
+}
+
+// Helper function to handle element selection actions
+function handleElementSelection(type, index, instance) {
+  console.log(`Handling element selection: ${type} at index ${index}`);
+  
+  // If the instance doesn't have tabGroups, we can't proceed
+  if (!instance || !instance.tabGroups) {
+    console.warn('Template instance or tabGroups not available');
+    return;
+  }
+  
+  // Select the appropriate tab based on element type
+  switch (type) {
+    case 'word':
+      // Activate word tab
+      instance.tabGroups.editorTabs.set('word');
+      console.log('Activated word tab');
+      break;
+    case 'phoneme':
+      // Activate phoneme tab
+      instance.tabGroups.editorTabs.set('phoneme');
+      console.log('Activated phoneme tab');
+      break;
+    case 'glyph':
+      // Activate glyph tab
+      instance.tabGroups.editorTabs.set('glyph');
+      console.log('Activated glyph tab');
+      break;
+    case 'element':
+      // Activate element tab
+      instance.tabGroups.editorTabs.set('element');
+      console.log('Activated element tab');
+      break;
+  }
+}
+
 async function initDocumentTree(documentId) {
+  console.group('DEBUG: jsTree Initialization');
   console.log("Initializing jsTree for document:", documentId);
   
   if (!documentId) {
@@ -172,7 +230,7 @@ async function initDocumentTree(documentId) {
   
   try {
     // Clean up any existing instances
-    if ($.jstree.reference('#documentTree')) {
+    if ($.jstree && $.jstree.reference('#documentTree')) {
       $('#documentTree').jstree('destroy');
     }
     
@@ -220,26 +278,71 @@ async function initDocumentTree(documentId) {
         state: { key: 'glyphwitch-document-' + documentId }
       });
     
-    // Handle node selection
+    // IMPORTANT: Single event binding for node selection
     $('#documentTree').off('select_node.jstree').on('select_node.jstree', function(e, data) {
       console.log("Node selected:", data.node);
-      const node = data.node.original.data;
-      if (!node) return;
+      
+      // Extract node data, checking multiple possible locations
+      let nodeData;
+      if (data.node.original && data.node.original.data) {
+        // Data might be in the original node data
+        nodeData = data.node.original.data;
+      } else if (data.node.data) {
+        // Data might be directly on the node
+        nodeData = data.node.data;
+      } else {
+        // Try to extract data from the node ID for basic page selection
+        const idMatch = data.node.id.match(/^page-(\d+)/);
+        if (idMatch) {
+          nodeData = {
+            type: 'page',
+            index: parseInt(idMatch[1], 10)
+          };
+          console.log("Created node data from ID:", nodeData);
+        }
+      }
+      
+      if (!nodeData) {
+        console.warn("No node data found in selection");
+        return;
+      }
       
       // Find the appropriate template instance using a more reliable method
       let instance;
       
       try {
-        instance = Blaze.getView($('#documentTree')[0]).templateInstance();
-      } catch (e) {
-        console.log("Error finding template instance from Blaze, trying Template.instance()");
-        instance = Template.instance();
-      }
-      
-      if (!instance) {
-        // Last resort - search for Template instance in parent elements
-        const view = Blaze.getView($('#documentTree').closest('[id^=Template]')[0]);
-        if (view) instance = view.templateInstance();
+        // Try multiple methods to get the template instance
+        if (Template && Template.instance) {
+          instance = Template.instance();
+        }
+        
+        if (!instance && Blaze && Blaze.getView) {
+          const treeElement = $('#documentTree')[0];
+          if (treeElement) {
+            const view = Blaze.getView(treeElement);
+            if (view) {
+              instance = view.templateInstance();
+            }
+          }
+        }
+        
+        if (!instance) {
+          // Last resort - search upwards through parents
+          const parentTemplate = $('#documentTree').closest('[id^=Template]')[0];
+          if (parentTemplate && Blaze && Blaze.getView) {
+            const view = Blaze.getView(parentTemplate);
+            if (view) {
+              instance = view.templateInstance();
+            }
+          }
+        }
+        
+        // Try another approach - get the template from a known global object
+        if (!instance && window.ViewPage && window.ViewPage.templateInstance) {
+          instance = window.ViewPage.templateInstance;
+        }
+      } catch (err) {
+        console.error("Error finding template instance:", err);
       }
       
       if (!instance) {
@@ -247,78 +350,96 @@ async function initDocumentTree(documentId) {
         return;
       }
       
+      console.log("Found template instance:", instance);
+      
       // Update reactive variables based on node type
-      switch (node.type) {
+      switch (nodeData.type) {
         case 'page':
-          instance.currentPage.set(node.index);
-          console.log("Set current page to:", node.index);
+          instance.currentPage.set(nodeData.index);
+          console.log("Set current page to:", nodeData.index);
           break;
         case 'line':
-          instance.currentPage.set(node.pageIndex);
-          instance.currentLine.set(node.index);
-          console.log("Set current line to:", node.index, "on page:", node.pageIndex);
+          instance.currentPage.set(nodeData.pageIndex);
+          instance.currentLine.set(nodeData.index);
+          console.log("Set current line to:", nodeData.index, "on page:", nodeData.pageIndex);
           break;
         case 'word':
-          instance.currentPage.set(node.pageIndex);
-          instance.currentLine.set(node.lineIndex);
-          instance.currentWord.set(node.index);
-          console.log("Set current word to:", node.index, "on line:", node.lineIndex, "page:", node.pageIndex);
+          instance.currentPage.set(nodeData.pageIndex);
+          instance.currentLine.set(nodeData.lineIndex);
+          instance.currentWord.set(nodeData.index);
+          console.log("Set current word to:", nodeData.index, "on line:", nodeData.lineIndex, "page:", nodeData.pageIndex);
+          
+          // If tabGroups exists, select the word tab
+          if (instance.tabGroups && instance.tabGroups.editorTabs) {
+            instance.tabGroups.editorTabs.set('word');
+            console.log("Activated word tab");
+          }
           break;
         case 'phoneme':
-          instance.currentPage.set(node.pageIndex);
-          instance.currentLine.set(node.lineIndex);
-          instance.currentWord.set(node.wordIndex);
-          instance.currentPhoneme.set(node.index);
-          console.log("Set current phoneme to:", node.index, "in word:", node.wordIndex, "line:", node.lineIndex, "page:", node.pageIndex);
+          instance.currentPage.set(nodeData.pageIndex);
+          instance.currentLine.set(nodeData.lineIndex);
+          instance.currentWord.set(nodeData.wordIndex);
+          instance.currentPhoneme.set(nodeData.index);
+          console.log("Set current phoneme to:", nodeData.index, "in word:", nodeData.wordIndex);
+          
+          // If tabGroups exists, select the word tab first, then phoneme tab after a delay
+          if (instance.tabGroups && instance.tabGroups.editorTabs) {
+            instance.tabGroups.editorTabs.set('word');
+            setTimeout(() => {
+              instance.tabGroups.editorTabs.set('phoneme');
+              console.log("Activated phoneme tab");
+            }, 300);
+          }
           break;
         case 'glyph':
-          instance.currentPage.set(node.pageIndex);
-          instance.currentLine.set(node.lineIndex);
-          instance.currentWord.set(node.wordIndex);
-          instance.currentGlyph.set(node.index);
-          console.log("Set current glyph to:", node.index, "in word:", node.wordIndex, "line:", node.lineIndex, "page:", node.pageIndex);
+          instance.currentPage.set(nodeData.pageIndex);
+          instance.currentLine.set(nodeData.lineIndex);
+          instance.currentWord.set(nodeData.wordIndex);
+          instance.currentGlyph.set(nodeData.index);
+          console.log("Set current glyph to:", nodeData.index, "in word:", nodeData.wordIndex);
+          
+          // If tabGroups exists, select the word tab first, then glyph tab after a delay
+          if (instance.tabGroups && instance.tabGroups.editorTabs) {
+            instance.tabGroups.editorTabs.set('word');
+            setTimeout(() => {
+              instance.tabGroups.editorTabs.set('glyph');
+              console.log("Activated glyph tab");
+            }, 300);
+          }
           break;
         case 'element':
-          instance.currentPage.set(node.pageIndex);
-          instance.currentLine.set(node.lineIndex);
-          instance.currentWord.set(node.wordIndex);
-          instance.currentGlyph.set(node.glyphIndex);
+          instance.currentPage.set(nodeData.pageIndex);
+          instance.currentLine.set(nodeData.lineIndex);
+          instance.currentWord.set(nodeData.wordIndex);
+          instance.currentGlyph.set(nodeData.glyphIndex);
           if (instance.currentElement) {
-            instance.currentElement.set(node.index);
+            instance.currentElement.set(nodeData.index);
           } else {
             console.warn("currentElement reactive var not found, creating it");
-            instance.currentElement = new ReactiveVar(node.index);
+            instance.currentElement = new ReactiveVar(nodeData.index);
           }
-          console.log("Set current element to:", node.index, "in glyph:", node.glyphIndex, "word:", node.wordIndex);
+          console.log("Set current element to:", nodeData.index, "in glyph:", nodeData.glyphIndex);
+          
+          // If tabGroups exists, navigate through tabs with delays
+          if (instance.tabGroups && instance.tabGroups.editorTabs) {
+            instance.tabGroups.editorTabs.set('word');
+            setTimeout(() => {
+              instance.tabGroups.editorTabs.set('glyph');
+              setTimeout(() => {
+                instance.tabGroups.editorTabs.set('element');
+                console.log("Activated element tab");
+              }, 300);
+            }, 300);
+          }
           break;
       }
-      
-      // If this is phoneme/glyph/element, automatically open the correct view tab
-      if (node.type === 'phoneme' || node.type === 'glyph' || node.type === 'element') {
-        // First select the word to ensure proper tab chain
-        if (node.type === 'phoneme' || node.type === 'glyph') {
-          // Open word tab first (simulates clicking on word first)
-          handleElementSelection('word', node.wordIndex, instance);
-          
-          // Wait for word tab and related content to be visible
-          Meteor.setTimeout(() => {
-            // Now open the phoneme/glyph tab
-            handleElementSelection(node.type, node.index, instance);
-          }, 300);
-        } else if (node.type === 'element') {
-          // Navigate through the full path: word → glyph → element
-          handleElementSelection('word', node.wordIndex, instance);
-          
-          Meteor.setTimeout(() => {
-            handleElementSelection('glyph', node.glyphIndex, instance);
-            
-            Meteor.setTimeout(() => {
-              handleElementSelection('element', node.index, instance);
-            }, 300);
-          }, 300);
-        }
-      }
     });
+    
+    // Call debug function after initialization
+    setTimeout(() => {
+      debugJsTreeEvents();
+    }, 1000);
+    
   } catch (error) {
     console.error("Error initializing jsTree:", error);
     $('#documentTree').html(`
@@ -333,6 +454,8 @@ async function initDocumentTree(documentId) {
       initDocumentTree(documentId);
     });
   }
+  
+  console.groupEnd();
 }
 
 function addTreeButtonHandlers() {
