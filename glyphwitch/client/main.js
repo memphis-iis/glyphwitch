@@ -2038,6 +2038,22 @@ Template.viewPage.helpers({
       }
     }
     return `Page ${pageIndex + 1}`;
+  },
+  documentTitle() {
+    const instance = Template.instance();
+    const documentId = instance.currentDocument.get();
+    
+    if (documentId) {
+      const doc = Documents.findOne({_id: documentId});
+      if (doc && doc.title) {
+        // Remove "New Sample" prefix if present
+        if (doc.title.startsWith('New Sample')) {
+          return doc.title.substring('New Sample'.length).trim();
+        }
+        return doc.title;
+      }
+    }
+    return "Untitled Document";
   }
 });
 
@@ -3531,14 +3547,35 @@ Template.newDocument.events({
     event.preventDefault();
     //takes id author and title and calls addBlankDocument method
     title = $('#newTitle').val();
+    
+    // FIX: Ensure the title doesn't already contain "New Sample"
+    // Strip "New Sample" prefix if it's there to prevent doubling
+    if (title.startsWith('New Sample')) {
+      title = title.substring('New Sample'.length).trim();
+    }
+    
     author = $('#newAuthor').val();
+    
+    // Make sure the title isn't empty after cleaning
+    if (!title) {
+      alert('Please enter a document title');
+      return;
+    }
+    
+    // Add logging to debug title value being sent
+    console.log("Creating document with title:", title);
+    
     Meteor.call('addBlankDocument', title, author, function(error, result) {
       if (error) {
         console.log(error);
         alert('Error adding document');
       } else {
-        console.log(result);
-        alert('Document added');
+        console.log("Document created:", result);
+        // Add success message with the actual title used
+        alert('Document "' + title + '" added successfully');
+        
+        // Close the modal after creating document
+        $('#openModal').modal('hide');
       }
     });
   }
