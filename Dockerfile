@@ -4,14 +4,7 @@ FROM geoffreybooth/meteor-base:2.16
 # Copy app package.json and package-lock.json into container
 COPY ./glyphwitch/package*.json $APP_SOURCE_FOLDER/
 
-# Copy settings.json into container
-COPY ./assets/ /glyphwitchAssets/
 
-#verify the presence of the settings.json file in the assets folder
-RUN test -f /glyphwitchAssets/settings.json && echo "settings.json file found" || echo "settings.json file not found"
-
-#set environment variable for meteor settings
-ENV METEOR_SETTINGS_WORKAROUND /glyphwitchAssets/settings.json
 
 RUN bash $SCRIPTS_FOLDER/build-app-npm-dependencies.sh
 
@@ -64,14 +57,6 @@ FROM node:14-alpine
 ENV APP_BUNDLE_FOLDER /opt/bundle
 ENV SCRIPTS_FOLDER /docker
 
-#copy ./assets into the meteor assets folder
-COPY ./assets/ /glyphwitchAssets/
-
-#verify the presence of the settings.json file in the assets folder
-RUN test -f /glyphwitchAssets/settings.json && echo "settings.json file found" || echo "settings.json file not found"
-
-#set environment variable for meteor settings
-ENV METEOR_SETTINGS_WORKAROUND /glyphwitchAssets/settings.json
 
 RUN apk --no-cache add \
     bash \

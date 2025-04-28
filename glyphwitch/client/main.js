@@ -507,6 +507,8 @@ Template.viewPage.onRendered(function() {
     adjustImageContainer();
   });
 
+  resetToolbox();
+
 });
 
 
@@ -556,6 +558,7 @@ function resetToolbox() {
       $('#viewTool').show();
       $('#createWord').show();
       $('#selectItem').show();
+      $('#textFlow').show();
       $('#viewTool').removeClass('btn-light').addClass('btn-dark');
     } 
     if(currentTool == 'select') {
@@ -878,6 +881,9 @@ function setImage(type, id) {
 
 //function to initialize cropper
 function initCropper(type) {
+  //set the image-container height and width values to 100%
+  document.getElementsByClassName('image-container')[0].style.height = '100%';
+  document.getElementsByClassName('image-container')[0].style.width = '100%';
   //replace the image with a canvas that has the same dimensions and source
   if (type == 'page') {
     divId = document.getElementById('pageImage');
@@ -950,16 +956,14 @@ function initCropper(type) {
   
 
   //set the width and height of the canvas to the width and height of the div
-  canvas.style.width = divId.style.width;
+  canvas.style.width = divId.style.width / xScaling;
   canvas.style.height = divId.style.height / yScaling;
 
-  //add absolute positioning to the canvas at 0,0
-  canvas.style.position = 'absolute';
-  canvas.style.left = '0';
-  canvas.style.top = '0';
-  canvas.style.zIndex = '9999'; // Set high z-index but below the cropper elements
-//center the canvas vertically
-canvas.style.marginTop = (parseInt(height) - parseInt(canvas.style.height)) / 2 + 'px';
+  //matche the positioning of the divId's parent 
+  canvas.style.left = $('#' + divId.id).parent().position().left;
+  canvas.style.top = $('#' + divId.id).parent().position().top;
+  //set the canvas position to absolute
+  
 
   //set the id to the same id as the div
   canvas.id = divId.id;
@@ -1252,6 +1256,9 @@ Template.viewPage.events({
   },
 
   'click #exitTool'(event, instance) {
+    //remove the image-container width and height
+    document.getElementsByClassName('image-container')[0].style.width = '';
+    document.getElementsByClassName('image-container')[0].style.height = '';
     // Log the current state
     const currentView = instance.currentView.get();
     console.log(`Exiting tool in view: ${currentView}`);
@@ -1378,6 +1385,12 @@ Template.viewPage.events({
 
   'click #selectItem'(event, instance) {
     event.preventDefault();
+    container = document.getElementsByClassName('image-container')[0];
+    imgChildren = container.children;
+    for (let i = 0; i < imgChildren.length; i++) {
+      imgChildren[i].style.width = '';
+      imgChildren[i].style.height = '';
+    }
     instance.currentTool.set('select');
     resetToolbox();
     //set the currentTool to btn-dark
@@ -1419,6 +1432,19 @@ Template.viewPage.events({
       
       // Store the scale factor in the instance for reuse in drawButton
       instance.boxScaleFactor = scaleFactor;
+
+      //get the current relative position of the pageImage
+      const pageImg = document.getElementById('pageImage');
+      const imgRect = pageImg ? pageImg.getBoundingClientRect() : null;
+      console.log(`pageImage dimensions for rescaling: ${imgRect.width} x ${imgRect.height}`);
+
+      //get the original relative x position of the pageImage
+      const pageImgX = imgRect ? imgRect.x : 0;
+      const pageImgY = imgRect ? imgRect.y : 0;
+      console.log(`pageImage relative position: x=${pageImgX}, y=${pageImgY}`);
+      
+
+
       
       // Draw each line with appropriate scaling
       lines.forEach(function(line, index) {
@@ -1939,6 +1965,9 @@ Template.viewPage.events({
     instance.currentTool.set('createReference');
   },
   'click #confirmTool'(event, instance) {
+    //remove the image-container width and height
+    document.getElementsByClassName('image-container')[0].style.width = '';
+    document.getElementsByClassName('image-container')[0].style.height = '';
     currentTool = instance.currentTool.get();
     if(currentTool == 'createLine') {
       ret = Meteor.callAsync('addLineToPage', instance.currentDocument.get(), instance.currentPage.get(), instance.selectx1.get(), instance.selecty1.get(), instance.selectwidth.get(), instance.selectheight.get());
@@ -2071,6 +2100,13 @@ Template.viewPage.events({
     }
 
   }, 
+  //event listener for textflow tool
+  'click #textflow'(event, instance) {
+    event.preventDefault();
+    resetToolbox();
+    //set the currentTool to btn-dark
+    $('#textFlow').removeClass('btn-light').addClass('btn-dark');
+  },
   //event listners to draw on the glyphImageDraw canvas
   'mousedown #glyphImageDraw'(event, instance) {
     event.preventDefault();
@@ -2170,6 +2206,13 @@ Template.viewPage.events({
   'click #createLine'(event, instance) {
     event.preventDefault();
     console.log("createLine, drawing is " + instance.drawing.get());
+    //remove height and width properties from the image-container's child img
+    container = document.getElementsByClassName('image-container')[0];
+    imgChildren = container.children;
+    for (let i = 0; i < imgChildren.length; i++) {
+      imgChildren[i].style.width = '';
+      imgChildren[i].style.height = '';
+    }
     //disable all buttons in the toolbox-container
     //set the currentTool to btn-dark
     $('#createLine').removeClass('btn-light').addClass('btn-dark');
@@ -2606,25 +2649,30 @@ Template.viewPage.events({
     console.log("DEBUG: createElement - end of handler");
   },
   
-  //keyboard shift and mouse wheel event
-  'wheel #pageImage'(event, instance) {
+  //keyboard shift and mouse wheel event on #pageImage, #lineImage, #wordImage, #glyphImage
+  'wheel .image-container'(event, instance) {
     if(event.shiftKey) {
-
-      console.log(event);
+      container = document.getElementsByClassName('image-container')[0];
+      firstChild = container.children[0];
+      //if firstChild is hidden, set to the next child
+      if (firstChild.style.display === 'none') {
+        firstChild = container.children[1];
+      }
+      console.log(event, firstChild);
       //get the current calculated height of the image
-      height = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('height');
-      width = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('width');
+      height = window.getComputedStyle(firstChild).getPropertyValue('height');
+      width = window.getComputedStyle(firstChild).getPropertyValue('width');
       //if the mouse wheel is scrolled up, increase the height by 10%
       if (event.originalEvent.deltaY < 0) {
-        document.getElementById('pageImage').style.height = parseInt(height) * 1.1 + 'px';
-        document.getElementById('pageImage').style.width = parseInt(width) * 1.1 + 'px';
+        firstChild.style.height = parseInt(height) * 1.1 + 'px';
+        firstChild.style.width = parseInt(width) * 1.1 + 'px';
+        
       } else {
         //if the mouse wheel is scrolled down, decrease the height by 10%
         const newHeight = parseInt(height) * 0.9;
-        if (newHeight >= window.innerHeight) {
-          document.getElementById('pageImage').style.height = newHeight + 'px';
-          document.getElementById('pageImage').style.width = parseInt(width) * 0.9 + 'px';
-        }
+        firstChild.style.height = newHeight + 'px';
+        firstChild.style.width = parseInt(width) * 0.9 + 'px';
+      
       }
 
     }
@@ -3158,8 +3206,7 @@ function drawButton(image, x, y, width, height, type, text, id) {
   button.setAttribute('data-id', id);
   button.setAttribute('data-type', type);
 
-  //add mx-5 and my-5 classes to the button
-  button.classList.add('mx-5', 'my-5');
+
 
   //get the canvas' container
   const parent = context.canvas.parentNode;
@@ -3217,10 +3264,12 @@ function drawButton(image, x, y, width, height, type, text, id) {
   yScaling = yScaling || 0.1;
 
   let defaultClass = 'selectElement';
+
+
   //draw the button at the x, y, width, and height 
   button.style.position = 'absolute';
   button.style.left = (x * xScaling) + 'px';
-  button.style.top = (y * yScaling) + 'px';
+  button.style.top = ((y + 91) * yScaling ) + 'px';
   button.style.width = (width * xScaling) + 'px';
   button.style.height = (height * yScaling) + 'px';
   button.style.zIndex = '10000'; // Ensure it's on top

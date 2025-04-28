@@ -481,8 +481,8 @@
     
     
     <!-- end of tab content -->
-    <div class="col position-relative border main-content-area">
-      <ul class="nav nav-tabs" id="myTab" role="tablist">
+    <div class="col position-relative border main-content-area" style="background-color: #808080; height: 100vh;">
+      <ul class="nav nav-tabs" id="myTab" role="tablist" style="border-bottom: 1px solid #ccc; background-color: #f8f9fa;">
         <li class="nav-item" role="presentation">
           <button id="simple-tab" class="nav-link active open-tab" data-tab-id="simple" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Simple View</button>
         </li>
@@ -502,15 +502,19 @@
       {{#if currentDocument}}
       <div class="right-pane py-5 px-5" style="background-color: #808080; height:100%;">
         
-          <div class="image-container" style="height: 100%; width: 100%;">
+          <div class="image-container" style="background-color: #808080;">
             {{#if currentPage.image}}
-              <img src="{{currentPage.image}}" class="img" alt="Image" style="max-height: 100%; max-width: 100%; object-fit: contain;" id="pageImage">
+              <img src="{{currentPage.image}}" class="img" alt="Image" style="object-fit: contain;" id="pageImage">
             {{else}}
               <div class="alert alert-secondary" role="alert">
                 No page selected. Please select a page to view.
               </div>
             {{/if}}
         
+        </div>
+        <!--flow-container for special tools-->
+        <div class="flow-container" style="background-color: #808080;" display="none">
+
         </div>
       </div>
       {{/if}}
@@ -549,6 +553,10 @@
           </button>
           <button type="button" class="btn btn-light me-2" title="Create Element" id="createElement" style="display: none;">
             <i class="bi bi-bounding-box"></i>
+          </button>
+          <!-- textflow button -->
+          <button type="button" class="btn btn-light me-2" title="Textflow" id="textFlow" style="display: none;">
+            <i class="bi bi-feather"></i>
           </button>
           <button type="button" class="btn btn-danger me-2" title="Exit Tool" id="exitTool" style="display: none;">
             <i class="bi bi-x"></i>
