@@ -121,4 +121,54 @@ Meteor.methods({
       elementId: glyphsArr[numGlyph].elements.length - 1
     };
   },
+
+  /**
+   * Insert a page after a specific page in a document
+   * @param {String} documentId - Document ID
+   * @param {String} fileId - File ID of the page image
+   * @param {Number|String} insertAfter - Page index to insert after
+   * @param {String} title - Page title
+   * @returns {Object} - Result object
+   */
+  insertPage(documentId, fileId, insertAfter, title) {
+    check(documentId, String);
+    check(fileId, String);
+    check(insertAfter, Match.OneOf(String, Number));
+    check(title, String);
+    
+    console.log(`Inserting page after ${insertAfter} in document ${documentId}`);
+    
+    // Get the document
+    const doc = Documents.findOne({ _id: documentId });
+    if (!doc) {
+      throw new Meteor.Error('not-found', 'Document not found');
+    }
+    
+    // Create the new page
+    const newPage = {
+      title: title || `Page ${doc.pages.length + 1}`,
+      pageId: fileId,
+      addedAt: new Date(),
+      addedBy: this.userId || 'anonymous',
+      lines: []
+    };
+    
+    // Convert insertAfter to a number
+    const insertPosition = parseInt(insertAfter);
+    
+    if (isNaN(insertPosition) || insertPosition < 0 || insertPosition >= doc.pages.length) {
+      throw new Meteor.Error('invalid-position', 'Invalid position for page insertion');
+    }
+    
+    // Insert after the specified position
+    doc.pages.splice(insertPosition + 1, 0, newPage);
+    
+    // Update the document
+    Documents.update({ _id: documentId }, { $set: { pages: doc.pages } });
+    
+    return {
+      success: true,
+      pageCount: doc.pages.length
+    };
+  },
 });
