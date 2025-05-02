@@ -25,12 +25,21 @@
   {{> footer}}
 </template>
 
+
 <!-- header with topnav bar bootstrap 5.2. Needs Home and right side login/signup/logout -->
 <template name="header">
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
-      <a class="navbar-brand rounded px-4" href="/">GlyphWitch</a>
-      <small class="text-success">{{version}}</small>
+      <!-- logo -->
+      <a class="navbar-brand" href="/">
+        <img src="/glyphwitch/logo.png" alt="GW" class="img-fluid" style="max-width: 50px;">
+      </a>
+      <!-- document title -->
+              <span class="document-name-container" >
+            <span class="document-name" id="documentName" contenteditable="true" style="border: 1px solid #ccc; padding: 5px; border-radius: 4px; display: inline-block; min-width: 150px;">{{state.currentDocument.title}}</span>
+          <input type="text" class="form-control document-name-input" id="documentNameInput" style="display: none;" placeholder="{{currentDocument.title}}">
+        </span>
+      
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -43,20 +52,22 @@
           </div>
         {{/if}}
       </div>
-      <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-        <ul class="navbar-nav">
-          {{#if currentUser}}
-            <li class="nav-item">
-              <a href="/logout" class="nav-link">Logout {{currentUser.username}}</a>
-            </li>
-          {{else}}
-            <li class="nav-item">
-              <a class="nav-link" href="/login">Login/Signup</a>
-            </li>
-          {{/if}}
-        </ul>
-      </div>
-    </div>  
+      <div class ="row">
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+          <ul class="navbar-nav">
+            {{#if currentUser}}
+              <li class="nav-item">
+                <a href="/logout" class="nav-link">Logout {{currentUser.username}}</a>
+              </li>
+            {{else}}
+              <li class="nav-item">
+                <a class="nav-link" href="/login">Login/Signup</a>
+              </li>
+            {{/if}}
+          </ul>
+        </div>
+      </div>  
+    </div>
   </nav>
 </template>
 
@@ -75,61 +86,74 @@
 
 <!-- login/signup template -->
 <template name="login">
-  <div class="container" style="margin-top: 10px;">
-    <div class="card">
-      <div class="card-header">
-        <h3>GlyphWitch</h3>
-      </div>
-      <div class="card-body">
-        <p class="card-text">Welcome to GlyphWitch. Please login or signup to continue.</p>
+
+  <div class="container" style="margin-top: 10vh; max-width: 500px;">
+    <div class="mb-4 text-center">
+      <div class="text-center">
+        <img src="/logo.png" alt="GlyphWitch Logo" class="img-fluid" style="max-width: 200px;">
+     </div> 
+     <!-- version number -->
+      <div class="text-center">
+        <small class="text-muted">Version {{version}}</small>
       </div>
     </div>
-    <br>
-    <ul class="nav nav-tabs mb-3" id="pills-tab" role="tablist">
-    <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-home" type="button" role="tab" aria-controls="pills-home" aria-selected="true">Login</button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" id="pills-profile-tab" data-bs-toggle="pill" data-bs-target="#pills-profile" type="button" role="tab" aria-controls="pills-profile" aria-selected="false">Signup</button>
-    </li>
-  </ul>
-  <div class="tab-content" id="pills-tabContent">
-    <div class="tab-pane fade show active" id="pills-home" role="tabpanel" aria-labelledby="pills-home-tab" tabindex="0">
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" class="form-control" id="email1" name="email">
+    <!-- Pills navs -->
+    <ul class="nav nav-pills nav-justified mb-3" id="pills-tab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <a class="nav-link active" id="tab-login" data-bs-toggle="pill" href="#pills-login" role="tab"
+          aria-controls="pills-login" aria-selected="true">Login</a>
+      </li>
+      <li class="nav-item" role="presentation">
+        <a class="nav-link" id="tab-register" data-bs-toggle="pill" href="#pills-register" role="tab"
+          aria-controls="pills-register" aria-selected="false">Signup</a>
+      </li>
+    </ul>
+    <!-- Pills navs -->
+
+    <!-- Pills content -->
+    <div class="tab-content" id="pills-tabContent">
+      <!-- Login Tab -->
+      <div class="tab-pane fade show active" id="pills-login" role="tabpanel" aria-labelledby="tab-login">
+        <form>
+          <div class="form-outline mb-4">
+            <label class="form-label" for="email1">Email</label>
+            <input type="email" class="form-control" id="email1" name="email">
+          </div>
+          <div class="form-outline mb-4">
+            <label class="form-label" for="password1">Password</label>
+            <input type="password" class="form-control" id="password1" name="password">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block mb-4" id="login-btn">Login</button>
+        </form>
       </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" class="form-control" id="password1" name="password">
+
+      <!-- Signup Tab -->
+      <div class="tab-pane fade" id="pills-register" role="tabpanel" aria-labelledby="tab-register">
+        <form>
+          <div class="alert alert-warning" role="alert">
+            Email and password are required.<br>
+            <ul>
+              <li>Email must be a valid email address.</li>
+              <li>Password must be at least 6 characters long.</li>
+              <li>Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.</li>
+            </ul>
+          </div>
+          <div class="form-outline mb-4">
+            <label class="form-label" for="email2">Email</label>
+            <input type="email" class="form-control" id="email2" name="email">
+          </div>
+          <div class="form-outline mb-4">
+            <label class="form-label" for="password2">Password</label>
+            <input type="password" class="form-control" id="password2" name="password">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block mb-4" id="signup">Signup</button>
+        </form>
       </div>
-      <br>
-      <button class="btn btn-primary" id="login-btn">Login</button>
     </div>
-    <div class="tab-pane fade" id="pills-profile" role="tabpanel" aria-labelledby="pills-profile-tab" tabindex="0">
-      <!-- alert box describing requirements for email and password -->
-      <div class="alert alert-warning" role="alert">
-        Email and password are required.<br>
-        <ul>
-          <li>Email must be a valid email address.</li>
-          <li>Password must be at least 6 characters long.</li>
-          <li>Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.</li>
-        </ul>
-      </div>   
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" class="form-control" id="email2" name="email">
-      </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" class="form-control" id="password2" name="password">
-      </div>
-      <br>
-      <button class="btn btn-primary" id="signup">Signup</button>
-    </div>
+    <!-- Pills content -->
   </div>
-</div>  
 </template>
+
 
 <!-- change email and password form for first admin login, for changing password, and for changing email -->
 <template name="changeEmailPassword">
@@ -414,10 +438,10 @@
     <!-- Add resize handle here -->
     <div id="sidebar-resize-handle" title="Drag to resize"></div>
     
-    <div class="col position-relative border">
-      <ul class="nav nav-tabs" id="myTab" role="tablist">
+    <div class="col position-relative border simple-view">
+      <ul class="nav nav-tabs bg-light" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
-          <button id="simple-tab" class="nav-link active open-tab" data-tab-id="simple" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Simple View</button>
+          <button class="nav-link active open-tab" id="profile-tab" data-bs-toggle="tab" data-bs-target="#simple" data-tab-id="simple" type="button" role="tab" aria-controls="simple" aria-selected="false">Simple View</button>
         </li>
         <li class="nav-item" role="presentation" style="display: none;" id="view-tab-template">
           <button class="nav-link open-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">
@@ -433,19 +457,87 @@
         </svg>
       </button>
       {{#if currentDocument}}
-      <div class="image-container" style="position: relative; height: 90vh; width: 80vw;">
-        {{#if currentPage.image}}
-          <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; height:100%; object-fit: cover; " id="pageImage">
-        {{else}}
-          <div class="alert alert-secondary" role="alert">
-            No page selected. Please select a page to view.
+      <div class="fade show active image-spacer px-5 py-5" id="simple">
+        <div class="image-container" style="position: relative; height: 90vh; width: 80vw;">
+          {{#if currentPage.image}}
+            <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; height:100%; object-fit: cover; " id="pageImage">
+          {{else}}
+            <div class="alert alert-secondary" role="alert">
+              No page selected. Please select a page to view.
+            </div>
+          {{/if}}
+        </div>
+      </div> 
+      <div class="container">
+        <div class="row row-col-2">
+          <div class="col">
+            <div class="fade show active image-spacer px-5 py-5" id="flow" style="display: none;">
+              <div class="image-container" style="position: relative; height: 90vh; width: 80%;">
+                {{#if currentPage.image}}
+                  <img src="{{currentPage.image}}" class="img" alt="Image" style="height: 100%; object-fit: cover;" id="pageImage">
+                {{else}}
+                  <div class="alert alert-secondary" role="alert">
+                    No page selected. Please select a page to view.
+                  </div>
+                {{/if}}
+              </div>
+            </div>
           </div>
-        {{/if}}
+          <div class="col">
+            <div class="flow-container">
+              <div class="row">
+                <div class="col-md-12 mx-5 my-2 fontbox">
+                  <!-- Font selector -->
+                  <div class="form-group">
+                    <label for="fontSelector">Font</label>
+                    <select class="form-control" id="fontSelector">
+                      {{#if fonts}}
+                        <option value="">Default Font</option>
+                      {{/if}}
+                      {{#each fonts}}
+                        <option value="{{this.url}}">{{this.name}}</option>
+                      {{/each}}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="row mx-5 my-5 bg-white col-md-12" style="height: 80vh; border: 1px solid #ccc; overflow-y: scroll;">
+                <!-- Microsoft Word style page -->
+                <div class="col-md-12 mx-auto my-5 bg-white" style="border: 1px solid #ccc; overflow-y: scroll; max-width: 80%; height: 100%;">
+                  <div class="text-view" style="max-height: 80%;">
+                    <div class="text-view-content" id="textViewContent" style="height: calc(100% - 150px);">
+                      <div style="display: flex; align-items: center;">
+                        <div class="line-numbered-container">
+                            <div class="d-flex align-items-center">
+                            {{#each currentPage.lines}}
+                              <div class="line-number me-2" id="line-{{this.id}}">
+                                {{add @index 1}}
+                              </div>
+                              <input class="input-without-styling custom-font flex-grow-1" id="transcriptionInput" data-id="{{@index}}" type="text" value="{{this.transcription}}" style="width: 100%; border: none; background-color: transparent; outline: none; font-family: {{font}}; font-size: 16px;">
+                            {{/each}}
+                            </div>
+                          
+               
+                        </div>
+                      </div>
+                    </div>
+                    <!-- load current document into flow loadGlyphsIntoFlow -->
+                    <button class="btn btn-primary" id="loadGlyphsIntoFlow">Load Current Document Into Flow</button>
+                    <!-- save document changes button -->
+                    <button class="btn btn-primary" id="saveFlowChanges" >Save Changes</button>
+                    <!-- On-screen keyboard -->
+                    <div class="keyboard" id="keyboard" style="width: 100%; background-color: rgb(194, 194, 194); overflow-y: scroll; max-height: 300px;">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="row"></div>
+            </div>
+          </div>
+        </div>
       </div>
+      
       {{/if}}
-      <div class="flow-container" style="position: relative; height: 90vh; width: 80vw; display: none;">
-        <div class="flow" id="flow"></div>
-      </div>
       <div class="toolbox-container" style="display: flex; flex-direction: column; position: absolute; top: 50px; right: 0; margin-right: 50px; opacity: 1;">
         <div class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" id="ToolBox">
           <button type="button" class="btn btn-dark me-2" title="View" id="viewTool">
@@ -453,6 +545,9 @@
           </button>
           <button type="button" class="btn btn-light me-2" title="Select" id="selectItem">
             <i class="bi bi-mouse2"></i>
+          </button>
+          <button type="button" class="btn btn-light me-2" title="Open Flow View" id="flowView">
+            <i class="bi bi-diagram-3"></i>
           </button>
           <button type="button" class="btn btn-light me-2" title="Search Glyphs" id="searchGlyphs">
             <i class="bi bi-search"></i>
@@ -487,14 +582,7 @@
           </button>
         </div>
       </div>
-      {{#if toolOptions}}
-      <div id="ToolOptions" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" style="margin-top: 120px; margin-right:20px; pointer-events: fill">
-        
-          {{> Template.dynamic template=toolOptions data=toolOptionsData}}
-        
 
-      </div>
-      {{/if}}
       {{#if currentHelp}}
         <div id="HelpBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border border-success p-2 rounded-end" style="margin-top: 140px; margin-right:20px; pointer-events: fill">
           <div class="container" style="width:500px;">
@@ -681,7 +769,7 @@
               <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload Document</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Glyphs</button>
+              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Font</button>
             </li>
             {{#if isAdmin}}
             <li class="nav-item" role="presentation">
@@ -718,6 +806,8 @@
     </div>
   </div>
 </template>
+
+
 
 <template name="allGlyphs">
   <div class="container">

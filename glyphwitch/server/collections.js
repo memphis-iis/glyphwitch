@@ -523,12 +523,30 @@ Meteor.methods({
             glyph: glyph,
             font: font,
             unicode: unicode,
+            keybind: "",
+            symbol: "",
+            substitution: "",
+            pronunciation: "",
             documentImageData: documentImageData,
             drawnImageData: drawnImageData,
             references: [],
             addedBy: Meteor.userId()
         });
     },
+    //upsert glyph without image data
+    upsertGlyph: function(glyph) {
+        console.log("Upserting glyph (glyph: " + glyph + ")");
+        //if font or unicode or image is not provided, return an error
+        if ((!glyph.font && !glyph.unicode) || (!glyph.documentImageData && !glyph.drawnImageData)) {
+            console.log("Error: Glyph must have a font and unicode or image data.");
+            return;
+        }
+        Glyphs.upsert({font: glyph.font, keybind: glyph.keybind}, glyph);   
+        console.log("Glyph upserted: " + glyph.font + ", " + glyph.keybind);
+    
+       
+    },
+
     //add glyph using canvas data
     addGlyphFromDataURL: function(dataURL, font="", unicode=0) {
         console.log("Adding glyph from dataURL (dataURL: " + dataURL + ")");
@@ -690,6 +708,12 @@ Meteor.methods({
             const fileName = "glyph_" + file._id + "_" + i + ".png";
             createGlyphImage(font, i)
         }
+        Fonts.insert({
+            font: file._id,
+            addedBy: Meteor.userId(),
+            glyphs: glyphs
+        });
+        console.log("Font added: " + file._id);
     },
     //remove an entry from the fonts collection. Must include the font id.
     removeFont: function(font) {

@@ -322,3 +322,90 @@ body.sidebar-resizing {
   margin-bottom: 0.5rem;
   display: inline-block;
 }
+
+/* Bootstrap Overrides */
+.btn-primary {
+  background-color: green !important;
+  border-color: green !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  background-color: darkgreen !important;
+  border-color: darkgreen !important;
+}
+
+.text-primary {
+  color: green !important;
+}
+
+.bg-primary {
+  background-color: green !important;
+}
+
+.border-primary {
+  border-color: green !important;
+}
+
+.navbar-light .navbar-nav .nav-link.active,
+.navbar-light .navbar-nav .nav-link:hover {
+  color: darkgreen !important;
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-link:hover {
+  color: white !important;
+  background-color: green !important;
+  border-color: green green transparent !important;
+}
+
+.nav-pills .nav-link.active,
+.nav-pills .nav-link:hover {
+  color: white !important;
+  background-color: green !important;
+}
+
+/* inactive tabs should be light green */
+.nav-tabs .nav-link {
+  color: rgb(149, 192, 149) !important;
+}
+.nav-pills .nav-link {
+  color: rgb(149, 192, 149) !important;
+}
+
+a {
+  color: green !important;
+}
+a:hover {
+  color: darkgreen !important;
+}
+a:visited {
+  color: green !important;
+} 
+a:active {
+  color: darkgreen !important;
+}
+a:focus {
+  color: darkgreen !important;
+}
+a:focus-visible {
+  color: darkgreen !important;
+}
+
+.footer-light-text {
+  color: rgb(149, 192, 149) !important;
+}
+
+/* form focus effect */
+.form-control:focus {
+  border-color: green !important;
+  box-shadow: 0 0 0 0.2rem rgba(0, 255, 0, 0.25) !important;
+}
+.form-control {
+  border: 1px solid green !important;
+}
+.image-spacer, .simple-view, .font-box{
+  background-color: #808080;
+}
+

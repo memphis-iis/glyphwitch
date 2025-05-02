@@ -29,6 +29,53 @@ Meteor.startup(() => {
       Roles.addUsersToRoles(Meteor.users.findOne({username: 'admin'}), 'admin');
     }
   }
+  
+  const fs = require('fs');
+  //list all files in the public folder
+  const publicDir = 'public';
+  //get the full path to the public directory
+  const publicDirFullPath = process.env.PWD + '/' + publicDir;
+  console.log('Public directory full path:', publicDirFullPath);
+  //list all files in the public directory
+  const files = fs.readdirSync(publicDirFullPath);
+  console.log('Files in public directory:', files);
+  //if there are fonts in the public/fonts folder, create a font for each one
+  const fontsDir = 'public/fonts';
+  //get the full path to the fonts directory
+  const fontsDirFullPath = process.env.PWD + '/' + fontsDir;
+  console.log('Fonts directory full path:', fontsDirFullPath);
+  if (fs.existsSync(fontsDirFullPath)) {
+    const fontFiles = fs.readdirSync(fontsDirFullPath);
+    console.log(Files.find().count());
+    console.log('Font files found:', fontFiles);
+    fontFiles.forEach((file) => {
+      const fontName = file.split('.')[0];
+      const fileUrl = `${Meteor.absoluteUrl()}fonts/${file}`;
+      if (!Fonts.findOne({name: fontName})) {
+        console.log(`Creating font ${fontName}`);
+        //get the URL of the font file
+        Fonts.insert({
+          name: fontName,
+          file: file,
+          url: fileUrl,
+          createdAt: new Date(),
+        });
+      } else {
+        //overwrite the font file if it exists
+        console.log(`Font ${fontName} already exists, overwriting`);
+        Fonts.update({name: fontName}, {
+          $set: {
+            file: file,
+            createdAt: new Date(),
+            url: `${Meteor.absoluteUrl()}fonts/${file}`,
+          }
+        });
+      }
+      console.log(`Font ${fontName} created with file ${file} and URL ${fileUrl}`);
+    });
+  } else {
+    console.log('No fonts directory found');
+  }
 });
 
 Meteor.methods({

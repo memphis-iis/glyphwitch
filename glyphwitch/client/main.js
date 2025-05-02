@@ -43,6 +43,17 @@ Template.registerHelper('isAdmin', function() {
   return Roles.userIsInRole(Meteor.userId(), 'admin') && Meteor.userId();
 });
 
+//global fonts helper:
+Template.registerHelper('fonts', function() {
+  //return all the fonts from the database
+  fonts = Fonts.find();
+  if (fonts.count() > 0) {
+    return fonts
+  } else {
+    return false;
+  }
+});
+
 Template.registerHelper('isUser', function() {
   //return true if the user is not an admin
   return !Roles.userIsInRole(Meteor.userId(), 'admin') && Meteor.userId();
@@ -413,6 +424,7 @@ Template.viewPage.onCreated(function() {
   Template.instance().currentDiscussion = new ReactiveVar();
   Template.instance().currentTool =  new ReactiveVar('view');
   Template.instance().currentView = new ReactiveVar('simple');
+  Template.instance().flowDocument = new ReactiveVar(false);
   Template.instance().subTool = new ReactiveVar(false);
   Template.instance().currentHelp = new ReactiveVar("You can use [Shift] + Scroll to zoom in and out of the page image.");
   Template.instance().drawing = new ReactiveVar(false);
@@ -636,14 +648,207 @@ Template.viewPage.onRendered(function() {
 
 // Add this to the viewPage events to ensure cleanup
 Template.viewPage.events({
-  // ...existing code...
+  
   
   // Cleanup sidebar resize event handlers when the template is destroyed
   'template.viewPage.destroyed'() {
     $(document).off('mousemove.sidebarResize');
     $(document).off('mouseup.sidebarResize');
   },
+  'change #fontSelector': function (event) {
+    const fontUrl = event.target.value;
+    console.log('DEBUG: Font URL for flow:', fontUrl);
+
+    if (fontUrl) {
+      // Create a new style element to load the font
+      const fontName = `customFont-${Date.now()}`; // Unique font name
+      const style = document.createElement('style');
+      style.innerHTML = `
+        @font-face {
+          font-family: '${fontName}';
+          src: url('${fontUrl}');
+        }
+        .custom-font {
+          font-family: '${fontName}', sans-serif;
+        }
+      `;
+
+      // Append the style to the document head
+      document.head.appendChild(style);
+      
+    } else {
+      //set the font to the default font
+      const style = document.createElement('style');
+      style.innerHTML = `
+        @font-face {
+          font-family: 'defaultFont';
+          src: url('https://example.com/default-font.ttf');
+        }
+        .custom-font {
+          font-family: 'defaultFont', sans-serif;
+        }
+      `;
+      // Append the style to the document head
+      document.head.appendChild(style);
+    }
+    //we need to load the font and determine how many glyphs are in the font and their keyboard mappings using opentype.js
+    //load the font using opentype.js
+    const opentype = require('opentype.js');
+    opentype.load(fontUrl, function(err, font) {
+      if (err) {
+        console.error('Font loading error:', err);
+        return;
+      }
+      console.log('Font loaded:', font);
+      // Get the glyphs and their mappings
+      const glyphs = font.glyphs.glyphs;
+      console.log('Glyphs:', glyphs);
+      //for each glyph, create a new button inside .keyboard
+      const keyboard = $('.keyboard');
+      keyboard.empty();
+      for (const key in glyphs) {
+        const glyph = glyphs[key];
+        //convert that unicode to a string
+        const unicode = String.fromCharCode(glyph.unicode);
+        if (!unicode) {
+          console.log('No unicode for glyph:', glyph);
+          continue;
+        }
+        const button = $('<button>')
+          .addClass('btn btn-outline-secondary m-1 position-relative')
+          .attr('data-glyph', glyph.unicode)
+          .attr('data-glyph-id', glyph.id);
+
+        // Add the main key text with the custom font
+        const mainText = $('<span>')
+          .addClass('custom-font d-block')
+          .text(String.fromCharCode(glyph.unicode));
+        button.append(mainText);
+
+        // Add the modifier text without the custom font
+        const modifierText = $('<span>')
+          .addClass('position-absolute top-0 start-0 small')
+          .text(String.fromCharCode(glyph.unicode));
+        button.append(modifierText);
+
+        keyboard.append(button);
+
+        // Add click event to each button to append the glyph to the text area
+        button.on('click', function() {
+          const glyphUnicode = $(this).data('glyph');
+          const textArea = $('#transcriptionInput');
+          const currentText = textArea.val();
+          textArea.val(currentText + glyphUnicode);
+        });
+      }
+    });
+  },
+  //when #transcriptionInput is changed, we propegate the changes in the document
+  'input #transcriptionInput': function(event, instance) {
+    console.log("DEBUG: transcriptionInput changed");
+    const documentId = instance.currentDocument.get();
+    const currentPage = instance.currentPage.get();
+    const doc = Documents.findOne({_id: documentId});
+    const transcription = event.target.value;
+    //get the line number from the data-id
+    const lineNumber = $(event.target).data('id');
+    //get the ammount of words in the transcription
+    const words = transcription.split(' ');
+    const wordsCount = words.length;
+    const font = $('#fontSelector').val();
+    //iterate through the word count
+    doc.pages[currentPage].lines[lineNumber].words = [];
+    for (let i = 0; i < wordsCount; i++) {
+      //make sure a word at that index exists, otherwise create it
+      if (!doc.pages[currentPage].lines[lineNumber].words[i]) {
+        //create a new word
+        const word = {
+          glyphs: [],
+        }
+        //add the word to the line
+        doc.pages[currentPage].lines[lineNumber].words.push(word);
+      }
+      doc.pages[currentPage].lines[lineNumber].words[i].glyphs = [];
+      const glyphsCount = words[i].length;
+      //iterate through the glyph count
+      for (let j = 0; j < glyphsCount; j++) {
+        //get the value of the character
+        const char = words[i].charAt(j);
+        //upsert the glyph in the database
+        let glyph = {
+          keybind: char,
+          font: font,
+          elements: [],
+        }
+        //add glyph to the database
+        Meteor.call('upsertGlyph', glyph, function(error, result) {
+          if (error) {
+            console.error("Error upserting glyph:", error);
+          } else {
+            console.log("Glyph upserted successfully:", result);
+          }
+        });
+
+        doc.pages[currentPage].lines[lineNumber].words[i].glyphs.push(glyph);
+      }
+      //set the word to the transcription
+      doc.pages[currentPage].lines[lineNumber].words[i].transcription = words[i];
+      //update the flowDocument reactive variable
+      instance.flowDocument.set(doc);
+    }
+  },
+  'click #saveFlowChanges'(event, instance) {
+    event.preventDefault();
+    console.log("DEBUG: saveFlowChanges");
+    const flowDoc = instance.flowDocument.get();
+    Meteor.call('modifyDocument', instance.currentDocument.get(), flowDoc, function(error, result) {
+      if (error) {
+        console.error("Error saving flow changes:", error);
+        alert('Error saving flow changes: ' + error.reason);
+      } else {
+        console.log("Flow changes saved successfully:", result);
+        alert('Flow changes saved successfully');
+      }
+    });
+  },
+  //button to load existing glyphs
+  'click #loadGlyphsIntoFlow'( event, instance) {
+    event.preventDefault();
+    console.log("DEBUG: loadGlyphsIntoFlow");
+    //get the documentId
+    const documentId = instance.currentDocument.get();
+    //get the current page
+    const currentPage = instance.currentPage.get();
+    //get the document
+    const doc = Documents.findOne({_id: documentId});
+    //get the lines
+    const lines = doc.pages[currentPage].lines;
+    //for each line, get the words
+    lines.forEach(function(line) {
+      line.words.forEach(function(word) {
+        let lineContents = "";
+        word.glyphs.forEach(function(glyph) {
+          //get the glyph from the database
+          const glyphData = Glyphs.findOne({_id: glyph._id});
+          if (!glyphData) {
+            console.error("Glyph not found in database:", glyph._id);
+            return;
+          }
+          //get the keybind from the glyph
+          const keybind = glyphData.keybind;
+          //add the keybind to the line contents
+          lineContents += keybind;
+        });
+        //set the line contents to the transcription input that data-id matches the line number
+        $(`input[data-id="${line.lineNumber}"]`).val(lineContents);
+      });
+    });
+  },
+
+
+    
   
+
   'click #expandAll'(event, instance) {
     event.preventDefault();
     console.group('ExpandAll Debug');
@@ -1298,6 +1503,7 @@ function resetToolbox() {
       $('#createLine').show();
       $('#searchGlyphs').show();
       $('#selectItem').show();
+      $('#flowView').show();
     }
     if(currentTool == 'createLine') {
       hideAllToolButtons();
@@ -1390,6 +1596,16 @@ function resetToolbox() {
           confirmTool: $('#confirmTool').is(':visible')
         });
       }
+  } else if(currentView == 'flow') {
+    console.log("DEBUG: resetToolbox - in flow view with view tool");
+    hideAllToolButtons();
+    $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light')
+    // Show view tool for flow view
+    $('#viewTool').show();
+    $('#viewTool').removeClass('btn-light').addClass('btn-dark');
+    console.log("DEBUG: resetToolbox - flow view buttons visibility:", {
+      viewTool: $('#viewTool').is(':visible')
+    });
   } else if(currentView == 'element') {
     if(currentTool == 'view') {
       console.log("DEBUG: resetToolbox - configuring view tool for element view");
@@ -1907,15 +2123,8 @@ Template.viewPage.helpers({
     return instance.currentLine.get();
   },
   
-  toolOptions() {
-    const instance = Template.instance();
-    const tool = instance.currentTool.get();
-    return tool;
-  },
-  toolOptionsData() {
-    const instance = Template.instance();
-    return tool = instance.currentTool;
-  },
+
+
   currentTool() {
     const instance = Template.instance();
     return instance.currentTool.get();
@@ -2460,6 +2669,7 @@ Template.viewPage.events({
   'click .open-tab'(event, instance) {
     event.preventDefault();
     const tabId = event.target.getAttribute('data-tab-id');
+    console.log("DEBUG: Tab ID is " + tabId);
     $(event.target).attr('aria-selected', 'true').addClass('active');
 
     // Close child tabs when a parent tab is clicked
@@ -2472,23 +2682,20 @@ Template.viewPage.events({
     }
 
     // First ensure image-container is visible for all tab types except flow
-    if(tabId !== 'flow') {
-      $('#image-container').show();
+    if(tabId !== 'simple') {
+      //remove display none
+      $('#simple').hide();
+      $('#flow').show();
+    } else {
+      $('#flow').hide();
+      $('#simple').show();
     }
 
     // Handle tab-specific logic
     if (tabId === 'flow') {
-      // hide the image-container
-      $('#image-container').hide();
       instance.currentView.set('flow');
       instance.currentTool.set('view');
       resetToolbox();
-      // hide the image-container class
-      $('.image-container').hide();
-      // show the flow-container by removing display none
-      $('.flow-container').show();
-      // generate the drawflow
-      generateFlow();
     } else if(tabId == 'line') {
       // Hide all images first
       $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
@@ -2585,7 +2792,11 @@ Template.viewPage.events({
     if (type === 'line') {
       instance.currentLine.set(false);
       $('img#lineImage').remove();
-    } else if (type === 'word') {
+    } else if (type === 'flow') {
+      $('#flow').hide();
+      $('#simple').show();
+    }
+    else if (type === 'word') {
       instance.currentWord.set(false);
       $('img#wordImage').remove();
     } else if (type === 'glyph') {
@@ -2877,6 +3088,23 @@ Template.viewPage.events({
     // Reset the saved flag for next time
     Session.set('glyphSaved', false);
   },
+  'click #flowView'(event, instance) {
+    event.preventDefault();
+    handleElementSelection('flow', 0, instance);
+    // Set the current tool to view
+    instance.currentTool.set('view');
+    resetToolbox();
+    // Set the current tool to btn-dark
+    $('#flowView').removeClass('btn-light').addClass('btn-dark');
+    // Hide the #simple div
+    $('#simple').hide();
+    // Show the #flow div
+    $('#flow').show();
+    // Set the current help text
+    setCurrentHelp('Select a font and use the on-screen keyboard to input text.');
+  },
+
+
   'click #createLine'(event, instance) {
     event.preventDefault();
     console.log("createLine, drawing is " + instance.drawing.get());
@@ -3641,6 +3869,9 @@ function setCurrentHelp(help) {
   instance.currentHelp.set(help);
 }
 
+
+
+
 // Create a shared function that both handlers can use
 function handleElementSelection(type, id, instance) {
   console.group('DEBUG: handleElementSelection');
@@ -3690,6 +3921,8 @@ function handleElementSelection(type, id, instance) {
     // Make sure the appropriate image is shown based on the tab type
     if (type === 'element') {
       setElementImage(id, instance);
+    } else if (type == 'flow') {
+      activateFlow();
     } else {
       setImage(type, id);
     }
@@ -3748,7 +3981,7 @@ function handleElementSelection(type, id, instance) {
   clone.attr('data-id', id);
   //get the parent element type using cases
   let parent, parenttab;
-  if (type == 'line') {
+  if (type == 'line' || type == 'flow') {
     parent = 'simple';
     parenttab = 'simple';
   }
@@ -3879,6 +4112,23 @@ function setElementImage(id, instance) {
   
   console.log(`Element image set for element ${id}`);
 }
+
+//activate flow function
+// this function activates the flow view
+function activateFlow() {
+  //hide #simple
+  $('#simple').hide();
+  //show #flow
+  $('#flow').show();
+  //set the current view to flow
+  instance.currentView.set('flow');
+  //set the current tool to view
+  instance.currentTool.set('view');
+  //reset the toolbox
+  resetToolbox();
+}
+
+
 
 //function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index. 
 // We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
