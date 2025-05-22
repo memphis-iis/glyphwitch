@@ -6,8 +6,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js" integrity="sha384-cuYeSxntonz0PPNlHhBs68uyIAVpIIOZZ5JqeqvYYIcEL727kskC66kF92t6Xl2V" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <!-- add boostrap tabs -->
-
+  
+  <!-- Add jQuery and jsTree libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
 </head>
 
 <body>
@@ -15,35 +18,19 @@
 </body>
 
 <template name="defaultLayout">
-  <!-- if logged in, display the header -->
-  
-    <div class="container-fluid" style="max-width: 100vw; max-height: 100vh; overflow: hidden;">
-      <div class="row">
-      <div class="col-12">
-        {{#if currentUser}}
-          {{> header}}
-        {{/if}}
-
-          
-          {{> yield}}
-          
-        </div>
-      </div>
-    </div>
-
+  {{> header}}
+  {{> yield}}
 
   
-  
+  {{> footer}}
 </template>
+
 
 <!-- header with topnav bar bootstrap 5.2. Needs Home and right side login/signup/logout -->
 <template name="header">
+  {{#if currentUser}}
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
-      <!-- logo -->
-      <a class="navbar-brand" href="/">
-        <img src="/logo.png" alt="GlyphWitch Logo" class="img-fluid" style="max-width: 50px;">
-      </a>
       <!-- document title -->
               <span class="document-name-container" >
             <span class="document-name" id="documentName" contenteditable="true" style="border: 1px solid #ccc; padding: 5px; border-radius: 4px; display: inline-block; min-width: 150px;">{{state.currentDocument.title}}</span>
@@ -54,31 +41,24 @@
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
-        {{#if currentUser}}
           <div class="ribbon">
             <button type="button" class="btn btn-light border rounded" data-bs-toggle="modal" data-bs-target="#openModal">
               <i class="bi bi-folder2-open"></i>
             </button>
           </div>
-        {{/if}}
       </div>
       <div class ="row">
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
           <ul class="navbar-nav">
-            {{#if currentUser}}
               <li class="nav-item">
                 <a href="/logout" class="nav-link">Logout {{currentUser.username}}</a>
               </li>
-            {{else}}
-              <li class="nav-item">
-                <a class="nav-link" href="/login">Login/Signup</a>
-              </li>
-            {{/if}}
           </ul>
         </div>
       </div>  
     </div>
   </nav>
+  {{/if}}
 </template>
 
 <!--home -->
@@ -99,9 +79,7 @@
 
   <div class="container" style="margin-top: 10vh; max-width: 500px;">
     <div class="mb-4 text-center">
-      <div class="text-center">
-        <img src="/logo.png" alt="GlyphWitch Logo" class="img-fluid" style="max-width: 200px;">
-     </div> 
+
      <!-- version number -->
       <div class="text-center">
         <small class="text-muted">Version {{version}}</small>
@@ -163,6 +141,7 @@
     <!-- Pills content -->
   </div>
 </template>
+
 
 <!-- change email and password form for first admin login, for changing password, and for changing email -->
 <template name="changeEmailPassword">
@@ -332,159 +311,125 @@
 
 <!-- template for document viewing UI, with a left side -->
 <template name="viewPage">
-  <div class="container-fluid d-flex flex-wrap main-container">
-
-    <div class="col-md-2 bg-light collapse show text-center border" id="sidebar">
-      {{#if currentDocument}}
-      <ul class="nav nav-tabs" id="myTab" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="pagesel-tab" data-bs-toggle="tab" data-bs-target="#pagesel" type="button" role="tab" aria-controls="open" aria-selected="true">Page Selection</button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="databrowse-tab" data-bs-toggle="tab" data-bs-target="#databrowse" type="button" role="tab" aria-controls="upload" aria-selected="false">Data Browser</button>
-        </li>
-      </ul>
-      <!-- content for pagesel !-->
-      <div class="tab-content" id="myTabContent">
-        <div class="tab-pane fade show active" id="pagesel" role="tabpanel" aria-labelledby="pagesel-tab">     
-        
-          <div class="mx-auto" style="line-height: 40px;">
-        
-        <br>
-            <button class="btn btn-light mb-3 me-2" id="lastPage">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L6.707 8l4.647 4.646a.5.5 0 0 1-.708.708l-5-5a.5.5 0 0 1 0-.708l5-5a.5.5 0 0 1 .708 0z"></path>
-              </svg>
-            </button>
-            {{currentPageNumber}} of {{totalPages}}
-            <button class="btn btn-light mb-3" id="nextPage">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l5 5a.5.5 0 0 1 0 .708l5-5a.5.5 0 0 1-.708-.708L9.293 8 4.646 3.354a.5.5 0 0 1 0-.708z"></path>
-              </svg>
-            </button>
-          </div>
-          
-        <div class="d-flex flex-column align-items-center scrollable-container" style="overflow-y: auto; max-height: 100vh;">
-
-        
-
-        {{#if currentDocument.pages}}
-          {{#each currentDocument.pages}}
-          <div class="pagesel mx-3 my-3" id="{{this.pageId}}" style="position: relative; border: 1px solid gray;">
-            <a href="#" class="changePage" data-id="{{@index}}">
-              <img src="{{this.image}}" alt="page" class="img-fluid" loading="lazy">
-            </a>
-            <div class="page-controls">
-              <button class="btn btn-primary changePage" data-id="{{@index}}" title="Change Page">
-                <i class="bi bi-pencil"></i>
-              </button>
-              <button class="btn btn-secondary move-up" data-id="{{@index}}" title="Move Up">
-                <i class="bi bi-arrow-up"></i>
-              </button>
-              <button class="btn btn-secondary move-down" data-id="{{@index}}" title="Move Down">
-                <i class="bi bi-arrow-down"></i>
-              </button>
-              <button class="btn btn-secondary add-page-after" data-id="{{@index}}" title="Add Page After" id="addPage">
-                <i class="bi bi-plus"></i>
-              </button>
-            </div>
-          </div>
-          <div class="page-title" data-id="{{@index}}">
-            <a href="#" class="changePage" data-id="{{@index}}">
-              {{#if this.title}} 
-                <span class="title-text">{{this.title}} #{{add @index 1}}</span>
-              {{else}} 
-                <span class="title-text">Untitled Page #{{add @index 1}}</span>
-              {{/if}}
-            </a>
-            <input type="text" class="title-input" value="{{this.title}}" style="display: none;">
-          </div>
-          <br>
-          {{/each}}
-        {{else}}
-          <div class="alert" role="alert">
-            <p>No pages found. Please add a page to the document.</p>
-            <button class="btn border" id="addPage"><i class="bi bi-plus"></i></button>
-          </div>
+  <div class="container-fluid d-flex flex-nowrap">
+    <!-- Improved sidebar with tabs for Data Browser and Page Selection -->
+    <div class="bg-light border" id="sidebar" style="width: 250px; min-width: 180px; max-width: 500px;">
+      <div class="p-2">
+        <!-- Add document title container -->
+        {{#if currentDocument}}
+        <div class="document-title-container mb-2">
+          <h5 class="document-title" id="documentName">{{documentTitle}}</h5>
+          <input type="text" class="form-control d-none" id="documentNameInput" value="{{documentTitle}}" placeholder="Document Title">
+        </div>
         {{/if}}
-          
-        </div>
-      </div>
-    </div>
-    {{else}}
-    <div class="alert alert-warning" role="alert">
-      No document selected. Please select a document to view.
-    </div>
-    {{/if}}
-    <!-- data browser tab content-->
-    <div class="tab-pane fade" id="databrowse" role="tabpanel" aria-labelledby="databrowse-tab">
-      <div class="container">
-      <div class="row">
-        <div class="col-12 bg-secondary text-white">
-        <small>Title: {{currentDocument.title}}, Author: {{currentDocument.author}}</small>
-        </div>
-        <div class="col-12 my-2">
-        <div class="btn-group" role="group" aria-label="Toolbox">
-          <button type="button" class="btn rounded border" id="expandAll"><i class="bi bi-arrow-down"></i></button>
-          <button type="button" class="btn rounded border" id="collapseAll"><i class="bi bi-arrow-up"></i></button>
-          <!-- delete button -->
-          <button type="button" class="btn rounded border" id="deleteDocument"><i class="bi bi-x"></i></button>
-        </div>
-        </div>
-        <div class="col-12">
-        <ul class="file-tree">
-          {{#each currentDocument.pages}}
-          <li>
-          <a data-bs-toggle="collapse" href="#page-{{@index}}" role="button" aria-expanded="false" aria-controls="page-{{@index}}">
-            <i class="bi bi-folder-fill"></i> Page {{@index}}
-          </a>
-          <div class="collapse" id="page-{{@index}}">
-            <ul>
-            {{#each this.lines}}
-            <li>
-            <a data-bs-toggle="collapse" href="#line-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="line-{{../@index}}-{{@index}}">
-              <i class="bi bi-list"></i> Line {{@index}}
-            </a>
-            <div class="collapse" id="line-{{../@index}}-{{@index}}">
-              <ul>
-              {{#each this.words}}
-              <li>
-              <a data-bs-toggle="collapse" href="#word-{{../../@index}}-{{../@index}}-{{@index}}" role="button" aria-expanded="false" aria-controls="word-{{../../@index}}-{{../@index}}-{{@index}}">
-                <i class="bi bi-file-word-fill"></i>Word {{@index}}
-              </a>
-              <div class="collapse" id="word-{{../../@index}}-{{../@index}}-{{@index}}">
-                <ul class="d-flex">
-                {{#each this.phonemes}}
-                <li><i class="bi bi-soundwave"></i> {{this.ipa}}<br></li>
-                {{/each}}
-                {{#each this.glyphs}}
-                <li><i class="bi bi-wikipedia"></i> Glyph {{@index}}<br></li>
-                {{/each}}
-                </ul>
-              </div>
-              </li>
-              {{/each}}
-              </ul>
-            </div>
-            </li>
-            {{/each}}
-            </ul>
-          </div>
+        
+        <!-- Tabs for sidebar navigation - changed order and default active tab -->
+        <ul class="nav nav-tabs nav-fill mb-2" id="sidebarTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="page-selection-tab" data-bs-toggle="tab" data-bs-target="#page-selection-content" 
+              type="button" role="tab" aria-controls="page-selection-content" aria-selected="true">
+              <i class="bi bi-images"></i> Pages
+            </button>
           </li>
-          {{/each}}
-          </ul>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="data-browser-tab" data-bs-toggle="tab" data-bs-target="#data-browser-content" 
+              type="button" role="tab" aria-controls="data-browser-content" aria-selected="false">
+              <i class="bi bi-diagram-3"></i> Data Browser
+            </button>
+          </li>
+        </ul>
+        
+        <!-- Tab content - changed order to match tab buttons -->
+        <div class="tab-content" id="sidebarTabsContent">
+          <!-- Page Selection tab content - now the active one -->
+          <div class="tab-pane fade show active" id="page-selection-content" role="tabpanel" aria-labelledby="page-selection-tab">
+            <h6 class="text-muted mb-2">Pages</h6>
+            
+            <!-- Add page counter with navigation arrows -->
+            <div class="text-center mb-2 d-flex justify-content-center align-items-center">
+              <button class="btn btn-sm btn-outline-secondary me-2" id="prevPage" title="Previous Page">
+                <i class="bi bi-arrow-left"></i>
+              </button>
+              <span class="badge bg-secondary page-counter">{{currentPageNumber}} of {{totalPages}}</span>
+              <button class="btn btn-sm btn-outline-secondary ms-2" id="nextPage" title="Next Page">
+                <i class="bi bi-arrow-right"></i>
+              </button>
+            </div>
+            
+            <!-- Page list section -->
+            <div class="page-thumbnails" style="overflow-y: auto; max-height: calc(100vh - 180px);">
+              {{#if currentDocument}}
+                {{#each pageInDocument}}
+                  <div class="pagesel mb-2 {{#if isCurrentPage page}}active-page{{/if}}" data-id="{{page}}">
+                    <img src="{{pageImage}}" alt="Page {{displayNumber}}" class="img-fluid">
+                    <div class="page-info p-1 bg-light">
+                      <span class="title-text">Page {{displayNumber}}</span>
+                      <div class="page-controls">
+                        <button class="btn btn-sm btn-outline-secondary move-up" data-id="{{page}}" title="Move Up">
+                          <i class="bi bi-arrow-up"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary move-down" data-id="{{page}}" title="Move Down">
+                          <i class="bi bi-arrow-down"></i>
+                        </button>
+                        <!-- Add "Add page after" button -->
+                        <button class="btn btn-sm btn-outline-primary add-page-after" data-id="{{page}}" title="Add Page After">
+                          <i class="bi bi-plus-circle"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                {{/each}}
+                
+                <div class="text-center mt-3 mb-3">
+                  <button id="addPage" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Add Page
+                  </button>
+                </div>
+              {{else}}
+                <div class="alert alert-info">
+                  <i class="bi bi-info-circle me-2"></i>
+                  Select a document to view its pages
+                </div>
+              {{/if}}
+            </div>
+          </div>
+          
+          <!-- Data Browser tab content -->
+          <div class="tab-pane fade" id="data-browser-content" role="tabpanel" aria-labelledby="data-browser-tab">
+            <h6 class="text-muted mb-2">Data Browser</h6>
+            <div class="btn-group mb-2 d-flex justify-content-center">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="expandAll" title="Expand All">
+                <i class="bi bi-arrows-expand"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAll" title="Collapse All">
+                <i class="bi bi-arrows-collapse"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-danger" id="deleteSelection" title="Delete Selected">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+            
+            <!-- Data Browser tree content -->
+            <div id="documentTree" style="text-align: left; min-height: 200px;">
+              <div class="text-center p-3">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading Data Browser...</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      </div>
     </div>
-  </div>
     
+    <!-- Add resize handle here -->
+    <div id="sidebar-resize-handle" title="Drag to resize"></div>
     
-    <!-- end of tab content -->
-    <div class="col position-relative border main-content-area" style="background-color: #808080; height: 100vh;">
-      <ul class="nav nav-tabs" id="myTab" role="tablist" style="border-bottom: 1px solid #ccc; background-color: #f8f9fa;">
+    <div class="col position-relative border simple-view">
+      <ul class="nav nav-tabs bg-light" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
-          <button id="simple-tab" class="nav-link active open-tab" data-tab-id="simple" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Simple View</button>
+          <button class="nav-link active open-tab" id="profile-tab" data-bs-toggle="tab" data-bs-target="#simple" data-tab-id="simple" type="button" role="tab" aria-controls="simple" aria-selected="false">Simple View</button>
         </li>
         <li class="nav-item" role="presentation" style="display: none;" id="view-tab-template">
           <button class="nav-link open-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">
@@ -500,28 +445,107 @@
         </svg>
       </button>
       {{#if currentDocument}}
-      <div class="right-pane py-5 px-5" style="background-color: #808080; height:100%;">
-        
-          <div class="image-container" style="background-color: #808080;">
-            {{#if currentPage.image}}
-              <img src="{{currentPage.image}}" class="img" alt="Image" style="object-fit: contain;" id="pageImage">
-            {{else}}
-              <div class="alert alert-secondary" role="alert">
-                No page selected. Please select a page to view.
+      <div class="fade show active image-spacer px-5 py-5" id="simple">
+        <div class="image-container" style="position: relative; height: 90vh; width: 80vw;">
+          {{#if currentPage.image}}
+            <img src="{{currentPage.image}}" class="img" alt="Image" style="height:100%; height:100%; object-fit: cover; " id="pageImage">
+          {{else}}
+            <div class="alert alert-secondary" role="alert">
+              No page selected. Please select a page to view.
+            </div>
+          {{/if}}
+        </div>
+      </div> 
+      <div class="container">
+        <div class="row row-col-2">
+          <div class="col">
+            <div class="fade show active image-spacer px-5 py-5" id="flow" style="display: none;">
+              <div class="image-container" style="position: relative; height: 90vh; width: 80%;">
+                {{#if currentPage.image}}
+                  <img src="{{currentPage.image}}" class="img" alt="Image" style="height: 100%; object-fit: cover;" id="pageImage">
+                {{else}}
+                  <div class="alert alert-secondary" role="alert">
+                    No page selected. Please select a page to view.
+                  </div>
+                {{/if}}
               </div>
-            {{/if}}
-        
-        </div>
-        <!--flow-container for special tools-->
-        <div class="flow-container" style="background-color: #808080;" display="none">
+                {{#if missingCoordinates.length}}
+                  <div class="alert alert-warning mt-3" style="max-width: 600px;">
+                    <ul class="mb-0">
+                      {{#each missingCoordinates}}
+                        <li>{{label}}</li>
+                      {{/each}}
+                    </ul>
+                  </div>
+                {{/if}}
+            </div>
+          </div>
+          <div class="col">
+            <div class="col">
+              {{#if isEqual currentView "flow"}}
+              <div class="flow-container d-flex flex-column" style="height: 80vh; min-height: 400px;">
+                <div class="row">
+                  <div class="col-md-12 mx-5 my-2 fontbox">
+                    <!-- Font selector -->
+                    <div class="form-group">
+                      <label for="fontSelector">Font</label>
+                      <select class="form-control" id="fontSelector">
+                        {{#if fonts}}
+                          <option value="">Default Font</option>
+                        {{/if}}
+                        {{#each fonts}}
+                          <option value="{{this.url}}">{{this.name}}</option>
+                        {{/each}}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <!-- Main scrollable area for lines -->
+                <div class="flex-grow-1 overflow-auto mx-5 my-2 bg-white" style="border: 1px solid #ccc; border-radius: 6px;">
+                  <div class="text-view-content p-4" id="textViewContent">
+                    <div style="display: flex; align-items: flex-start;">
+                      <div class="line-numbered-container w-100">
+                        {{#each currentPage.lines}}
+                          <div class="d-flex align-items-center mb-2" style="width: 100%;">
+                            <div class="line-number me-2" id="line-{{this.id}}" style="min-width: 32px; text-align: right;">
+                              {{add @index 1}}
+                            </div>
+                            <input
+                              class="input-without-styling custom-font flex-grow-1"
+                              id="transcriptionInput"
+                              data-id="{{@index}}"
+                              type="text"
+                              value="{{this.transcription}}"
+                              style="width: 100%; border: none; background-color: transparent; outline: none; font-family: {{font}}; font-size: 16px;"
+                            >
+                          </div>
+                        {{/each}}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Action buttons and keyboard always at the bottom -->
+                <div class="row mx-5 my-2">
+                  <div class="col d-flex gap-2">
+                    <button class="btn btn-primary" id="loadGlyphsIntoFlow">Revert</button>
+                    <button class="btn btn-primary" id="saveFlowChanges">Save</button>
+                  </div>
+                </div>
+                <div class="row mx-5 mb-2">
+                  <div class="col">
+                    <div class="keyboard" id="keyboard" style="width: 100%; background-color: rgb(194, 194, 194); overflow-x: auto; max-height: 200px;">
+                    </div>
+                  </div>
+                </div>
 
+              </div>
+              {{/if}}
+            </div>
+          </div>
         </div>
       </div>
+      
       {{/if}}
-      <!-- Change fixed width 80vw to use 100% with auto width -->
-      <div class="flow-container" style="position: relative; min-height: 400px; width: 100%; display: none;">
-        <div class="flow" id="flow"></div>
-      </div>
       <div class="toolbox-container" style="display: flex; flex-direction: column; position: absolute; top: 50px; right: 0; margin-right: 50px; opacity: 1;">
         <div class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" id="ToolBox">
           <button type="button" class="btn btn-dark me-2" title="View" id="viewTool">
@@ -529,6 +553,9 @@
           </button>
           <button type="button" class="btn btn-light me-2" title="Select" id="selectItem">
             <i class="bi bi-mouse2"></i>
+          </button>
+          <button type="button" class="btn btn-light me-2" title="Open Flow View" id="flowView">
+            <i class="bi bi-diagram-3"></i>
           </button>
           <button type="button" class="btn btn-light me-2" title="Search Glyphs" id="searchGlyphs">
             <i class="bi bi-search"></i>
@@ -554,10 +581,6 @@
           <button type="button" class="btn btn-light me-2" title="Create Element" id="createElement" style="display: none;">
             <i class="bi bi-bounding-box"></i>
           </button>
-          <!-- textflow button -->
-          <button type="button" class="btn btn-light me-2" title="Textflow" id="textFlow" style="display: none;">
-            <i class="bi bi-feather"></i>
-          </button>
           <button type="button" class="btn btn-danger me-2" title="Exit Tool" id="exitTool" style="display: none;">
             <i class="bi bi-x"></i>
           </button>
@@ -567,22 +590,15 @@
           </button>
         </div>
       </div>
-      {{#if ToolOptionsData}}
-      <div id="ToolOptions" class="position-absolute top-0 end-10 d-flex align-items-center justify-content-center bg-light border p-2 rounded-end" style="margin-top: 120px; margin-right:20px; pointer-events: fill; max-width: 300px; overflow-x: auto; display:none;">
-        
-          {{> Template.dynamic template=toolOptions data=toolOptionsData}}
-        
 
-      </div>
-      {{/if}}
       {{#if currentHelp}}
-        <div id="HelpBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border border-success p-2 rounded-end" style="margin-top: 140px; margin-right:20px; pointer-events: fill; max-width: 300px; overflow-x: auto;">
-          <div class="container" style="width:300px;">
-        <h4>{{currentToolHumanReadable}}</h4>
-        
-        <!-- two buttons, select line and create word and and exit tool button -->
-        <small>{{currentHelp}}</small>
-        <br>
+        <div id="HelpBox" class="position-absolute top-0 end-0 d-flex align-items-center justify-content-center bg-light border border-success p-2 rounded-end" style="margin-top: 140px; margin-right:20px; pointer-events: fill">
+          <div class="container" style="width:500px;">
+            <h4>{{currentToolHumanReadable}}</h4>
+            
+            <!-- two buttons, select line and create word and and exit tool button -->
+            <small>{{currentHelp}}</small>
+            <br>
           </div>
         </div>
       {{/if}}
@@ -609,10 +625,32 @@
       </div>
       {{/if}}
     </div>
-    <div class="w-100 bg-light border-top status-footer">
+
+
+    <div class="fixed-bottom bg-light border-top">
+          {{#if warnings.length}}
+      <div class="alert alert-danger w-100 mb-0 px-0"
+          style="
+            z-index: 1050;
+            border-radius: 0;
+            max-height: 100px;
+            overflow-y: auto;
+            text-align: left;
+            padding-left: 2rem;
+            padding-right: 2rem;
+          ">
+        <ul class="mb-0 ps-3" style="max-width: 900px;">
+          {{#each warnings}}
+            <li>{{this}}</li>
+          {{/each}}
+        </ul>
+      </div>
+    {{/if}}
       <div class="container">
+       
         <div class="row">
           <div class="col text-center w-100">
+            <!-- Updated this line to ensure the page number is only displayed by the helper -->
             <span class="badge bg-secondary float-start mx-2">Document: {{currentDocument.title}} - Page: {{currentPageNumber}}</span>
             <span class="badge bg-secondary float-start mx-2">Current View: {{currentView}}</span>
             <span class="badge bg-secondary float-start mx-2">Current Tool: {{currentTool}}</span>
@@ -647,15 +685,16 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <p> Please specify the title and image of the new page. This page will be created after the current page.</p>
+          <p id="pageInsertionMessage">Please specify the title and image of the new page. This page will be created at the end of the document.</p>
           <form id="createPageForm">
             <div class="form-group">
               <label for="title">Title</label>
               <input type="text" class="form-control" id="pageTitle" name="title">
-              <input type="file" class="form-control-file" id="newpageImage" name="image">
-              <!-- unchangable input for page index -->
+              <input type="file" class="form-control-file mt-2" id="newpageImage" name="image">
+              <!-- Add hidden fields for insertion position -->
               <input type="hidden" class="form-control" id="pageIndex" name="index" value="{{currentPageNumber}}">
-              <button type="submit" class="btn btn-primary" id="submitNewPage">Create</button>
+              <input type="hidden" class="form-control" id="insertAfter" name="insertAfter" value="end">
+              <button type="submit" class="btn btn-primary mt-3" id="submitNewPage">Create</button>
             </div>
           </form>
         </div>
@@ -680,10 +719,10 @@
       </div>
     </div>
   </div>
-  <!-- Fix overly wide modals by removing the inline width styles -->
+  <!-- bootstrap modal for creating a word -->
   <div class="modal fade" id="createWordModal" tabindex="-1" aria-labelledby="createWordModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
+    <div class="modal-dialog">
+      <div class="modal-content" style="width: 75vw; right: 25vw;">
         <div class="modal-header">
           <h5 class="modal-title" id="createWordModalLabel">Create Word</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -698,10 +737,10 @@
       </div>
     </div>
   </div>
-  <!-- Fix overly wide modals by removing the inline width styles -->
+    <!-- bootstrap modal for creating a phoneme -->
   <div class="modal fade" id="createPhonemeModal" tabindex="-1" aria-labelledby="createWordModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
+    <div class="modal-dialog">
+      <div class="modal-content" style="width: 75vw; right: 25vw;">
         <div class="modal-header">
           <h5 class="modal-title" id="createWordModalLabel">Create Phoneme</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -718,10 +757,10 @@
       </div>
     </div>
   </div>
-  <!-- Fix overly wide modals by removing the inline width styles -->
+  <!-- bootstrap modal for creating a glyph, includes a canvas to draw on -->
   <div class="modal fade" id="createGlyphModal" tabindex="-1" aria-labelledby="createGlyphModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
+    <div class="modal-dialog">
+      <div class="modal-content" style="width: 75vw; right: 25vw;">
         <div class="modal-header">
           <h5 class="modal-title" id="createGlyphModalLabel">Create Glyph</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -740,26 +779,26 @@
     </div>
   </div>
   <!-- full size modal for opening and uploading a document -->
-  <div class="modal fade" id="openModal" tabindex="-1" aria-labelledby="customModalLabel" aria-hidden="true" style="backdrop-filter: blur(5px); background-color: rgba(0, 0, 0, 0.5); z-index:99000">
+  <div class="modal fade" id="openModal" tabindex="-1" aria-labelledby="customModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg"> <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="customModalLabel">Getting Started</h5>
+          <h5 class="modal-title" id="customModalLabel">Start</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <!-- four bootstrap tabs, Open, New Blank, and Upload, and Upload Font -->
           <ul class="nav nav-tabs" id="myTab" role="tablist">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Open Existing</button>
+              <button class="nav-link active" id="open-tab" data-bs-toggle="tab" data-bs-target="#open" type="button" role="tab" aria-controls="open" aria-selected="true">Open</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="new-blank-tab" data-bs-toggle="tab" data-bs-target="#new-blank" type="button" role="tab" aria-controls="new-blank" aria-selected="false">New Blank Document</button>
+              <button class="nav-link" id="new-blank-tab" data-bs-toggle="tab" data-bs-target="#new-blank" type="button" role="tab" aria-controls="new-blank" aria-selected="false">New Blank</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload PDF</button>
+              <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false">Upload Document</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Glyphs from TTF</button>
+              <button class="nav-link" id="upload-font-tab" data-bs-toggle="tab" data-bs-target="#upload-font" type="button" role="tab" aria-controls="upload-font" aria-selected="false">Upload Font</button>
             </li>
             {{#if isAdmin}}
             <li class="nav-item" role="presentation">
@@ -796,6 +835,8 @@
     </div>
   </div>
 </template>
+
+
 
 <template name="allGlyphs">
   <div class="container">
@@ -856,13 +897,11 @@
 </template>
 
 <template name="footer">
-  <div class="container my-5">
-    <div class="row">
-      <div class="col text-center">
-        <p class="footer-light-text">GlyphWitch is a project by the University of Memphis' Institute for Intelligent Systems. (C) {{currentYear}}</p>
-      </div>
-    </div>
-  </div>
+  <hr>
+  <footer>
+    <p style="text-align: center;">GlyphWitch is a project by the University of Memphis' Institute for Intelligent Systems. (C) {{currentYear}}</p>
+
+  </footer>
 </template>
 
 <!-- template for displaying glyph information -->

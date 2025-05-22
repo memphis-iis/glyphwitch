@@ -5,7 +5,7 @@ import { Session } from 'meteor/session';
 import Cropper from 'cropperjs';
 import go from 'gojs';
 import './views/versionInfo.js';
-
+import { initDocumentTree, addTreeButtonHandlers, ScriptLoader } from './jstree-sidebar.js';
 
 import './main.html';
 
@@ -21,34 +21,37 @@ import './lib/router.js';
 
 //on client startup we subscribe to the all publication and the userData publication
 Meteor.startup(() => {
-
-
   Meteor.subscribe('files.images.all');
   Meteor.subscribe('all');
   Meteor.subscribe('userData');
-
-  //set a state session variable
-  Session.set('state', {
-    currentDocument: false,
-    currentPage: false,
-    currentLine: false,
-    currentWord: false,
-    currentPhoneme: false,
-    currentGlyph: false,
-    currentDiscussion: false,
-    currentTool: 'view',
-    currentView: 'simple',
-    subTool: false,
-  });
+  
+  // Add a short delay to ensure user authentication is complete
+  Meteor.setTimeout(() => {
+    // If the user is logged in, automatically open the Start modal
+    if (Meteor.userId()) {
+      Meteor.setTimeout(() => {
+        $('#openModal').modal('show');
+      }, 500); // Short delay to ensure the modal is ready
+    }
+  }, 300);
 });
-
-
 
 
 //gLobal helpers
 Template.registerHelper('isAdmin', function() {
   //return true if the user is an admin
   return Roles.userIsInRole(Meteor.userId(), 'admin') && Meteor.userId();
+});
+
+//global fonts helper:
+Template.registerHelper('fonts', function() {
+  //return all the fonts from the database
+  fonts = Fonts.find();
+  if (fonts.count() > 0) {
+    return fonts
+  } else {
+    return false;
+  }
 });
 
 Template.registerHelper('isUser', function() {
@@ -103,19 +106,11 @@ Template.registerHelper('add', function(a, b) {
   return Number(a) + Number(b);
 });
 
-
-//helper for displaying the state
-Template.registerHelper('state', function() {
-  //return the state session variable
-  var state = Session.get('state');
-  console.log("state is " + state);
-  return state;
+// Custom Handlebars helper to track indexes for nested loops
+Handlebars.registerHelper('setIndex', function(value) {
+  this.index = Number(value);
+  return '';
 });
-
-
-
-
-
 
 //login template (handles login and signup)
 Template.login.events({
@@ -367,20 +362,6 @@ Template.selectDocument.helpers({
       doc.pages.forEach(function(page) {
         page.image = Files.findOne({_id: page.pageId}).link();
       });
-      //set state to the document
-      Session.set('state', {
-        currentDocument: doc,
-        currentPage: 0,
-        currentLine: false,
-        currentWord: false,
-        currentPhoneme: false,
-        currentGlyph: false,
-        currentDiscussion: false,
-        currentTool: 'view',
-        currentView: 'simple',
-        subTool: false,
-      });
-
       return doc;
 
     } else {
@@ -443,6 +424,7 @@ Template.viewPage.onCreated(function() {
   Template.instance().currentDiscussion = new ReactiveVar();
   Template.instance().currentTool =  new ReactiveVar('view');
   Template.instance().currentView = new ReactiveVar('simple');
+  Template.instance().flowDocument = new ReactiveVar(false);
   Template.instance().subTool = new ReactiveVar(false);
   Template.instance().currentHelp = new ReactiveVar("You can use [Shift] + Scroll to zoom in and out of the page image.");
   Template.instance().drawing = new ReactiveVar(false);
@@ -454,6 +436,7 @@ Template.viewPage.onCreated(function() {
   Template.instance().yScaling = new ReactiveVar(1);
   Template.instance().xScaling = new ReactiveVar(1);
   Template.instance().cropper = new ReactiveVar(false);
+  Template.instance().warnings = new ReactiveVar(false);
   Template.instance().discussions = new ReactiveVar(
     {
       "document": false,
@@ -467,24 +450,209 @@ Template.viewPage.onCreated(function() {
   Template.instance().x = new ReactiveVar(false);
   Template.instance().y = new ReactiveVar(false);
 
+  const instance = this;
+  // Set up an autorun to refresh the tree when document changes
+  this.autorun(() => {
+    const documentId = instance.currentDocument.get();
+    if (documentId) {
+      console.log("Document changed, refreshing tree:", documentId);
+      Meteor.setTimeout(() => {
+        if ($.jstree && $.jstree.reference('#documentTree')) {
+          initDocumentTree(documentId);
+        }
+      }, 300);
+    }
+  });
+
+  // Function to update warnings
+  const updateWarnings = () => {
+    const warnings = [];
+    const currentPageIndex = this.currentPage.get();
+    const documentId = this.currentDocument.get();
+    if (documentId == null || currentPageIndex == null) {
+      this.warnings.set([]);
+      return;
+    }
+    const doc = Documents.findOne({_id: documentId});
+    if (!doc || !doc.pages || !doc.pages[currentPageIndex]) {
+      this.warnings.set([]);
+      return;
+    }
+    const page = doc.pages[currentPageIndex];
+    if (!page.lines) {
+      this.warnings.set([]);
+      return;
+    }
+    // Check for missing coordinates
+    page.lines.forEach((line, lineIdx) => {
+      if (line.words) {
+        line.words.forEach((word, wordIdx) => {
+          if (word && (word.x == null || word.y == null || word.width == null || word.height == null)) {
+            warnings.push(`Missing coordinates for word ${wordIdx + 1} in line ${lineIdx + 1}`);
+          }
+          if (word && word.glyphs) {
+            word.glyphs.forEach((glyph, glyphIdx) => {
+              if (glyph && (glyph.x == null || glyph.y == null || glyph.width == null || glyph.height == null)) {
+                warnings.push(`Missing coordinates for glyph ${glyphIdx + 1} in word ${wordIdx + 1}, line ${lineIdx + 1}`);
+              }
+            });
+          }
+        });
+      }
+    });
+    // You can add more warning checks here in the future!
+    this.warnings.set(warnings);
+  };
+  
+  // Add autorun for reactive data refresh - watches for document data changes
+  this.autorun(() => {
+    const documentId = instance.currentDocument.get();
+    if (documentId) {
+      // Reactive data fetch that will re-run when document data changes
+      const docData = Documents.findOne({_id: documentId});
+      
+      // Only refresh if we have an initialized tree and actual document data
+      if (docData && $.jstree && $.jstree.reference('#documentTree')) {
+        console.log("Document data changed, refreshing tree");
+        initDocumentTree(documentId);
+      }
+    }
+    updateWarnings();
+  });
 });
 
 //Onrendered function for viewPage
 Template.viewPage.onRendered(function() {
-  //if the currentDocument is false, show the openModal
-  if (!Template.instance().currentDocument.get()) {
-    console.log("No document selected");
-    $('#openModal').modal('show');
-  } else {
-    $('#openModal').modal('hide');
-    currentPage = Template.instance().currentPage.get();
-    currentDocument = Template.instance().currentDocument.get();
-    console.log("currentDocument is " + currentDocument);
-    console.log("currentPage is " + currentPage);
-    instance = Template.instance();
-    instance.currentDocument.set(currentDocument);
-    instance.currentPage.set(currentPage);
-  }
+  const instance = this;
+  
+  console.log("viewPage template rendered");
+  
+  // Initialize sidebar resize functionality
+  initSidebarResize();
+  
+  // Add a more robust initialization sequence for the tree
+  const initTreeWithRetry = async (documentId, maxRetries = 3) => {
+    let retries = 0;
+    
+    const attemptInit = async () => {
+      console.log(`Attempting to initialize jsTree (attempt ${retries+1} of ${maxRetries})`);
+      
+      // Mark the container as loading
+      $('#documentTree').addClass('jstree-loading').html(`
+        <div class="text-center p-3">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading Data Browser...</p>
+          <small class="text-muted">(Attempt ${retries+1} of ${maxRetries})</small>
+        </div>
+      `);
+      
+      // First check if jsTree libraries are available
+      if (!ScriptLoader.isJsTreeLoaded()) {
+        console.log("jsTree not loaded, attempting to load scripts");
+        try {
+          await ScriptLoader.ensureJsTree();
+          console.log("jsTree successfully loaded");
+        } catch (error) {
+          console.error("Failed to load jsTree libraries:", error);
+          $('#documentTree').removeClass('jstree-loading').html(`
+            <div class="alert alert-danger m-2">
+              <strong>Library Error:</strong> Could not load jsTree. 
+              <button class="btn btn-sm btn-warning mt-2" id="retryScripts">Retry</button>
+            </div>
+          `);
+          
+          $('#retryScripts').on('click', function() {
+            if (retries < maxRetries) {
+              retries++;
+              attemptInit();
+            } else {
+              $('#documentTree').html(`
+                <div class="alert alert-danger m-2">
+                  <strong>Failed after ${maxRetries} attempts.</strong>
+                  <p>Please reload the page or check your network connection.</p>
+                </div>
+              `);
+            }
+          });
+          
+          return;
+        }
+      }
+      
+      // Check for document data
+      const doc = Documents.findOne({ _id: documentId });
+      if (!doc) {
+        console.error("Document not found for jsTree:", documentId);
+        $('#documentTree').removeClass('jstree-loading').html('<div class="alert alert-warning m-2">Document not found</div>');
+        return;
+      }
+      
+      // Initialize jsTree
+      try {
+        await initDocumentTree(documentId);
+        addTreeButtonHandlers();
+        console.log("Tree initialized successfully");
+      } catch (error) {
+        console.error("Error during jsTree initialization:", error);
+        $('#documentTree').removeClass('jstree-loading').html(`
+          <div class="alert alert-danger m-2">
+            <strong>Initialization Error:</strong> ${error.message}
+            <button class="btn btn-sm btn-warning mt-2" id="retryTree">Retry</button>
+          </div>
+        `);
+        
+        $('#retryTree').on('click', function() {
+          if (retries < maxRetries) {
+            retries++;
+            attemptInit();
+          } else {
+            $('#documentTree').html(`
+              <div class="alert alert-danger m-2">
+                <strong>Failed after ${maxRetries} attempts.</strong>
+                <p>Try opening the document again.</p>
+              </div>
+            `);
+          }
+        });
+      }
+    };
+    
+    // Start initialization attempt
+    await attemptInit();
+  };
+  
+  // Add a reactive handler for document changes
+  instance.autorun(() => {
+    const documentId = instance.currentDocument.get();
+    if (documentId) {
+      console.log("Document changed, initializing tree with document:", documentId);
+      
+      // Clear any existing content and show loading indicator
+      $('#documentTree').addClass('jstree-loading').html(`
+        <div class="text-center p-3">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading Data Browser...</p>
+        </div>
+      `);
+      
+      // Initialize tree with retry mechanism - use a shorter delay
+      Meteor.setTimeout(() => {
+        initTreeWithRetry(documentId);
+      }, 300);
+    } else {
+      // No document selected
+      $('#documentTree').removeClass('jstree-loading').html(`
+        <div class="alert alert-info m-2">
+          <i class="bi bi-info-circle me-2"></i>
+          Select a document to view its structure
+        </div>
+      `);
+    }
+  });
   
   // Clear the pageTitle field whenever the modal is closed
   $('#createPageModal').on('hidden.bs.modal', () => {
@@ -492,26 +660,852 @@ Template.viewPage.onRendered(function() {
     $('#newpageImage').val('');
   });
 
-  // Setup responsive image sizing
-  function adjustImageContainer() {
-    const container = $('.image-container');
-    const availableHeight = $(window).height() - 180; // Adjust based on header/footer
-    container.css('height', availableHeight + 'px');
-  }
-  
-  // Initial adjustment
-  adjustImageContainer();
-  
-  // Adjust on window resize
-  $(window).resize(function() {
-    adjustImageContainer();
+  // Add debugging for the collapsible elements
+  $(document).on('click', '.file-tree [data-bs-toggle="collapse"]', function(e) {
+    const targetId = $(this).attr('href');
+    const ariaControls = $(this).attr('aria-controls');
+    
+    console.group('Collapse Debug');
+    console.log('Clicked element:', this);
+    console.log('Target ID:', targetId);
+    console.log('Aria controls:', ariaControls);
+    console.log('Target element exists:', $(targetId).length > 0);
+    
+    // Log all elements with the same aria-controls
+    const sameAriaControls = $(`.file-tree [aria-controls="${ariaControls}"]`);
+    console.log('Elements with same aria-controls:', sameAriaControls.length);
+    sameAriaControls.each(function(i, el) {
+      console.log(`Element ${i}:`, el, 'href:', $(el).attr('href'));
+    });
+    
+    // Log all collapse elements with the same ID
+    const sameId = $(targetId);
+    console.log('Elements with same ID:', sameId.length);
+    console.groupEnd();
   });
 
-  resetToolbox();
-
+  // Add a delay to ensure the DOM is fully rendered
+  setTimeout(debugCollapsibleElements, 1000);
 });
 
+// Add this to the viewPage events to ensure cleanup
+Template.viewPage.events({
+  
+  
+  // Cleanup sidebar resize event handlers when the template is destroyed
+  'template.viewPage.destroyed'() {
+    $(document).off('mousemove.sidebarResize');
+    $(document).off('mouseup.sidebarResize');
+  },
+  'change #fontSelector': function (event) {
+    const fontUrl = event.target.value;
+    console.log('DEBUG: Font URL for flow:', fontUrl);
 
+    if (fontUrl) {
+      // Create a new style element to load the font
+      const fontName = `customFont-${Date.now()}`; // Unique font name
+      const style = document.createElement('style');
+      style.innerHTML = `
+        @font-face {
+          font-family: '${fontName}';
+          src: url('${fontUrl}');
+        }
+        .custom-font {
+          font-family: '${fontName}', sans-serif;
+        }
+      `;
+
+      // Append the style to the document head
+      document.head.appendChild(style);
+      
+    } else {
+      //set the font to the default font
+      const style = document.createElement('style');
+      style.innerHTML = `
+        @font-face {
+          font-family: 'defaultFont';
+          src: url('https://example.com/default-font.ttf');
+        }
+        .custom-font {
+          font-family: 'defaultFont', sans-serif;
+        }
+      `;
+      // Append the style to the document head
+      document.head.appendChild(style);
+    }
+    //we need to load the font and determine how many glyphs are in the font and their keyboard mappings using opentype.js
+    //load the font using opentype.js
+    const opentype = require('opentype.js');
+    opentype.load(fontUrl, function(err, font) {
+      if (err) {
+        console.error('Font loading error:', err);
+        return;
+      }
+      console.log('Font loaded:', font);
+      // Get the glyphs and their mappings
+      const glyphs = font.glyphs.glyphs;
+      console.log('Glyphs:', glyphs);
+      //for each glyph, create a new button inside .keyboard
+      const keyboard = $('.keyboard');
+      keyboard.empty();
+      for (const key in glyphs) {
+        const glyph = glyphs[key];
+        //convert that unicode to a string
+        const unicode = String.fromCharCode(glyph.unicode);
+        if (!unicode) {
+          console.log('No unicode for glyph:', glyph);
+          continue;
+        }
+        const button = $('<button>')
+          .addClass('btn btn-outline-secondary m-1 position-relative')
+          .attr('data-glyph', glyph.unicode)
+          .attr('data-glyph-id', glyph.id);
+
+        // Add the main key text with the custom font
+        const mainText = $('<span>')
+          .addClass('custom-font d-block')
+          .text(String.fromCharCode(glyph.unicode));
+        button.append(mainText);
+
+        // Add the modifier text without the custom font
+        const modifierText = $('<span>')
+          .addClass('position-absolute top-0 start-0 small')
+          .text(String.fromCharCode(glyph.unicode));
+        button.append(modifierText);
+
+        keyboard.append(button);
+
+        // Add click event to each button to append the glyph to the text area
+        button.on('click', function() {
+          const glyphUnicode = $(this).data('glyph');
+          const textArea = $('#transcriptionInput');
+          const currentText = textArea.val();
+          textArea.val(currentText + glyphUnicode);
+        });
+      }
+    });
+  },
+  //when #transcriptionInput is changed, we propegate the changes in the document
+  'input #transcriptionInput': function(event, instance) {
+    console.log("DEBUG: transcriptionInput changed");
+    const documentId = instance.currentDocument.get();
+    const currentPage = instance.currentPage.get();
+    const doc = Documents.findOne({_id: documentId});
+    const transcription = event.target.value;
+    //get the line number from the data-id
+    const lineNumber = $(event.target).data('id');
+    //get the ammount of words in the transcription
+    const words = transcription.split(' ');
+    const wordsCount = words.length;
+    const font = $('#fontSelector').val();
+    //iterate through the word count
+    doc.pages[currentPage].lines[lineNumber].words = [];
+    for (let i = 0; i < wordsCount; i++) {
+      //make sure a word at that index exists, otherwise create it
+      if (!doc.pages[currentPage].lines[lineNumber].words[i]) {
+        //create a new word
+        const word = {
+          glyphs: [],
+        }
+        //add the word to the line
+        doc.pages[currentPage].lines[lineNumber].words.push(word);
+      }
+      doc.pages[currentPage].lines[lineNumber].words[i].glyphs = [];
+      const glyphsCount = words[i].length;
+      //iterate through the glyph count
+      for (let j = 0; j < glyphsCount; j++) {
+        //get the value of the character
+        const char = words[i].charAt(j);
+        //upsert the glyph in the database
+        let glyph = {
+          keybind: char,
+          font: font,
+          elements: [],
+        }
+        //add glyph to the database
+        Meteor.call('upsertGlyph', glyph, function(error, result) {
+          if (error) {
+            console.error("Error upserting glyph:", error);
+          } else {
+            console.log("Glyph upserted successfully:", result);
+          }
+        });
+
+        doc.pages[currentPage].lines[lineNumber].words[i].glyphs.push(glyph);
+      }
+      //set the word to the transcription
+      doc.pages[currentPage].lines[lineNumber].words[i].transcription = words[i];
+      //update the flowDocument reactive variable
+      instance.flowDocument.set(doc);
+    }
+  },
+  'click #saveFlowChanges'(event, instance) {
+    event.preventDefault();
+    console.log("DEBUG: saveFlowChanges");
+    const flowDoc = instance.flowDocument.get();
+    Meteor.call('modifyDocument', instance.currentDocument.get(), flowDoc, function(error, result) {
+      if (error) {
+        console.error("Error saving flow changes:", error);
+        alert('Error saving flow changes: ' + error.reason);
+      } else {
+        console.log("Flow changes saved successfully:", result);
+        alert('Flow changes saved successfully');
+      }
+    });
+  },
+  //button to load existing glyphs
+'click #loadGlyphsIntoFlow'(event, instance) {
+  event.preventDefault();
+  console.log("DEBUG: loadGlyphsIntoFlow");
+  // Get the documentId and current page
+  const documentId = instance.currentDocument.get();
+  const currentPage = instance.currentPage.get();
+  const doc = Documents.findOne({_id: documentId});
+  if (!doc || !doc.pages || !doc.pages[currentPage] || !doc.pages[currentPage].lines) return;
+
+  // For each line, reconstruct the transcription from the words/glyphs
+  doc.pages[currentPage].lines.forEach((line, lineIdx) => {
+    if (!line.words) return;
+    // For each word, join the keybinds of its glyphs
+    const lineText = line.words.map(word => {
+      if (!word.glyphs) return '';
+      return word.glyphs.map(glyph => glyph.keybind || '').join('');
+    }).join(' ');
+    // Set the value of the input box for this line
+    $(`input[data-id="${lineIdx}"]`).val(lineText);
+  });
+},
+
+
+    
+  
+
+  'click #expandAll'(event, instance) {
+    event.preventDefault();
+    console.group('ExpandAll Debug');
+    
+    // Log before state
+    const beforeCount = $('.file-tree .collapse.show').length;
+    console.log('Collapse elements with .show before:', beforeCount);
+    
+    // Find all collapse elements in the file-tree and add the show class
+    $('.file-tree .collapse').addClass('show');
+    
+    // Log after state
+    const afterCount = $('.file-tree .collapse.show').length;
+    console.log('Collapse elements with .show after:', afterCount);
+    console.log('Total collapse elements:', $('.file-tree .collapse').length);
+    
+    // Update aria-expanded attribute for all toggler elements
+    $('.file-tree [data-bs-toggle="collapse"]').attr('aria-expanded', 'true');
+    
+    // Verify the aria-expanded attributes were updated
+    const expandedCount = $('.file-tree [data-bs-toggle="collapse"][aria-expanded="true"]').length;
+    console.log('Elements with aria-expanded="true":', expandedCount);
+    console.groupEnd();
+  },
+  
+  'click #collapseAll'(event, instance) {
+    event.preventDefault();
+    console.group('CollapseAll Debug');
+    
+    // Log before state
+    const beforeCount = $('.file-tree .collapse.show').length;
+    console.log('Collapse elements with .show before:', beforeCount);
+    
+    // Find all collapse elements in the file-tree and remove the show class
+    $('.file-tree .collapse').removeClass('show');
+    
+    // Log after state
+    const afterCount = $('.file-tree .collapse.show').length;
+    console.log('Collapse elements with .show after:', afterCount);
+    
+    // Update aria-expanded attribute for all toggler elements
+    $('.file-tree [data-bs-toggle="collapse"]').attr('aria-expanded', 'false');
+    
+    // Verify the aria-expanded attributes were updated
+    const expandedCount = $('.file-tree [data-bs-toggle="collapse"][aria-expanded="false"]').length;
+    console.log('Elements with aria-expanded="false":', expandedCount);
+    console.groupEnd();
+  },
+  
+  'click #expandAll'(event, instance) {
+    event.preventDefault();
+    // Find all collapse elements in the file-tree and add the show class
+    $('.file-tree .collapse').addClass('show');
+    // Update aria-expanded attribute for all toggler elements
+    $('.file-tree [data-bs-toggle="collapse"]').attr('aria-expanded', 'true');
+  },
+  
+  'click #collapseAll'(event, instance) {
+    event.preventDefault();
+    // Find all collapse elements in the file-tree and remove the show class
+    $('.file-tree .collapse').removeClass('show');
+    // Update aria-expanded attribute for all toggler elements
+    $('.file-tree [data-bs-toggle="collapse"]').attr('aria-expanded', 'false');
+  },
+  
+  // Add handler for "Add page after" button
+  'click .add-page-after': function(event, instance) {
+    event.preventDefault();
+    const pageIndex = $(event.currentTarget).data('id');
+    // Store the page index to insert after
+    $('#insertAfter').val(pageIndex);
+    $('#pageInsertionMessage').text(`Please specify the title and image of the new page. This page will be inserted after page ${pageIndex + 1}.`);
+    $('#createPageModal').modal('show');
+  },
+  
+  'submit #createPageForm'(event, template) {
+    event.preventDefault();
+    console.log("submitNewPage");
+
+    // Disable the submit button
+    $('#submitNewPage').prop('disabled', true);
+
+    // Get the title and file from the form
+    const title = $('#pageTitle').val();
+    const file = $('#newpageImage').get(0).files[0];
+    const documentId = template.currentDocument.get();
+    const insertAfter = $('#insertAfter').val(); // Get insertion position
+    console.log(`Filename: ${file.name}, Title: ${title}, DocumentId: ${documentId}, Insert after: ${insertAfter}`);
+
+    if (file) {
+      const upload = Files.insert({
+        file: file,
+        chunkSize: 'dynamic'
+      }, false);
+
+      upload.on('end', function(error, fileObj) {
+        if (error) {
+          console.log(error);
+          alert('Error uploading file');
+          $('#submitNewPage').prop('disabled', false);
+        } else {
+          console.log(fileObj);
+          
+          // Decide which method to use based on insertion point
+          if (insertAfter !== 'end') {
+            // Use new method for inserting at a specific index
+            Meteor.call('insertPageAtIndex', documentId, fileObj._id, Number(insertAfter), title, function(error, result) {
+              if (error) {
+                console.error('Error inserting page:', error);
+                alert('Error inserting page: ' + (error.reason || error.message));
+              } else {
+                console.log('Page inserted successfully:', result);
+                alert('Page inserted successfully');
+                // Clear fields
+                $('#pageTitle').val('');
+                $('#newpageImage').val('');
+                // Reset insertion point back to 'end'
+                $('#insertAfter').val('end');
+              }
+              
+              // Re-enable button and close modal
+              $('#submitNewPage').prop('disabled', false);
+              $('#createPageModal').modal('hide');
+            });
+          } else {
+            // Use original method for adding at the end
+            Meteor.call('addPageToDocument', documentId, fileObj._id, 'end', title, function(error, result) {
+              if (error) {
+                console.error('Error adding page:', error);
+                alert('Error adding page: ' + (error.reason || error.message));
+              } else {
+                console.log('Page added successfully:', result);
+                alert('Page added successfully');
+                // Clear fields
+                $('#pageTitle').val('');
+                $('#newpageImage').val('');
+                // Reset insertion point back to 'end'
+                $('#insertAfter').val('end');
+              }
+              
+              // Re-enable button and close modal
+              $('#submitNewPage').prop('disabled', false);
+              $('#createPageModal').modal('hide');
+            });
+          }
+        }
+      });
+      upload.start();
+    } else {
+      alert('Please select an image file for the page.');
+      $('#submitNewPage').prop('disabled', false);
+    }
+  },
+
+  // Document renaming handlers are already in the code but make sure they work
+  'dblclick #documentName'(event, instance) {
+    // Hide the document name and show the input box
+    $('#documentName').addClass('d-none');
+    $('#documentNameInput').removeClass('d-none').focus();
+  },
+  
+  'keypress #documentNameInput'(event, instance) {
+    if (event.key === 'Enter') {
+      // Get the new document name
+      const newTitle = $('#documentNameInput').val().trim();
+      const documentId = instance.currentDocument.get();
+
+      if (newTitle) {
+        // Call the server method to update the document title
+        Meteor.call('modifyDocument', documentId, { title: newTitle }, function(error, result) {
+          if (error) {
+            console.error("Error updating document:", error);
+          } else {
+            console.log("Document updated successfully:", result);
+          }
+        });
+      }
+      // Revert to display mode
+      $('#documentName').text(newTitle).show();
+      $('#documentNameInput').hide();
+    }
+  },
+  
+  'blur #documentNameInput'(event, instance) {
+    // Revert to display when input loses focus
+    $('#documentNameInput').addClass('d-none');
+    $('#documentName').removeClass('d-none');
+  },
+  
+  // Update addPage click handler to set insertion point to "end"
+  'click #addPage': function(event, instance) {
+    event.preventDefault();
+    // Set insertion point to "end" to add at the end of document
+    $('#insertAfter').val('end');
+    $('#pageInsertionMessage').text('Please specify the title and image of the new page. This page will be added at the end of the document.');
+    $('#createPageModal').modal('show');
+  },
+  
+  // Fix the previous page button by changing lastPage to prevPage
+  'click #prevPage'(event, instance) {
+    event.preventDefault();
+    
+    // Critical fix: Stop any other handlers from running
+    event.stopImmediatePropagation();
+    
+    // Ensure currentPage is a number
+    const currentPage = Number(instance.currentPage.get());
+    console.log("Previous page clicked, current page:", currentPage);
+    if (currentPage > 0) {
+      // Set the new page as a number
+      const newPage = Number(currentPage - 1);
+      instance.currentPage.set(newPage);
+      console.log("Setting page to:", newPage);
+      
+      // Explicitly fetch the new page data and display it
+      const documentId = instance.currentDocument.get();
+      if (documentId) {
+        const doc = Documents.findOne({_id: documentId});
+        if (doc && doc.pages && doc.pages[newPage] && doc.pages[newPage].pageId) {
+          const file = Files.findOne({_id: doc.pages[newPage].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+            console.log("Image updated to:", file.link());
+          } else {
+            console.error("File not found for pageId:", doc.pages[newPage].pageId);
+          }
+        } else {
+          console.error("Page not found for index:", newPage);
+        }
+      }
+    } else {
+      console.log("Already at first page");
+    }
+  },
+  
+  // Update the nextPage handler with strict event control
+  'click #nextPage'(event, instance) {
+    // Prevent default browser behavior
+    event.preventDefault();
+    
+    // Critical fix: Stop any other handlers from running
+    event.stopImmediatePropagation();
+    
+    // Ensure currentPage is a number
+    const currentPage = Number(instance.currentPage.get());
+    console.log("Next page clicked, current page:", currentPage);
+    const documentId = instance.currentDocument.get();
+    
+    if (documentId) {
+      const doc = Documents.findOne({_id: documentId});
+      const totalPages = doc.pages.length;
+      if (currentPage < totalPages - 1) {
+        // Set the new page as a number, keeping 0-indexed internally
+        const newPage = Number(currentPage + 1);
+        instance.currentPage.set(newPage);
+        
+        console.log("Setting page to:", newPage, "Display page:", newPage + 1);
+        
+        // Add image update logic for consistency with prev button
+        if (doc && doc.pages && doc.pages[newPage] && doc.pages[newPage].pageId) {
+          const file = Files.findOne({_id: doc.pages[newPage].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+            console.log("Image updated to:", file.link());
+          } else {
+            console.error("File not found for pageId:", doc.pages[newPage].pageId);
+          }
+        }
+      }
+    }
+  },
+
+  'click #deleteSelection'(event, instance) {
+    event.preventDefault();
+    console.group('CLIENT: Delete Button Action - Detailed Debug');
+    console.time('deleteOperation');
+    
+    try {
+      // Get the selected node from jsTree
+      console.log('Getting selected node from jsTree...');
+      const tree = $('#documentTree').jstree(true);
+      if (!tree) {
+        console.error('jsTree not initialized');
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        alert('Tree component not initialized. Please try refreshing the page.');
+        return;
+      }
+      
+      const selectedNodeIds = tree.get_selected();
+      console.log('Selected node IDs:', selectedNodeIds);
+      
+      if (!selectedNodeIds || selectedNodeIds.length === 0) {
+        console.log('Nothing selected to delete');
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        alert('Please select an item to delete');
+        return;
+      }
+      
+      const selectedNodeId = selectedNodeIds[0]; // Take the first selected node
+      const selectedNode = tree.get_node(selectedNodeId);
+      
+      console.log('Selected node details:', {
+        id: selectedNode.id,
+        text: selectedNode.text,
+        type: selectedNode.type,
+        parent: selectedNode.parent
+      });
+      
+      // Extract the node type and path from the node id
+      // Node IDs in jsTree are formatted like: page-0-line-0-word-0-glyph-0-element-0
+      console.log('Extracting node type and path from ID:', selectedNodeId);
+      const parts = selectedNodeId.split('-');
+      console.log('Split ID parts:', parts);
+      
+      if (parts.length < 2) {
+        console.error('Invalid node ID format:', selectedNodeId);
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        alert('Cannot determine item type to delete (invalid node ID format)');
+        return;
+      }
+      
+      // CRITICAL FIX: Instead of using the first part as the type,
+      // we need to determine the real item type based on the full path
+      // The type we want to delete is the last type in the path
+      const path = [];
+      let nodeType = '';
+      
+      // Extract indices from the ID (every odd position)
+      console.log('Extracting path indices and determining correct item type...');
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) {
+          // This is a type part (page, line, word, etc.)
+          nodeType = parts[i]; // Keep updating, so we'll end with the last type
+        } else {
+          // This is an index part
+          const index = parseInt(parts[i], 10);
+          if (isNaN(index)) {
+            console.error('Invalid path index in node ID:', selectedNodeId, 'at position', i);
+            console.timeEnd('deleteOperation');
+            console.groupEnd();
+            alert('Cannot determine item path to delete (invalid index in node ID)');
+            return;
+          }
+          path.push(index);
+        }
+      }
+      
+      console.log('Extracted node type and path:', {
+        nodeType: nodeType,
+        path: path,
+        pathString: path.join(',')
+      });
+      
+      // Get document ID
+      const documentId = instance.currentDocument.get();
+      if (!documentId) {
+        console.error('No document selected');
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        alert('No document selected. Please select a document first.');
+        return;
+      }
+      
+      console.log('Current document ID:', documentId);
+      
+      // Confirm deletion with a more descriptive message based on the item type
+      const itemTypeDisplay = nodeType.charAt(0).toUpperCase() + nodeType.slice(1);
+      
+      // Build a descriptive confirmation message
+      let confirmMessage;
+      switch(nodeType) {
+        case 'page':
+          confirmMessage = `Are you sure you want to delete Page ${path[0] + 1} and all its contents (lines, words, etc.)?`;
+          break;
+        case 'line':
+          confirmMessage = `Are you sure you want to delete Line ${path[1] + 1} on Page ${path[0] + 1} and all its contents (words, glyphs, etc.)?`;
+          break;
+        case 'word':
+          confirmMessage = `Are you sure you want to delete Word ${path[2] + 1} from Line ${path[1] + 1} on Page ${path[0] + 1} and all its contents?`;
+          break;
+        case 'glyph':
+          confirmMessage = `Are you sure you want to delete Glyph ${path[3] + 1} from Word ${path[2] + 1}, Line ${path[1] + 1} on Page ${path[0] + 1} and all its contents?`;
+          break;
+        case 'phoneme':
+          confirmMessage = `Are you sure you want to delete Phoneme ${path[3] + 1} from Word ${path[2] + 1}, Line ${path[1] + 1} on Page ${path[0] + 1}?`;
+          break;
+        case 'element':
+          confirmMessage = `Are you sure you want to delete Element ${path[4] + 1} from Glyph ${path[3] + 1}, Word ${path[2] + 1}, Line ${path[1] + 1} on Page ${path[0] + 1}?`;
+          break;
+        default:
+          confirmMessage = `Are you sure you want to delete this ${itemTypeDisplay} and all its children?`;
+      }
+      
+      console.log('Displaying confirmation dialog with message:', confirmMessage);
+      
+      if (!confirm(confirmMessage)) {
+        console.log('Deletion cancelled by user');
+        console.timeEnd('deleteOperation');
+        console.groupEnd();
+        return;
+      }
+      
+      console.log('User confirmed deletion. Calling server method...');
+      
+      // Call the server method to delete the item
+      console.log('Invoking Meteor.call with parameters:', {
+        method: 'deleteDocumentItem',
+        documentId: documentId,
+        nodeType: nodeType,
+        path: path
+      });
+      
+      Meteor.call('deleteDocumentItem', documentId, nodeType, path, (error, result) => {
+        if (error) {
+          console.error('Error from server:', error);
+          console.timeEnd('deleteOperation');
+          console.groupEnd();
+          alert(`Error deleting ${nodeType}: ${error.message}`);
+        } else {
+          console.log('Server response:', result);
+          console.timeEnd('deleteOperation');
+          console.log('Item deleted successfully. Refreshing tree...');
+          
+          // Find and close the tab associated with the deleted item
+          console.log('Looking for tab to close with type:', nodeType, 'and id:', path[path.length - 1]);
+          
+          // Get the tab element based on node type and last index in path
+          const tabId = path[path.length - 1];
+          const tabToClose = $(`#view-tab-template`).parent().children(`[data-type="${nodeType}"][data-id="${tabId}"]`);
+          
+          if (tabToClose.length > 0) {
+            console.log('Found tab to close:', tabToClose);
+            
+            // Find the tab to the left that we'll activate
+            let tabToActivate = tabToClose.prev(':not(#view-tab-template)');
+            
+            // If there's no tab to the left, try the tab to the right
+            if (tabToActivate.length === 0) {
+              tabToActivate = tabToClose.next();
+            }
+            
+            // If still no tab, default to the simple view tab
+            if (tabToActivate.length === 0 || tabToActivate.attr('id') === 'view-tab-template') {
+              tabToActivate = $('#simple-tab').parent();
+            }
+            
+            console.log('Will activate tab:', tabToActivate.attr('id'));
+            
+            // Close the tab for the deleted item
+            tabToClose.find('.close-tab').click();
+            
+            // Explicitly activate the selected tab
+            if (tabToActivate.length > 0) {
+              tabToActivate.children().addClass('active').attr('aria-selected', 'true');
+              
+              // Also set the current view based on the activated tab
+              const activatedType = tabToActivate.attr('data-type') || 'simple';
+              instance.currentView.set(activatedType);
+              
+              // Make sure the appropriate image is visible
+              if (activatedType === 'simple') {
+                $('#pageImage').show();
+                $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+              } else if (activatedType === 'line') {
+                $('#lineImage').show();
+                $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+              } else if (activatedType === 'word') {
+                $('#wordImage').show();
+                $('#pageImage, img#lineImage, img#glyphImage, img#elementImage').hide();
+              } else if (activatedType === 'glyph') {
+                $('#glyphImage').show();
+                $('#pageImage, img#lineImage, img#wordImage, img#elementImage').hide();
+              } else if (activatedType === 'element') {
+                $('#elementImage').show();
+                $('#pageImage, img#lineImage, img#wordImage, img#glyphImage').hide();
+              }
+              
+              // Reset toolbox to view mode
+              instance.currentTool.set('view');
+              resetToolbox();
+            }
+          }
+          
+          // Refresh the document tree
+          if ($.jstree && $.jstree.reference('#documentTree')) {
+            console.log('Reinitializing document tree');
+            
+            // Add a delay to allow the database to update
+            setTimeout(() => {
+              initDocumentTree(documentId);
+              alert(`${itemTypeDisplay} deleted successfully`);
+            }, 300);
+          } else {
+            console.warn('jsTree reference not available for refresh');
+            alert(`${itemTypeDisplay} deleted successfully. Please refresh the page to see changes.`);
+          }
+          console.groupEnd();
+        }
+      });
+    } catch (err) {
+      console.error('Unexpected error in delete handler:', err);
+      console.timeEnd('deleteOperation');
+      console.groupEnd();
+      alert(`An unexpected error occurred: ${err.message}`);
+    }
+  },
+
+  // Add jsTree node selection handler with detailed logging
+  'select_node.jstree #documentTree'(event, instance) {
+    console.group('DEBUG: jsTree Node Selection Handler');
+    console.time('nodeSelectionHandler');
+    console.log('Event triggered:', event);
+    console.log('Event type:', event.type);
+    console.log('Event target:', event.target);
+    console.log('Event currentTarget:', event.currentTarget);
+    
+    // Get the jsTree instance and selected node
+    const tree = $('#documentTree').jstree(true);
+    if (!tree) {
+      console.error('jsTree instance not found');
+      console.timeEnd('nodeSelectionHandler');
+      console.groupEnd();
+      return;
+    }
+    
+    console.log('jsTree instance found:', tree);
+    
+    const selectedNodeId = tree.get_selected()[0];
+    if (!selectedNodeId) {
+      console.error('No node selected');
+      console.timeEnd('nodeSelectionHandler');
+      console.groupEnd();
+      return;
+    }
+    
+    console.log('Selected node ID:', selectedNodeId);
+    
+    const nodeData = tree.get_node(selectedNodeId);
+    console.log('Node data:', nodeData);
+    
+    // Parse the node ID to extract type and path
+    const parsed = parseNodeId(selectedNodeId);
+    if (!parsed) {
+      console.error('Failed to parse node ID:', selectedNodeId);
+      console.timeEnd('nodeSelectionHandler');
+      console.groupEnd();
+      return;
+    }
+    
+    const { nodeType, path } = parsed;
+    console.log('Parsed node info:', { nodeType, path });
+    
+    // For page nodes, set current page and open a tab
+    if (nodeType === 'page') {
+      console.log('Processing page node. Current page before:', instance.currentPage.get());
+      
+      // Set current page (0-indexed internally)
+      instance.currentPage.set(path[0]);
+      console.log('Page set to:', path[0]);
+      
+      // Update the page image
+      const documentId = instance.currentDocument.get();
+      console.log('Document ID:', documentId);
+      
+      if (documentId) {
+        const doc = Documents.findOne({_id: documentId});
+        if (doc && doc.pages && doc.pages[path[0]] && doc.pages[path[0]].pageId) {
+          const file = Files.findOne({_id: doc.pages[path[0]].pageId});
+          console.log('File found for page:', file ? file._id : 'not found');
+          
+          if (file) {
+            const imageUrl = file.link();
+            console.log('Setting page image URL:', imageUrl);
+            $('#pageImage').attr('src', imageUrl);
+          }
+        } else {
+          console.error('Page data not found for path:', path[0]);
+        }
+      }
+      
+      console.log('About to call handleElementSelection with:', {type: 'page', id: path[0]});
+      // Call handleElementSelection to create a tab
+      handleElementSelection('page', path[0], instance);
+      console.log('handleElementSelection completed');
+    } else {
+      console.log('Not a page node, ignoring');
+    }
+    
+    console.timeEnd('nodeSelectionHandler');
+    console.groupEnd();
+  },
+  
+  // Fix page selection click handler too
+  'click .pagesel'(event, instance) {
+    // Don't trigger page change if clicking on the control buttons
+    if ($(event.target).closest('.page-controls').length) {
+      return;
+    }
+    
+    // Get the 0-indexed page number from data attribute
+    const pageIndex = Number($(event.currentTarget).data('id'));
+    console.log("Page selected:", pageIndex, "Display page:", pageIndex + 1);
+    
+    if (!isNaN(pageIndex)) {
+      // Set current page (0-indexed internally)
+      instance.currentPage.set(pageIndex);
+      
+      // Update the page image
+      const documentId = instance.currentDocument.get();
+      if (documentId) {
+        const doc = Documents.findOne({_id: documentId});
+        if (doc && doc.pages && doc.pages[pageIndex] && doc.pages[pageIndex].pageId) {
+          const file = Files.findOne({_id: doc.pages[pageIndex].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+          }
+        }
+      }
+    }
+  },
+  
+  // ...existing code...
+});
 
 //function to reset all buttons in toolbox-container to btn-light
 function resetToolbox() {
@@ -540,6 +1534,7 @@ function resetToolbox() {
       $('#createLine').show();
       $('#searchGlyphs').show();
       $('#selectItem').show();
+      $('#flowView').show();
     }
     if(currentTool == 'createLine') {
       hideAllToolButtons();
@@ -548,7 +1543,7 @@ function resetToolbox() {
     }
     if(currentTool == 'select') {
       hideAllToolButtons();
-      $('selectItem').removeClass('btn-light').addClass('btn-dark');
+      $('#selectItem').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
     }
    } else if (currentView == 'line') {
@@ -558,7 +1553,6 @@ function resetToolbox() {
       $('#viewTool').show();
       $('#createWord').show();
       $('#selectItem').show();
-      $('#textFlow').show();
       $('#viewTool').removeClass('btn-light').addClass('btn-dark');
     } 
     if(currentTool == 'select') {
@@ -633,6 +1627,16 @@ function resetToolbox() {
           confirmTool: $('#confirmTool').is(':visible')
         });
       }
+  } else if(currentView == 'flow') {
+    console.log("DEBUG: resetToolbox - in flow view with view tool");
+    hideAllToolButtons();
+    $('.toolbox-container button').removeClass('btn-dark').addClass('btn-light')
+    // Show view tool for flow view
+    $('#viewTool').show();
+    $('#viewTool').removeClass('btn-light').addClass('btn-dark');
+    console.log("DEBUG: resetToolbox - flow view buttons visibility:", {
+      viewTool: $('#viewTool').is(':visible')
+    });
   } else if(currentView == 'element') {
     if(currentTool == 'view') {
       console.log("DEBUG: resetToolbox - configuring view tool for element view");
@@ -881,13 +1885,9 @@ function setImage(type, id) {
 
 //function to initialize cropper
 function initCropper(type) {
-  //set the image-container height and width values to 100%
-  document.getElementsByClassName('image-container')[0].style.height = '100%';
-  document.getElementsByClassName('image-container')[0].style.width = '100%';
   //replace the image with a canvas that has the same dimensions and source
   if (type == 'page') {
     divId = document.getElementById('pageImage');
-    
   }
   if (type == 'line') {
     divId = document.getElementById('lineImage');
@@ -907,9 +1907,6 @@ function initCropper(type) {
   //get calculated width and height of the div
   height = window.getComputedStyle(divId).height;
   width = window.getComputedStyle(divId).width;
-  
-  // Debug log original dimensions
-  console.log(`initCropper (${type}): Original element dimensions - width=${width}, height=${height}`);
   
   src = divId.src;
   
@@ -935,35 +1932,30 @@ function initCropper(type) {
     canvas.height = image.height;
   }
   
-  // Debug log image and canvas dimensions
-  console.log(`Image dimensions: width=${image.width}, height=${image.height}`);
-  console.log(`Canvas dimensions: width=${canvas.width}, height=${canvas.height}`);
-  
-  // Set the height on the canvas style to match the parent container
-  canvas.style.height = `${window.innerHeight}px`;
+  // Set the height on the canvas style
+  canvas.style.height = height;
   
   const context = canvas.getContext('2d');
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-  // Calculate scaling factors with accurate measurement
-  const xScaling = canvas.width / parseFloat(width);
-  const yScaling = canvas.height / parseFloat(height);
-  console.log(`Calculated scaling factors: xScaling=${xScaling}, yScaling=${yScaling}`);
-  
-  Template.instance().yScaling.set(yScaling);
-  Template.instance().xScaling.set(xScaling);
-
-  
+  xScaling = canvas.width / divId.width;
+  yScaling = canvas.height / divId.height;
+  console.log("xScaling is " + xScaling + ". yScaling is " + yScaling);
+  Template.instance().yScaling.set(canvas.height / divId.height);
+  Template.instance().xScaling.set(canvas.width / divId.width);
 
   //set the width and height of the canvas to the width and height of the div
-  canvas.style.width = divId.style.width / xScaling;
+  canvas.style.width = divId.style.width;
   canvas.style.height = divId.style.height / yScaling;
 
-  //matche the positioning of the divId's parent 
-  canvas.style.left = $('#' + divId.id).parent().position().left;
-  canvas.style.top = $('#' + divId.id).parent().position().top;
-  //set the canvas position to absolute
-  
+  //add absolute positioning to the canvas at 0,0
+  canvas.style.position = 'absolute';
+  canvas.style.left = '0';
+  canvas.style.top = '0';
+  canvas.style.zIndex = '9999'; 
+
+  //center the canvas vertically
+  canvas.style.marginTop = (parseInt(height) - parseInt(canvas.style.height)) / 2 + 'px';
 
   //set the id to the same id as the div
   canvas.id = divId.id;
@@ -975,64 +1967,59 @@ function initCropper(type) {
 
 //replace the image with a canvas that has the same dimensions and source
 function replaceWithOriginalImage() {
-  const instance = Template.instance();
-  if (!instance) {
-    console.warn("replaceWithOriginalImage: Template.instance() is null.");
-    return;
-  }
+  //remove the cropper from the DOM
+  const cropper = Template.instance().cropper.get();
+  const currentView = Template.instance().currentView.get();
   
-  // Remove the temporary image clone if it exists
-  const tempClone = document.getElementById('temp-image-clone');
-  if (tempClone) {
-    tempClone.parentNode.removeChild(tempClone);
-  }
-  
-  const cropper = instance.cropper ? instance.cropper.get() : null;
   if (cropper) {
     cropper.destroy();
-    instance.cropper.set(false);
+    Template.instance().cropper.set(false);
   }
   
   // More thorough cleanup - remove any cropper containers that might be left
   $('.cropper-container').remove();
   
-  // In simple view with select tool active, make sure image stays visible
-  if (instance.currentView.get() === 'simple' && instance.currentTool.get() === 'select') {
-    $('#pageImage').show(); // Ensure image is visible during selection
-    // Don't hide the selection elements in this case
+  // Show the appropriate image based on current view
+  if (currentView === 'simple') {
+    $('#pageImage').show();
+    // Hide all other view-specific images
+    $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+  } else if(currentView == 'line') {
+    $('#lineImage').show();
+    // Hide other view-specific images
+    $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+  } else if(currentView == 'word') {
+    $('#wordImage').show();
+    // Hide other view-specific images
+    $('#pageImage, img#lineImage, img#glyphImage, img#elementImage').hide();
+  } else if(currentView == 'glyph') {
+    $('#glyphImage').show();
+    // Hide other view-specific images
+    $('#pageImage, img#lineImage, img#wordImage, img#elementImage').hide();
+  } else if(currentView == 'element') {
+    $('#elementImage').show();
+    // Hide other view-specific images
+    $('#pageImage, img#lineImage, img#wordImage, img#glyphImage').hide();
   } else {
-    // Show the appropriate image based on current view
-    if (instance.currentView.get() === 'simple') {
-      $('#pageImage').show();
-      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
-    } else if (instance.currentView.get() === 'line') {
-      $('#lineImage').show();
-      $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
-    } else if (instance.currentView.get() === 'word') {
-      $('#wordImage').show();
-      $('#pageImage, img#lineImage, img#glyphImage, img#elementImage').hide();
-    } else if (instance.currentView.get() === 'glyph') {
-      $('#glyphImage').show();
-      $('#pageImage, img#lineImage, img#wordImage, img#elementImage').hide();
-    } else if (instance.currentView.get() === 'element') {
-      $('#elementImage').show();
-      $('#pageImage, img#lineImage, img#wordImage, img#glyphImage').hide();
-    } else {
-      $('#pageImage').hide();
-    }
+    // For any other view, keep the pageImage hidden
+    $('#pageImage').hide();
   }
   
   // We need to be more selective here - only remove canvas elements that were created
   // for the cropper, not the ones used for drawing rectangles
-  if (instance.currentView.get() === 'simple') {
-    $('#pageImage').parent().children('canvas').remove();
+  if (currentView === 'simple') {
+    // In simple view we can clean up all canvas elements except those with specific classes
+    $('#pageImage').parent().children('canvas:not(.preserve-canvas)').remove();
   } else {
-    const imageId = instance.currentView.get() === 'line' ? 'lineImage' : 
-                    instance.currentView.get() === 'word' ? 'wordImage' : 
-                    instance.currentView.get() === 'glyph' ? 'glyphImage' : 'pageImage';
+    // In other views, we only remove canvas elements that have the same ID as our image
+    // This ensures we don't remove canvas elements used for drawing rectangles
+    const imageId = currentView === 'line' ? 'lineImage' : 
+                    currentView === 'word' ? 'wordImage' : 
+                    currentView === 'glyph' ? 'glyphImage' : 'pageImage';
     $(`canvas#${imageId}`).remove();
   }
   
+  // Fix: remove any extra #wordImage with the "img-fluid" class
   const duplicates = document.querySelectorAll('img#wordImage.img-fluid');
   if (duplicates.length > 1) {
     duplicates.forEach((img, i) => {
@@ -1042,20 +2029,15 @@ function replaceWithOriginalImage() {
     });
   }
   
-  const currentTool = instance.currentTool.get();
+  // Remove any selectElement buttons that might be lingering
+  // but ONLY if they were created by the current tool, not others
+  const currentTool = Template.instance().currentTool.get();
   if (currentTool === 'createWord' || currentTool === 'createLine' || 
       currentTool === 'createGlyph' || currentTool === 'createPhoneme' ||
       currentTool === 'createElement') {
     $('.selectElement').remove();
   }
   
-  // Ensure images maintain proper scaling when restored
-  $('#pageImage, #lineImage, #wordImage, #glyphImage, #elementImage').css({
-    'max-width': '100%',
-    'max-height': '100%',
-    'object-fit': 'contain'
-  });
-
   console.log("replaceWithOriginalImage: Cleaned up canvas and button elements");
 }
 
@@ -1080,6 +2062,16 @@ function debugGlyphButton(element, eventType) {
 }
 
 Template.viewPage.helpers({
+  warnings() {
+    const instance = Template.instance();
+    const warnings = instance.warnings.get();
+    console.log("DEBUG: viewPage - warnings", warnings);
+    if (warnings) {
+      return warnings;
+    } else {
+      return false;
+    }
+  },
   currentDocument() {
     const instance = Template.instance();
     documentId = instance.currentDocument.get();
@@ -1159,9 +2151,8 @@ Template.viewPage.helpers({
   currentPageNumber() {
     const instance = Template.instance();
     const currentPage = parseInt(instance.currentPage.get());
-    console.log("currentPage is " + currentPage);
     if (currentPage !== null && currentPage !== undefined) {
-      // Add 1 to convert from 0-based index to 1-based page number for display
+      // Always display 1-indexed page numbers to users
       return currentPage + 1;
     } else {
       return 1;
@@ -1172,17 +2163,9 @@ Template.viewPage.helpers({
     const instance = Template.instance();
     return instance.currentLine.get();
   },
-  // Remove the first totalPages helper function to avoid duplication
   
-  toolOptions() {
-    const instance = Template.instance();
-    const tool = instance.currentTool.get();
-    return tool;
-  },
-  toolOptionsData() {
-    const instance = Template.instance();
-    return tool = instance.currentTool;
-  },
+
+
   currentTool() {
     const instance = Template.instance();
     return instance.currentTool.get();
@@ -1230,7 +2213,6 @@ Template.viewPage.helpers({
     const instance = Template.instance();
     return instance.currentDiscussion.get();
   },
-  // Keep only one totalPages helper and make sure it's correct
   totalPages() {
     const instance = Template.instance();
     const documentId = instance.currentDocument.get();
@@ -1243,22 +2225,114 @@ Template.viewPage.helpers({
     }
     return 0;
   },
+  jsTreeInitialized() {
+    return $.fn.jstree && $('#documentTree').data('jstree') !== undefined;
+  },
+  // Helper to generate data for each page in the document
+  pageInDocument() {
+    const instance = Template.instance();
+    const documentId = instance.currentDocument.get();
+    
+    if (!documentId) return [];
+    
+    const doc = Documents.findOne({_id: documentId});
+    if (!doc || !doc.pages) return [];
+    
+    return doc.pages.map((page, index) => {
+      // Get page image URL
+      let pageImage = "";
+      if (page.pageId) {
+        const file = Files.findOne({_id: page.pageId});
+        if (file) {
+          pageImage = file.link();
+        }
+      }
+      
+      // Safe display number conversion
+      const displayNumber = index + 1;
+      
+      // Handle title safely
+      // Only use custom title if it exists and is not the default "Page X" format
+      let pageTitle = "";
+      if (page.title && typeof page.title === 'string') {
+        // Don't include title if it's already in "Page X" format
+        if (!page.title.startsWith(`Page ${displayNumber}`)) {
+          pageTitle = page.title;
+        }
+      }
+      
+      return {
+        page: index,
+        displayNumber: displayNumber,
+        pageImage: pageImage,
+        pageTitle: pageTitle
+      };
+    });
+  },
+  
+  // Helper to check if a page is the current page
+  isCurrentPage(pageIndex) {
+    const instance = Template.instance();
+    return Number(instance.currentPage.get()) === Number(pageIndex);
+  },
+  
+  // Helper to get page title
+  pageTitle(pageIndex) {
+    const instance = Template.instance();
+    const documentId = instance.currentDocument.get();
+    
+    if (documentId && pageIndex !== undefined) {
+      const doc = Documents.findOne({_id: documentId});
+      if (doc && doc.pages && doc.pages[pageIndex]) {
+        return doc.pages[pageIndex].title || `Page ${pageIndex + 1}`;
+      }
+    }
+    return `Page ${pageIndex + 1}`;
+  },
+  documentTitle() {
+    const instance = Template.instance();
+    const documentId = instance.currentDocument.get();
+    
+    if (documentId) {
+      const doc = Documents.findOne({_id: documentId});
+      if (doc && doc.title) {
+        // Remove "New Sample" prefix if present
+        if (doc.title.startsWith('New Sample')) {
+          return doc.title.substring('New Sample'.length).trim();
+        }
+        return doc.title;
+      }
+    }
+    return "Untitled Document";
+  },
+ 
 });
 
 Template.viewPage.events({
+  'mouseover #ToolBox'(event, instance) {
+    console.log("mouseover");
+    //make sure the opacity is 1
+    $('#ToolBox').fadeTo(100, 1);
+    //set the background color to bootstrap's light color
+    $('#ToolBox').css('background-color', '#f8f9fa');
+  },
+  'mouseleave #ToolBox'(event, instance) {
+    console.log("mouseout");
+    //fade out the toolbox
+    $('#ToolBox').fadeTo(100, 0.8);
+    //set background color to transparent
+    $('#ToolBox').css('background-color', 'transparent');
+  },
   'mouseover #HelpBox'(event, instance) {
     //opacity on mouseover if the currentTool is 'createLine', 'createWord', or 'createPhoneme'
-    $('#HelpBox').fadeTo(100, 0.0);
+    $('#HelpBox').fadeTo(100, 1);
   },
   'mouseleave #HelpBox'(event, instance) {
     //opacity on mouseleave if the currentTool is 'createLine', 'createWord', or 'createPhoneme'
-    $('#HelpBox').fadeTo(100, 0.7);    
+    $('#HelpBox').fadeTo(100, 0.2);    
   },
 
   'click #exitTool'(event, instance) {
-    //remove the image-container width and height
-    document.getElementsByClassName('image-container')[0].style.width = '';
-    document.getElementsByClassName('image-container')[0].style.height = '';
     // Log the current state
     const currentView = instance.currentView.get();
     console.log(`Exiting tool in view: ${currentView}`);
@@ -1304,21 +2378,13 @@ Template.viewPage.events({
       const documentId = instance.currentDocument.get();
       if (documentId) {
         const doc = Documents.findOne({_id: documentId});
-        if (doc && doc.pages && doc.pages[newPage]) {
-          const page = doc.pages[newPage];
-          console.log("Navigating to page:", page);
-          
-          // Update the image manually
-          if (page.pageId) {
-            const file = Files.findOne({_id: page.pageId});
-            if (file) {
-              $('#pageImage').attr('src', file.link());
-              console.log("Image updated to:", file.link());
-            } else {
-              console.error("File not found for pageId:", page.pageId);
-            }
+        if (doc && doc.pages && doc.pages[newPage] && doc.pages[newPage].pageId) {
+          const file = Files.findOne({_id: doc.pages[newPage].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+            console.log("Image updated to:", file.link());
           } else {
-            console.error("No pageId found for page:", newPage);
+            console.error("File not found for pageId:", doc.pages[newPage].pageId);
           }
         } else {
           console.error("Page not found for index:", newPage);
@@ -1330,6 +2396,10 @@ Template.viewPage.events({
   },
   'click #nextPage'(event, instance) {
     event.preventDefault();
+    
+    // Critical fix: Stop any other handlers from running
+    event.stopImmediatePropagation();
+    
     // Ensure currentPage is a number
     const currentPage = Number(instance.currentPage.get());
     const documentId = instance.currentDocument.get();
@@ -1337,9 +2407,11 @@ Template.viewPage.events({
       const doc = Documents.findOne({_id: documentId});
       const totalPages = doc.pages.length;
       if (currentPage < totalPages - 1) {
-        // Set the new page as a number
-        instance.currentPage.set(Number(currentPage + 1));
-        console.log("Setting page to:", Number(currentPage + 1));
+        // Set the new page as a number, keeping 0-indexed internally
+        const newPage = Number(currentPage + 1);
+        instance.currentPage.set(newPage);
+        
+        console.log("Setting page to:", newPage, "Display page:", newPage + 1);
       }
     }
   },
@@ -1384,284 +2456,214 @@ Template.viewPage.events({
   },
 
   'click #selectItem'(event, instance) {
-    event.preventDefault();
-    container = document.getElementsByClassName('image-container')[0];
-    imgChildren = container.children;
-    for (let i = 0; i < imgChildren.length; i++) {
-      imgChildren[i].style.width = '';
-      imgChildren[i].style.height = '';
+  event.preventDefault();
+  instance.currentTool.set('select');
+  resetToolbox();
+  //set the currentTool to btn-dark
+  $('#selectItem').removeClass('btn-light').addClass('btn-dark');
+  selectedLine = instance.currentLine.get();
+  selectedWord = instance.currentWord.get();
+  selectedGlyph = instance.currentGlyph.get();
+  currentView = instance.currentView.get();
+  console.log("selectedLine is " + selectedLine);
+  if (currentView == 'simple') {
+    image = initCropper("page");
+    const context = image.getContext('2d');
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const lines = Documents.findOne({_id: documentId}).pages[page].lines;
+    //if there are no lines, simulate clicking the exitTool button
+    if (lines.length == 0) {
+      alert("No lines to display. Use the Create Line tool to create a line.");
+      $('#exitTool').click();
+      return;
     }
-    instance.currentTool.set('select');
-    resetToolbox();
-    //set the currentTool to btn-dark
-    $('#selectItem').removeClass('btn-light').addClass('btn-dark');
-    selectedLine = instance.currentLine.get();
-    selectedWord = instance.currentWord.get();
-    selectedGlyph = instance.currentGlyph.get();
-    currentView = instance.currentView.get();
-    console.log("selectedLine is " + selectedLine);
-    if (currentView == 'simple') {
-      image = initCropper("page");
-      const context = image.getContext('2d');
-      const page = instance.currentPage.get();
-      const documentId = instance.currentDocument.get();
-      const lines = Documents.findOne({_id: documentId}).pages[page].lines;
-      //if there are no lines, simulate clicking the exitTool button
-      if (lines.length == 0) {
-        alert("No lines to display. Use the Create Line tool to create a line.");
-        $('#exitTool').click();
-        return;
-      }
-      //sort the lines by y1
-      lines.sort(function(a, b) {
-        return a.y1 - b.y1;
+    //sort the lines by y1
+    lines.sort(function(a, b) {
+      return a.y1 - b.y1;
+    });
+    //split the canvas into multiple canvases by line
+    lines.forEach(function(line) {
+      index = lines.indexOf(line);
+      drawButton(image, 0, line.y1, image.width, line.height, 'line', index, index);
+    });
+    //hide the original image with display none
+    setCurrentHelp('To select a line, click on the line.  To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
+  }
+  if(currentView == 'line') {
+    //get $('#lineImage') and change it from img-fluid to a calculated width and height
+    calcWidth = $('#lineImage').width();
+    calcHeight = $('#lineImage').height();
+    $('#lineImage').removeClass('img-fluid');
+    //add width and height to the lineImage's style
+    $('#lineImage').css('width', calcWidth + 'px');
+    $('#lineImage').css('height', calcHeight + 'px');
+    
+    // Store original image source and visibility state for restoration
+    const originalSrc = $('#lineImage').attr('src');
+    
+    image = initCropper("line");
+    const context = image.getContext('2d');
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const words = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words;
+    //if there are no words, simulate clicking the exitTool button
+    if (words.length == 0) {
+      alert("No words to display. Use the Create Word tool to create a word.");
+      $('#exitTool').click();
+      return;
+    }
+    //sort the words by x1
+    words.sort(function(a, b) {
+      return a.x - b.x;
+    });
+    //split the canvas into multiple canvases by word
+    words.forEach(function(word) {
+      index = words.indexOf(word);
+      drawButton(image, word.x, 0, word.width, image.height, 'word', index, index);
+    });
+    //hide the original image with display none
+    setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
+    
+    // Ensure the selection boxes appear immediately but also make sure lineImage is visible
+    replaceWithOriginalImage();
+    
+    // Make sure lineImage is shown and has the original source
+    $('#lineImage').show();
+    if (originalSrc) {
+      $('#lineImage').attr('src', originalSrc);
+    }
+  }
+  if(currentView == 'word') {
+    //get $('#wordImage') and change it from img-fluid to a calculated width and height
+    calcWidth = $('#wordImage').width();
+    calcHeight = $('#wordImage').height();
+    $('#wordImage').removeClass('img-fluid');
+    //add width and height to the wordImage's style
+    $('#wordImage').css('width', calcWidth + 'px');
+    $('#wordImage').css('height', calcHeight + 'px');
+    image = initCropper("word");
+    const context = image.getContext('2d');
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const doc = Documents.findOne({_id: documentId});
+    const lineId = instance.currentLine.get();
+    const wordId = instance.currentWord.get();
+    const word = doc.pages[page].lines[lineId].words[wordId];
+    const phonemes = word.phonemes || [];
+    const glyphs = word.glyphs || word.glyph || []; // Handle both possible property names
+    
+    console.log("Found phonemes:", phonemes.length);
+    console.log("Found glyphs:", glyphs.length);
+    
+    // Check if there are no elements to display
+    if (phonemes.length === 0 && glyphs.length === 0) {
+      alert("No phonemes or glyphs to display. Use the Create Phoneme or Create Glyph tool to create a phoneme or glyph.");
+      $('#exitTool').click();
+      return;
+    }
+    
+    //sort the phonemes by x
+    if (phonemes.length > 0) {
+      phonemes.sort(function(a, b) {
+        return a.x - b.x;
+      });
+      //split the canvas into multiple canvases by phoneme
+      phonemes.forEach(function(phoneme) {
+        index = phonemes.indexOf(phoneme);
+        drawButton(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
+      });
+    }
+    
+    //sort the glyphs by x
+    if (glyphs.length > 0) {
+      glyphs.sort(function(a, b) {
+        return a.x - b.x;
+      });
+      console.log(`Found ${glyphs.length} glyphs to display in word view`);
+      
+      //split the canvas into multiple canvases by glyph
+      glyphs.forEach(function(glyph) {
+        index = glyphs.indexOf(glyph);
+        console.log("Drawing glyph button at:", glyph.x, 0, glyph.width, image.height);
+        drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
       });
       
-      // Debug output line information before drawing buttons
-      console.log(`Found ${lines.length} lines to display`);
-      lines.forEach((line, idx) => {
-        console.log(`Line ${idx}: y1=${line.y1}, height=${line.height}, width=${image.width}`);
-      });
-      
-      // Apply scaling to make boxes appear at appropriate size
-      // Calculate one scaling factor for all buttons for consistency
-      const domImage = document.getElementById('pageImage');
-      const imageRect = domImage ? domImage.getBoundingClientRect() : null;
-      const scaleFactor = imageRect && imageRect.height ? imageRect.height / image.height : 0.1;
-      console.log(`Using scaleFactor for all boxes: ${scaleFactor}`);
-      
-      // Store the scale factor in the instance for reuse in drawButton
-      instance.boxScaleFactor = scaleFactor;
-
-      //get the current relative position of the pageImage
-      const pageImg = document.getElementById('pageImage');
-      const imgRect = pageImg ? pageImg.getBoundingClientRect() : null;
-      console.log(`pageImage dimensions for rescaling: ${imgRect.width} x ${imgRect.height}`);
-
-      //get the original relative x position of the pageImage
-      const pageImgX = imgRect ? imgRect.x : 0;
-      const pageImgY = imgRect ? imgRect.y : 0;
-      console.log(`pageImage relative position: x=${pageImgX}, y=${pageImgY}`);
-      
-
-
-      
-      // Draw each line with appropriate scaling
-      lines.forEach(function(line, index) {
-        console.log(`Drawing button for line ${index} at y=${line.y1}, height=${line.height}`);
-        drawButton(image, 0, line.y1, image.width, line.height, 'line', index, index);
-      });
-      
-      //hide the original image with display none
-      setCurrentHelp('To select a line, click on the line. To cancel, click the close tool button.');
-      
-      // For browsers that need time to calculate accurate dimensions
+      // After creating all the glyph buttons, add a debug message
       setTimeout(() => {
-        // Run one more check to adjust any boxes that might be misplaced
-        const buttons = document.querySelectorAll('.selectElement[data-type="line"]');
-        console.log(`Found ${buttons.length} line buttons for final positioning check`);
-        
-        // If we still have issues, try an alternate approach with pageImage as reference
-        if (buttons.length > 0 && parseFloat(buttons[0].style.height) < 10) {
-          const pageImg = document.getElementById('pageImage');
-          if (pageImg) {
-            const imgRect = pageImg.getBoundingClientRect();
-            console.log(`pageImage dimensions for rescaling: ${imgRect.width} x ${imgRect.height}`);
-            
-            buttons.forEach((btn, idx) => {
-              if (idx < lines.length) {
-                const line = lines[idx];
-                const lineY = line.y1 / image.height * imgRect.height;
-                const lineHeight = line.height / image.height * imgRect.height;
-                
-                btn.style.top = `${lineY}px`;
-                btn.style.height = `${lineHeight}px`;
-                btn.style.width = `${imgRect.width}px`;
-                console.log(`Adjusted button ${idx} to: top=${btn.style.top}, height=${btn.style.height}, width=${btn.style.width}`);
-              }
-            });
-          }
-        }
-        
-        // Make sure the page image is visible behind the selection boxes
-        $('#pageImage').show();
-        $('#pageImage').css('z-index', '5000');
-        
-        replaceWithOriginalImage();
-      }, 250);
-    }
-    if(currentView == 'line') {
-      //get $('#lineImage') and change it from img-fluid to a calculated width and height
-      calcWidth = $('#lineImage').width();
-      calcHeight = $('#lineImage').height();
-      $('#lineImage').removeClass('img-fluid');
-      //add width and height to the lineImage's style
-      $('#lineImage').css('width', calcWidth + 'px');
-      $('#lineImage').css('height', calcHeight + 'px');
-      
-      // Store original image source and visibility state for restoration
-      const originalSrc = $('#lineImage').attr('src');
-      
-      image = initCropper("line");
-      const context = image.getContext('2d');
-      const page = instance.currentPage.get();
-      const documentId = instance.currentDocument.get();
-      const words = Documents.findOne({_id: documentId}).pages[page].lines[selectedLine].words;
-      //if there are no words, simulate clicking the exitTool button
-      if (words.length == 0) {
-        alert("No words to display. Use the Create Word tool to create a word.");
-        $('#exitTool').click();
-        return;
-      }
-      //sort the words by x1
-      words.sort(function(a, b) {
-        return a.x - b.x;
-      });
-      //split the canvas into multiple canvases by word
-      words.forEach(function(word) {
-        index = words.indexOf(word);
-        drawButton(image, word.x, 0, word.width, image.height, 'word', index, index);
-      });
-      //hide the original image with display none
-      setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
-      
-      // Ensure the selection boxes appear immediately but also make sure lineImage is visible
-      replaceWithOriginalImage();
-      
-      // Make sure lineImage is shown and has the original source
-      $('#lineImage').show();
-      if (originalSrc) {
-        $('#lineImage').attr('src', originalSrc);
-      }
-    }
-    if(currentView == 'word') {
-      //get $('#wordImage') and change it from img-fluid to a calculated width and height
-      calcWidth = $('#wordImage').width();
-      calcHeight = $('#wordImage').height();
-      $('#wordImage').removeClass('img-fluid');
-      //add width and height to the wordImage's style
-      $('#wordImage').css('width', calcWidth + 'px');
-      $('#wordImage').css('height', calcHeight + 'px');
-      image = initCropper("word");
-      const context = image.getContext('2d');
-      const page = instance.currentPage.get();
-      const documentId = instance.currentDocument.get();
-      const doc = Documents.findOne({_id: documentId});
-      const lineId = instance.currentLine.get();
-      const wordId = instance.currentWord.get();
-      const word = doc.pages[page].lines[lineId].words[wordId];
-      const phonemes = word.phonemes || [];
-      const glyphs = word.glyphs || word.glyph || []; // Handle both possible property names
-      
-      console.log("Found phonemes:", phonemes.length);
-      console.log("Found glyphs:", glyphs.length);
-      
-      // Check if there are no elements to display
-      if (phonemes.length === 0 && glyphs.length === 0) {
-        alert("No phonemes or glyphs to display. Use the Create Phoneme or Create Glyph tool to create a phoneme or glyph.");
-        $('#exitTool').click();
-        return;
-      }
-      
-      //sort the phonemes by x
-      if (phonemes.length > 0) {
-        phonemes.sort(function(a, b) {
-          return a.x - b.x;
+        const glyphButtons = document.querySelectorAll('button[data-type="glyph"]');
+        console.log(`Glyph buttons created: ${glyphButtons.length}`);
+        glyphButtons.forEach(btn => {
+          console.log(`Glyph button: ID=${btn.getAttribute('data-id')}, Classes=${btn.className}`);
         });
-        //split the canvas into multiple canvases by phoneme
-        phonemes.forEach(function(phoneme) {
-          index = phonemes.indexOf(phoneme);
-          drawButton(image, phoneme.x, 0, phoneme.width, image.height, 'phoneme', index, index);
-        });
-      }
-      
-      //sort the glyphs by x
-      if (glyphs.length > 0) {
-        glyphs.sort(function(a, b) {
-          return a.x - b.x;
-        });
-        console.log(`Found ${glyphs.length} glyphs to display in word view`);
-        
-        //split the canvas into multiple canvases by glyph
-        glyphs.forEach(function(glyph) {
-          index = glyphs.indexOf(glyph);
-          console.log("Drawing glyph button at:", glyph.x, 0, glyph.width, image.height);
-          drawButton(image, glyph.x, 0, glyph.width, image.height, 'glyph', index, index);
-        });
-        
-        // After creating all the glyph buttons, add a debug message
-        setTimeout(() => {
-          const glyphButtons = document.querySelectorAll('button[data-type="glyph"]');
-          console.log(`Glyph buttons created: ${glyphButtons.length}`);
-          glyphButtons.forEach(btn => {
-            console.log(`Glyph button: ID=${btn.getAttribute('data-id')}, Classes=${btn.className}`);
-          });
-        }, 100);
-      }
-      
-      //hide the original image with display none
-      setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph. To cancel, click the close tool button.');
-      // Ensure the selection boxes appear immediately
-      replaceWithOriginalImage();
+      }, 100);
     }
-    if(currentView == 'glyph') {
-      // Instead of just exiting the tool, implement element selection
-      console.log("Initializing element selection in glyph view");
-      
-      // Get calculated dimensions of the glyph image
-      calcWidth = $('#glyphImage').width();
-      calcHeight = $('#glyphImage').height();
-      $('#glyphImage').removeClass('img-fluid');
-      // Add width and height to the glyphImage's style
-      $('#glyphImage').css('width', calcWidth + 'px');
-      $('#glyphImage').css('height', calcHeight + 'px');
-      
-      // Initialize the cropper
-      image = initCropper("glyph");
-      const context = image.getContext('2d');
-      
-      // Get document and glyph data
-      const page = instance.currentPage.get();
-      const documentId = instance.currentDocument.get();
-      const doc = Documents.findOne({_id: documentId});
-      const lineId = instance.currentLine.get();
-      const wordId = instance.currentWord.get();
-      const glyphId = instance.currentGlyph.get();
-      
-      // Access the word to get its glyph
-      const line = doc.pages[page].lines[lineId];
-      const word = line.words[wordId];
-      const glyphsArray = word.glyphs || word.glyph || [];
-      const glyph = glyphsArray[glyphId];
-      
-      // Check if the glyph has elements
-      const elements = glyph.elements || [];
-      
-      // If there are no elements, show a message and exit
-      if (elements.length === 0) {
-        alert("No elements to display. Use the Create Element tool to create elements within this glyph.");
-        $('#exitTool').click();
-        return;
-      }
-      
-      console.log(`Found ${elements.length} elements to display in glyph view`);
-      
-      // Sort elements by their x coordinate
-      elements.sort(function(a, b) {
-        return a.x - b.x;
-      });
-      
-      // Draw buttons for each element
-      elements.forEach(function(element, index) {
-        console.log(`Drawing element button at: x=${element.x}, y=${element.y}, w=${element.width}, h=${element.height}`);
-        drawButton(image, element.x, element.y, element.width, element.height, 'element', index, index);
-      });
-      
-      setCurrentHelp('To select an element, click on it. To cancel, click the close tool button.');
-      // Ensure the selection boxes appear immediately
-      replaceWithOriginalImage();
+    
+    //hide the original image with display none
+    setCurrentHelp('To select a phoneme or glyph, click on the phoneme or glyph. To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
+  }
+  if(currentView == 'glyph') {
+    // Instead of just exiting the tool, implement element selection
+    console.log("Initializing element selection in glyph view");
+    
+    // Get calculated dimensions of the glyph image
+    calcWidth = $('#glyphImage').width();
+    calcHeight = $('#glyphImage').height();
+    $('#glyphImage').removeClass('img-fluid');
+    // Add width and height to the glyphImage's style
+    $('#glyphImage').css('width', calcWidth + 'px');
+    $('#glyphImage').css('height', calcHeight + 'px');
+    
+    // Initialize the cropper
+    image = initCropper("glyph");
+    const context = image.getContext('2d');
+    
+    // Get document and glyph data
+    const page = instance.currentPage.get();
+    const documentId = instance.currentDocument.get();
+    const doc = Documents.findOne({_id: documentId});
+    const lineId = instance.currentLine.get();
+    const wordId = instance.currentWord.get();
+    const glyphId = instance.currentGlyph.get();
+    
+    // Access the word to get its glyph
+    const line = doc.pages[page].lines[lineId];
+    const word = line.words[wordId];
+    const glyphsArray = word.glyphs || word.glyph || [];
+    const glyph = glyphsArray[glyphId];
+    
+    // Check if the glyph has elements
+    const elements = glyph.elements || [];
+    
+    // If there are no elements, show a message and exit
+    if (elements.length === 0) {
+      alert("No elements to display. Use the Create Element tool to create elements within this glyph.");
+      $('#exitTool').click();
+      return;
     }
-  },
+    
+    console.log(`Found ${elements.length} elements to display in glyph view`);
+    
+    // Sort elements by their x coordinate
+    elements.sort(function(a, b) {
+      return a.x - b.x;
+    });
+    
+    // Draw buttons for each element
+    elements.forEach(function(element, index) {
+      console.log(`Drawing element button at: x=${element.x}, y=${element.y}, w=${element.width}, h=${element.height}`);
+      drawButton(image, element.x, element.y, element.width, element.height, 'element', index, index);
+    });
+    
+    setCurrentHelp('To select an element, click on it. To cancel, click the close tool button.');
+    // Ensure the selection boxes appear immediately
+    replaceWithOriginalImage();
+  }
+},
 
   'click .selectElement'(event, instance) {
     event.preventDefault();
@@ -1708,11 +2710,8 @@ Template.viewPage.events({
   
   'click .open-tab'(event, instance) {
     event.preventDefault();
-    
-    // Clean up selection tool if active
-    cleanupSelectionTool(instance);
-    
     const tabId = event.target.getAttribute('data-tab-id');
+    console.log("DEBUG: Tab ID is " + tabId);
     $(event.target).attr('aria-selected', 'true').addClass('active');
 
     // Close child tabs when a parent tab is clicked
@@ -1725,23 +2724,24 @@ Template.viewPage.events({
     }
 
     // First ensure image-container is visible for all tab types except flow
-    if(tabId !== 'flow') {
-      $('#image-container').show();
+    if(tabId !== 'simple') {
+      //remove display none
+      $('#simple').hide();
+      $('#flow').show();
+    } else {
+      $('#flow').hide();
+      $('#simple').show();
+    }
+
+    if (tabId !== 'flow') {
+      clearFlowLineButtons();
     }
 
     // Handle tab-specific logic
     if (tabId === 'flow') {
-      // hide the image-container
-      $('#image-container').hide();
       instance.currentView.set('flow');
       instance.currentTool.set('view');
       resetToolbox();
-      // hide the image-container class
-      $('.image-container').hide();
-      // show the flow-container by removing display none
-      $('.flow-container').show();
-      // generate the drawflow
-      generateFlow();
     } else if(tabId == 'line') {
       // Hide all images first
       $('#pageImage, img#wordImage, img#glyphImage, img#elementImage').hide();
@@ -1823,28 +2823,9 @@ Template.viewPage.events({
   
   'click .close-tab' (event, instance) {
     event.preventDefault();
-    
-    // Clean up selection tool if active
-    cleanupSelectionTool(instance);
-    
     const grandparent = event.target.parentElement.parentElement;
     const type = grandparent.getAttribute('data-type');
     const closedTabId = grandparent.getAttribute('id');
-
-    // Find the previous visible tab (to the left) before we close this one
-    const prevTab = $(grandparent).prev(':visible:not(#view-tab-template)');
-    let nextActiveTab = null;
-
-    // If there's a tab to the left, store its information
-    if (prevTab.length > 0) {
-      nextActiveTab = {
-        element: prevTab,
-        type: prevTab.attr('data-type'),
-        id: prevTab.attr('data-id'),
-        tabId: prevTab.find('button').attr('data-tab-id')
-      };
-      console.log(`Found tab to the left: ${nextActiveTab.type} ${nextActiveTab.id}`);
-    }
 
     // Close child tabs
     if (closedTabId) {
@@ -1857,7 +2838,11 @@ Template.viewPage.events({
     if (type === 'line') {
       instance.currentLine.set(false);
       $('img#lineImage').remove();
-    } else if (type === 'word') {
+    } else if (type === 'flow') {
+      $('#flow').hide();
+      $('#simple').show();
+    }
+    else if (type === 'word') {
       instance.currentWord.set(false);
       $('img#wordImage').remove();
     } else if (type === 'glyph') {
@@ -1868,84 +2853,46 @@ Template.viewPage.events({
       $('img#elementImage').remove();
     }
 
+    if (type === 'flow') {
+      clearFlowLineButtons();
+      $('#flow').hide();
+      $('#simple').show();
+    }
+
     // Remove the tab
     grandparent.remove();
     
     // Check if there are any remaining tabs (other than the template tab)
-    const remainingTabs = $('#view-tab-template').parent().children(':visible:not(#view-tab-template)');
-    
-    if (remainingTabs.length === 0) {
-      // No tabs left, switch to Simple View
+    const remainingTabs = $('#view-tab-template').parent().children().not('#view-tab-template');
+    if (remainingTabs.length <= 1) { // Just the Simple View tab remains
+      // Switch to Simple View
       instance.currentView.set('simple');
       $('#simple-tab').addClass('active').attr('aria-selected', 'true');
       
+      // Remove all view-specific images
+      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').remove();
+      
       // Show page image
       $('#pageImage').show();
-      $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').remove();
     } else {
-      // We have tabs remaining
-      if (nextActiveTab) {
-        // Activate the tab that was to the left
-        nextActiveTab.element.children('button')
-          .addClass('active')
-          .attr('aria-selected', 'true');
-        
-        // Set the current view based on the activated tab
-        instance.currentView.set(nextActiveTab.type || nextActiveTab.tabId);
-        
-        // Show the appropriate image based on the activated tab type
-        $('img#pageImage, img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
-        
-        if (nextActiveTab.type === 'line') {
+      // Find the active tab and ensure its image is visible
+      const activeTab = $('#view-tab-template').parent().children().find('.active').first();
+      if (activeTab.length > 0) {
+        const activeTabId = activeTab.attr('data-tab-id');
+        if (activeTabId === 'line') {
           $('img#lineImage').show();
-          if (nextActiveTab.id) instance.currentLine.set(nextActiveTab.id);
-        } else if (nextActiveTab.type === 'word') {
+        } else if (activeTabId === 'word') {
           $('img#wordImage').show();
-          if (nextActiveTab.id) instance.currentWord.set(nextActiveTab.id);
-        } else if (nextActiveTab.type === 'glyph') {
+        } else if (activeTabId === 'glyph') {
           $('img#glyphImage').show();
-          if (nextActiveTab.id) instance.currentGlyph.set(nextActiveTab.id);
-        } else if (nextActiveTab.type === 'element') {
+        } else if (activeTabId === 'element') {
           $('img#elementImage').show();
-          if (nextActiveTab.id && instance.currentElement) instance.currentElement.set(nextActiveTab.id);
-        } else if (nextActiveTab.tabId === 'simple') {
-          $('#pageImage').show();
-        }
-      } else {
-        // No tab to the left, activate the first visible tab
-        const firstTab = remainingTabs.first();
-        const tabType = firstTab.attr('data-type');
-        const tabId = firstTab.attr('data-id');
-        
-        firstTab.children('button')
-          .addClass('active')
-          .attr('aria-selected', 'true');
-        
-        // Set current view
-        instance.currentView.set(tabType || firstTab.find('button').attr('data-tab-id') || 'simple');
-        
-        // Show correct image
-        $('img#pageImage, img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
-        
-        if (tabType === 'line') {
-          $('img#lineImage').show();
-          if (tabId) instance.currentLine.set(tabId);
-        } else if (tabType === 'word') {
-          $('img#wordImage').show();
-          if (tabId) instance.currentWord.set(tabId);
-        } else if (tabType === 'glyph') {
-          $('img#glyphImage').show();
-          if (tabId) instance.currentGlyph.set(tabId);
-        } else if (tabType === 'element') {
-          $('img#elementImage').show();
-          if (tabId && instance.currentElement) instance.currentElement.set(tabId);
-        } else {
+        } else if (activeTabId === 'simple') {
           $('#pageImage').show();
         }
       }
     }
     
-    // Update the toolbox to match the new active view
     resetToolbox();
   },
   
@@ -1965,9 +2912,6 @@ Template.viewPage.events({
     instance.currentTool.set('createReference');
   },
   'click #confirmTool'(event, instance) {
-    //remove the image-container width and height
-    document.getElementsByClassName('image-container')[0].style.width = '';
-    document.getElementsByClassName('image-container')[0].style.height = '';
     currentTool = instance.currentTool.get();
     if(currentTool == 'createLine') {
       ret = Meteor.callAsync('addLineToPage', instance.currentDocument.get(), instance.currentPage.get(), instance.selectx1.get(), instance.selecty1.get(), instance.selectwidth.get(), instance.selectheight.get());
@@ -2100,13 +3044,6 @@ Template.viewPage.events({
     }
 
   }, 
-  //event listener for textflow tool
-  'click #textflow'(event, instance) {
-    event.preventDefault();
-    resetToolbox();
-    //set the currentTool to btn-dark
-    $('#textFlow').removeClass('btn-light').addClass('btn-dark');
-  },
   //event listners to draw on the glyphImageDraw canvas
   'mousedown #glyphImageDraw'(event, instance) {
     event.preventDefault();
@@ -2203,16 +3140,40 @@ Template.viewPage.events({
     // Reset the saved flag for next time
     Session.set('glyphSaved', false);
   },
+'click #flowView'(event, instance) {
+  event.preventDefault();
+  handleElementSelection('flow', 0, instance);
+  instance.currentTool.set('view');
+  resetToolbox();
+  $('#flowView').removeClass('btn-light').addClass('btn-dark');
+  $('#simple').hide();
+  $('#flow').show();
+  setCurrentHelp('Select a font and use the on-screen keyboard to input text.');
+
+  setTimeout(() => drawFlowLineButtons(instance), 200);
+
+  // Wait for the DOM to update, then populate input boxes
+  Tracker.afterFlush(() => {
+    const documentId = instance.currentDocument.get();
+    const currentPage = instance.currentPage.get();
+    const doc = Documents.findOne({_id: documentId});
+    if (doc && doc.pages && doc.pages[currentPage] && doc.pages[currentPage].lines) {
+      doc.pages[currentPage].lines.forEach((line, lineIdx) => {
+        if (!line.words) return;
+        const lineText = line.words.map(word => {
+          if (!word.glyphs) return '';
+          return word.glyphs.map(glyph => glyph.keybind || '').join('');
+        }).join(' ');
+        $(`input[data-id="${lineIdx}"]`).val(lineText);
+      });
+    }
+  });
+},
+
+
   'click #createLine'(event, instance) {
     event.preventDefault();
     console.log("createLine, drawing is " + instance.drawing.get());
-    //remove height and width properties from the image-container's child img
-    container = document.getElementsByClassName('image-container')[0];
-    imgChildren = container.children;
-    for (let i = 0; i < imgChildren.length; i++) {
-      imgChildren[i].style.width = '';
-      imgChildren[i].style.height = '';
-    }
     //disable all buttons in the toolbox-container
     //set the currentTool to btn-dark
     $('#createLine').removeClass('btn-light').addClass('btn-dark');
@@ -2236,21 +3197,14 @@ Template.viewPage.events({
     setCurrentHelp('To create a bounding box to represent a line in the document, use the cropping bounds to select the area of the page that contains the line. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
     //se the image css to display block and max-width 100%
     image.style.display = 'block';
-    image.style.maxWidth = '100%';
-    image.style.height = 'auto';
-
+    image.style.maxWidth = '100%';   
     //create a cropper object for the pageImage
     cropDetails = {};
     //add a event listener for hitting the enter key, which will confirm the selection
     const cropper = new Cropper(image, {
+      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
-      zIndex: 10000,  // Ensure consistent z-index with other croppers
-      viewMode: 1,
-      responsive: true,
-      modal: true,   // Enable grey background overlay
-      background: true, // Show background grid
-      autoCropArea: 0.8, // Default to selecting most of the image
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -2259,28 +3213,7 @@ Template.viewPage.events({
         instance.selectheight.set(cropDetails.height);
       }
     });
-    cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
-    // Store the cropper instance to properly clean it up later
-    instance.cropper.set(cropper);
-
-    // Force-style the modal background after cropper initialization
-    setTimeout(() => {
-      $('.cropper-modal').css({
-        'background-color': 'rgba(0, 0, 0, 0.5)',
-        'opacity': '1',
-        'z-index': '9990'
-      });
-      
-      // Ensure the view-box is above the modal
-      $('.cropper-view-box').css({
-        'z-index': '10010'
-      });
-      
-      // Make other cropper elements visible above the background
-      $('.cropper-face').css('z-index', '10010');
-      $('.cropper-line').css('z-index', '10020');
-      $('.cropper-point').css('z-index', '10030');
-    }, 100);
+    cropper.setCropBoxData({left: 0, top: lines[lines.length - 1].y2, width: image.width, height: 20});
   },
   'click #createWord'(event, instance) {
     event.preventDefault();
@@ -2316,14 +3249,11 @@ Template.viewPage.events({
     cropDetails = {};
     //add a event listener for hitting the enter key, which will confirm the selection
     const cropper = new Cropper(image, {
+      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
-      zIndex: 10000,  // Ensure consistent z-index with other croppers
-      viewMode: 1,
-      responsive: true,
-      modal: true,    // Enable grey background overlay
-      background: true, // Show background grid
-      autoCropArea: 0.8, // Default to selecting most of the image
+      // Set a higher zIndex to ensure the cropper appears above other elements
+      zIndex: 9999,
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -2335,25 +3265,6 @@ Template.viewPage.events({
     // Store the cropper instance to properly clean it up later
     instance.cropper.set(cropper);
     cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
-
-    // Force-style the modal background after cropper initialization
-    setTimeout(() => {
-      $('.cropper-modal').css({
-        'background-color': 'rgba(0, 0, 0, 0.5)',
-        'opacity': '1',
-        'z-index': '9990'
-      });
-      
-      // Ensure the view-box is above the modal
-      $('.cropper-view-box').css({
-        'z-index': '10010'
-      });
-      
-      // Make other cropper elements visible above the background
-      $('.cropper-face').css('z-index', '10010');
-      $('.cropper-line').css('z-index', '10020');
-      $('.cropper-point').css('z-index', '10030');
-    }, 100);
   },
   'click #createPhoneme'(event, instance) {
     event.preventDefault();
@@ -2397,8 +3308,6 @@ Template.viewPage.events({
       //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
       dragMode: 'crop',
       aspectRatio: 0,
-      responsive: true,
-      zIndex: 10000,  // Ensure consistent z-index with other croppers
       crop(event) {
         cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -2439,8 +3348,6 @@ Template.viewPage.events({
     const cropper = new Cropper(image, {
       dragMode: 'crop',
       aspectRatio: 0,
-      responsive: true,
-      zIndex: 10000,  // Ensure consistent z-index with other croppers
       crop(event) {
         const cropDetails = event.detail;
         instance.selectx1.set(cropDetails.x);
@@ -2449,68 +3356,6 @@ Template.viewPage.events({
         instance.selectheight.set(cropDetails.height);
       }
     });
-
-    // Force-style the modal background after cropper initialization
-    setTimeout(() => {
-      $('.cropper-modal').css({
-        'background-color': 'rgba(0, 0, 0, 0.5)',
-        'opacity': '1',
-        'z-index': '9990'
-      });
-      
-      // Ensure the view-box is above the modal
-      $('.cropper-view-box').css({
-        'z-index': '10010'
-      });
-      
-      // Make other cropper elements visible above the background
-      $('.cropper-face').css('z-index', '10010');
-      $('.cropper-line').css('z-index', '10020');
-      $('.cropper-point').css('z-index', '10030');
-    }, 100);
-  },
-  'dblclick #documentName'(event, instance) {
-    // Hide the document name and show the input box
-    $('#documentName').hide();
-    $('#documentNameInput').show().focus();
-  },
-  'keypress #documentNameInput'(event, instance) {
-    if (event.key === 'Enter') {
-      // Get the new document name
-      const newTitle = $('#documentNameInput').val().trim();
-      const documentId = instance.currentDocument.get();
-      doc = Documents.findOne({_id: documentId});
-      doc.title = newTitle;
-
-      if (newTitle) {
-        // Call the server method to update the document title
-        Meteor.call('modifyDocument', documentId, doc, function(error, result) {
-          if (error) {
-            console.error('Error updating document title:', error);
-            alert('Failed to update document title.');
-          } else {
-            console.log('Document title updated successfully.');
-            // Update the UI
-            $('#documentName').text(newTitle).show();
-            $('#documentNameInput').hide();
-          }
-        });
-      } else {
-        // If the input is empty, revert to the original title
-        $('#documentName').show();
-        $('#documentNameInput').hide();
-      }
-    }
-  },
-  'blur #documentNameInput'(event, instance) {
-    // Revert to the original title if the input loses focus
-    $('#documentName').show();
-    $('#documentNameInput').hide();
-  },
-  'click #clearCanvas'(event, instance) {
-    console.log("clearCanvas");
-    const context = $('#glyphImageDraw')[0].getContext('2d');
-    context.clearRect(0, 0, 200, 200);
   },
   'click #createElement'(event, instance) {
     event.preventDefault();
@@ -2649,30 +3494,22 @@ Template.viewPage.events({
     console.log("DEBUG: createElement - end of handler");
   },
   
-  //keyboard shift and mouse wheel event on #pageImage, #lineImage, #wordImage, #glyphImage
-  'wheel .image-container'(event, instance) {
+  //keyboard shift and mouse wheel event
+  'wheel #pageImage'(event, instance) {
     if(event.shiftKey) {
-      container = document.getElementsByClassName('image-container')[0];
-      firstChild = container.children[0];
-      //if firstChild is hidden, set to the next child
-      if (firstChild.style.display === 'none') {
-        firstChild = container.children[1];
-      }
-      console.log(event, firstChild);
+
+      console.log(event);
       //get the current calculated height of the image
-      height = window.getComputedStyle(firstChild).getPropertyValue('height');
-      width = window.getComputedStyle(firstChild).getPropertyValue('width');
+      height = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('height');
+      width = window.getComputedStyle(document.getElementById('pageImage')).getPropertyValue('width');
       //if the mouse wheel is scrolled up, increase the height by 10%
       if (event.originalEvent.deltaY < 0) {
-        firstChild.style.height = parseInt(height) * 1.1 + 'px';
-        firstChild.style.width = parseInt(width) * 1.1 + 'px';
-        
+        document.getElementById('pageImage').style.height = parseInt(height) * 1.1 + 'px';
+        document.getElementById('pageImage').style.width = parseInt(width) * 1.1 + 'px';
       } else {
         //if the mouse wheel is scrolled down, decrease the height by 10%
-        const newHeight = parseInt(height) * 0.9;
-        firstChild.style.height = newHeight + 'px';
-        firstChild.style.width = parseInt(width) * 0.9 + 'px';
-      
+        document.getElementById('pageImage').style.height = parseInt(height) * 0.9 + 'px';
+        document.getElementById('pageImage').style.width = parseInt(width) * 0.9 + 'px';
       }
 
     }
@@ -2731,7 +3568,10 @@ Template.viewPage.events({
             } else {
               console.log(result);
               alert('Page added');
-              // Enable the submit button
+              // Clear these fields
+              $('#pageTitle').val('');
+              $('#newpageImage').val('');
+              // Re-enable and close
               $('#submitNewPage').prop('disabled', false);
               $('#createPageModal').modal('hide');
             }
@@ -2770,6 +3610,126 @@ Template.viewPage.events({
         });
     }
   },
+  'dblclick #documentName'(event, instance) {
+    // Hide the document name and show the input box
+    $('#documentName').hide();
+    $('#documentNameInput').show().focus();
+  },
+  'keypress #documentNameInput'(event, instance) {
+    if (event.key === 'Enter') {
+      // Get the new document name
+      const newTitle = $('#documentNameInput').val().trim();
+      const documentId = instance.currentDocument.get();
+      doc = Documents.findOne({_id: documentId});
+      doc.title = newTitle;
+
+      if (newTitle) {
+        // Call the server method to update the document title
+        Meteor.call('modifyDocument', documentId, doc, function(error, result) {
+          if (error) {
+            console.error('Error updating document title:', error);
+            alert('Failed to update document title.');
+          } else {
+            console.log('Document title updated successfully.');
+            // Update the UI
+            $('#documentName').text(newTitle).show();
+            $('#documentNameInput').hide();
+          }
+        });
+      } else {
+        // If the input is empty, revert to the original title
+        $('#documentName').show();
+        $('#documentNameInput').hide();
+      }
+    }
+  },
+  'blur #documentNameInput'(event, instance) {
+    // Revert to the original title if the input loses focus
+    $('#documentName').show();
+    $('#documentNameInput').hide();
+  },
+  'click #clearCanvas'(event, instance) {
+    console.log("clearCanvas");
+    const context = $('#glyphImageDraw')[0].getContext('2d');
+    context.clearRect(0, 0, 200, 200);
+  },
+  // Handle page selection click
+  'click .pagesel'(event, instance) {
+    // Don't trigger page change if clicking on the control buttons
+    if ($(event.target).closest('.page-controls').length) {
+      return;
+    }
+    
+    // Get the 0-indexed page number from data attribute
+    const pageIndex = Number($(event.currentTarget).data('id'));
+    console.log("Page selected:", pageIndex, "Display page:", pageIndex + 1);
+    
+    if (!isNaN(pageIndex)) {
+      // Set current page (0-indexed internally)
+      instance.currentPage.set(pageIndex);
+      
+      // Update the page image
+      const documentId = instance.currentDocument.get();
+      if (documentId) {
+        const doc = Documents.findOne({_id: documentId});
+        if (doc && doc.pages && doc.pages[pageIndex] && doc.pages[pageIndex].pageId) {
+          const file = Files.findOne({_id: doc.pages[pageIndex].pageId});
+          if (file) {
+            $('#pageImage').attr('src', file.link());
+          }
+        }
+      }
+    }
+  },
+  
+  // Handle sidebar tab switching
+  'shown.bs.tab #sidebarTabs .nav-link'(event, instance) {
+    const tabId = $(event.target).attr('data-bs-target');
+    
+    if (tabId === '#page-selection-content') {
+      // After switching to page selection tab, scroll to the active page
+      setTimeout(() => {
+        const activePage = $('#page-selection-content .active-page');
+        if (activePage.length) {
+          const container = $('#page-selection-content .page-thumbnails');
+          container.animate({
+            scrollTop: activePage.position().top + container.scrollTop() - container.height()/2 + activePage.height()/2
+          }, 200);
+        }
+      }, 100);
+    }
+  }
+});
+
+// Ensure sidebar tabs are initialized correctly on render
+Template.viewPage.onRendered(function() {
+  const instance = this;
+  
+  // Initialize Bootstrap tabs
+  const tabEl = document.querySelector('#page-selection-tab');
+  if (tabEl) {
+    const tab = new bootstrap.Tab(tabEl);
+  }
+  
+  // Update page selection when document/page changes
+  this.autorun(() => {
+    const currentPage = instance.currentPage.get();
+    const currentDocument = instance.currentDocument.get();
+    
+    // If both document and page are set and the page selection tab is visible, highlight the current page
+    if (currentDocument && currentPage !== undefined && 
+        $('#page-selection-tab').hasClass('active')) {
+      setTimeout(() => {
+        const activePage = $(`#page-selection-content .pagesel[data-id="${currentPage}"]`);
+        if (activePage.length) {
+          const container = $('#page-selection-content .page-thumbnails');
+          container.animate({
+            scrollTop: activePage.position().top + container.scrollTop() - container.height()/2 + activePage.height()/2
+          }, 200);
+        }
+      }, 100);
+    }
+  });
 });
   
 //upload document onCreated function
@@ -2881,14 +3841,35 @@ Template.newDocument.events({
     event.preventDefault();
     //takes id author and title and calls addBlankDocument method
     title = $('#newTitle').val();
+    
+    // FIX: Ensure the title doesn't already contain "New Sample"
+    // Strip "New Sample" prefix if it's there to prevent doubling
+    if (title.startsWith('New Sample')) {
+      title = title.substring('New Sample'.length).trim();
+    }
+    
     author = $('#newAuthor').val();
+    
+    // Make sure the title isn't empty after cleaning
+    if (!title) {
+      alert('Please enter a document title');
+      return;
+    }
+    
+    // Add logging to debug title value being sent
+    console.log("Creating document with title:", title);
+    
     Meteor.call('addBlankDocument', title, author, function(error, result) {
       if (error) {
         console.log(error);
         alert('Error adding document');
       } else {
-        console.log(result);
-        alert('Document added');
+        console.log("Document created:", result);
+        // Add success message with the actual title used
+        alert('Document "' + title + '" added successfully');
+        
+        // Close the modal after creating document
+        $('#openModal').modal('hide');
       }
     });
   }
@@ -2954,14 +3935,24 @@ function setCurrentHelp(help) {
   instance.currentHelp.set(help);
 }
 
+
+
+
 // Create a shared function that both handlers can use
 function handleElementSelection(type, id, instance) {
-  console.log("Processing element selection, type is " + type + " and id is " + id);
-
+  console.group('DEBUG: handleElementSelection');
+  console.log('Called with type:', type, 'id:', id);
+  
   // Check if a tab with the same type and id already exists
   const existingTab = $(`#view-tab-template`).parent().children(`[data-type="${type}"][data-id="${id}"]`);
+  console.log('Existing tab found?', existingTab.length > 0);
+  
   if (existingTab.length > 0) {
-    console.log(`Tab for ${type} ${id} already exists. Redirecting to the existing tab.`);
+    console.log('Activating existing tab instead of creating new one');
+    
+    // Activate the existing tab
+    existingTab.children().addClass('active').attr('aria-selected', 'true');
+    console.log('Tab activated');
     
     // Clean up any overlay elements that might be active
     $('.selectElement').remove();
@@ -2986,12 +3977,6 @@ function handleElementSelection(type, id, instance) {
       $('#exitTool').click();
     }
     
-    // Activate the existing tab
-    existingTab.children().addClass('active').attr('aria-selected', 'true');
-    
-    // Deactivate other tabs
-    existingTab.siblings().children().removeClass('active').attr('aria-selected', 'false');
-    
     // Set the current view to match the tab type
     instance.currentView.set(type);
     
@@ -3002,6 +3987,8 @@ function handleElementSelection(type, id, instance) {
     // Make sure the appropriate image is shown based on the tab type
     if (type === 'element') {
       setElementImage(id, instance);
+    } else if (type == 'flow') {
+      activateFlow();
     } else {
       setImage(type, id);
     }
@@ -3013,8 +4000,11 @@ function handleElementSelection(type, id, instance) {
       console.log(`Selection cleanup complete for existing tab ${type} ${id}`);
     }, 100);
     
+    console.groupEnd();
     return; // Exit early to prevent creating a duplicate tab
   }
+  
+  console.log('Creating new tab for', type, id);
   
   // Clean up all overlay buttons before proceeding 
   // This ensures previous selection elements don't remain on screen
@@ -3057,7 +4047,7 @@ function handleElementSelection(type, id, instance) {
   clone.attr('data-id', id);
   //get the parent element type using cases
   let parent, parenttab;
-  if (type == 'line') {
+  if (type == 'line' || type == 'flow') {
     parent = 'simple';
     parenttab = 'simple';
   }
@@ -3117,6 +4107,7 @@ function handleElementSelection(type, id, instance) {
     $('.showReferences').remove();
     console.log(`Selection cleanup complete for ${type} ${id}`);
   }, 100);
+  console.groupEnd();
 }
 
 // Function to set image for an element within a glyph
@@ -3188,114 +4179,120 @@ function setElementImage(id, instance) {
   console.log(`Element image set for element ${id}`);
 }
 
-//function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index. 
-function drawButton(image, x, y, width, height, type, text, id) {
-  console.log(`Drawing ${type} button ${id}: x=${x}, y=${y}, width=${width}, height=${height}`);
+//activate flow function
+// this function activates the flow view
+function activateFlow() {
+  //hide #simple
+  $('#simple').hide();
+  //show #flow
+  $('#flow').show();
+  //set the current view to flow
+  instance.currentView.set('flow');
+  //set the current tool to view
+  instance.currentTool.set('view');
+  //reset the toolbox
+  resetToolbox();
+}
 
-  //round the x, y, width, and height to the nearest integer
+// Remove all line overlays in flow view
+function clearFlowLineButtons() {
+  $('#flow .image-container .selectElement[data-type="line"]').remove();
+}
+
+// Draw line buttons on the flow view image
+function drawFlowLineButtons(instance) {
+  // Get current page data
+  const currentPageIndex = instance.currentPage.get();
+  const documentId = instance.currentDocument.get();
+  const doc = Documents.findOne({_id: documentId});
+  if (!doc || !doc.pages || !doc.pages[currentPageIndex]) return;
+  const page = doc.pages[currentPageIndex];
+  if (!page.lines || !page.image) return;
+
+  // Wait for the image to be loaded and visible
+  const $img = $('#flow .image-container #pageImage');
+  if (!$img.length) return;
+
+  // Remove any previous overlays
+  clearFlowLineButtons();
+
+  // Ensure image is loaded before drawing overlays
+  const image = $img[0];
+  if (!image.complete) {
+    image.onload = () => drawFlowLineButtons(instance);
+    return;
+  }
+
+  // Calculate scaling
+  const scaleX = image.clientWidth / image.naturalWidth;
+  const scaleY = image.clientHeight / image.naturalHeight;
+
+  // Draw a button for each line
+  page.lines.forEach((line, idx) => {
+    drawButton(
+      image,
+      (line.x1 || 0) * scaleX,
+      (line.y1 || 0) * scaleY,
+      (line.width || image.naturalWidth) * scaleX,
+      (line.height || 30) * scaleY,
+      'line',
+      idx,
+      idx
+    );
+  });
+}
+
+//function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index. 
+// We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
+function drawButton(imageOrCanvas, x, y, width, height, type, text, id) {
+  // Round coordinates for pixel alignment
   x = Math.round(x);
   y = Math.round(y);
   width = Math.round(width);
   height = Math.round(height);
 
-  //get the canvas' context
-  const context = image.getContext('2d');
+  let parent, xScaling = 1, yScaling = 1;
 
-  //create button element
+  // Detect if we're drawing over an <img> (Flow View) or <canvas>
+  if (imageOrCanvas instanceof HTMLImageElement) {
+    parent = imageOrCanvas.parentNode;
+    xScaling = 1; // Already scaled in Flow View logic
+    yScaling = 1;
+  } else if (imageOrCanvas instanceof HTMLCanvasElement) {
+    const context = imageOrCanvas.getContext('2d');
+    parent = context.canvas.parentNode;
+    // For canvas, scale to match display size
+    const canvasOffset = context.canvas.getBoundingClientRect();
+    xScaling = canvasOffset.width / context.canvas.width;
+    yScaling = canvasOffset.height / context.canvas.height;
+  } else {
+    console.error("drawButton: Unknown image/canvas type", imageOrCanvas);
+    return;
+  }
+
+  // Create the button element
   const button = document.createElement('button');
   button.setAttribute('data-id', id);
   button.setAttribute('data-type', type);
 
-
-
-  //get the canvas' container
-  const parent = context.canvas.parentNode;
-  console.log(`Parent container: id=${parent.id}, position=${window.getComputedStyle(parent).position}`);
-
-  // Force the canvas to display temporarily to get proper bounds
-  const originalDisplay = image.style.display;
-  image.style.display = 'block';
-  image.style.visibility = 'visible';
-  image.style.position = 'absolute';
-  
-  // Get the canvas' computed offset
-  const canvasOffset = image.getBoundingClientRect();
-  console.log(`Canvas bounds: left=${canvasOffset.left}, top=${canvasOffset.top}, width=${canvasOffset.width}, height=${canvasOffset.height}`);
-  
-  // Restore original display
-  image.style.display = originalDisplay;
-
-  // Get scale factors using fallbacks
-  let xScaling, yScaling;
-  
-  // First try: Use the bounding rect
-  if (canvasOffset.width > 0 && canvasOffset.height > 0) {
-    xScaling = canvasOffset.width / image.width;
-    yScaling = canvasOffset.height / image.height;
-  } 
-  // Second try: Use the instance's stored scaling values
-  else {
-    const instance = Template.instance();
-    if (instance && instance.xScaling && instance.yScaling) {
-      xScaling = 1 / instance.xScaling.get();
-      yScaling = 1 / instance.yScaling.get();
-    } 
-    // Final fallback: Calculate from the image container
-    else {
-      const containerWidth = parseFloat(window.getComputedStyle(parent).width);
-      const containerHeight = parseFloat(window.getComputedStyle(parent).height);
-      xScaling = containerWidth / image.width;
-      yScaling = containerHeight / image.height;
-      
-      // If still zero, just use a reasonable default scale
-      if (xScaling === 0 || yScaling === 0) {
-        console.warn("Using default scaling factor as fallback");
-        const defaultScale = 0.1; // Adjust as needed
-        xScaling = defaultScale;
-        yScaling = defaultScale;
-      }
-    }
-  }
-  
-  console.log(`Scale factors: xScaling=${xScaling}, yScaling=${yScaling}`);
-
-  // Ensure we never have zero scaling
-  xScaling = xScaling || 0.1;
-  yScaling = yScaling || 0.1;
-
-  let defaultClass = 'selectElement';
-
-
-  //draw the button at the x, y, width, and height 
+  // Position and size the button
   button.style.position = 'absolute';
   button.style.left = (x * xScaling) + 'px';
-  button.style.top = ((y + 91) * yScaling ) + 'px';
+  button.style.top = (y * yScaling) + 'px';
   button.style.width = (width * xScaling) + 'px';
   button.style.height = (height * yScaling) + 'px';
-  button.style.zIndex = '10000'; // Ensure it's on top
-  button.style.pointerEvents = 'auto'; // Make sure clicks register on the button
 
-  console.log(`Button final position: left=${button.style.left}, top=${button.style.top}, width=${button.style.width}, height=${button.style.height}`);
-
-  //add a label on the bottom left corner of the button that says the type and index
+  // Add a label in the bottom left
   const label = document.createElement('label');
-  // Increment the displayed index by 1 for user-friendly numbering (1-based instead of 0-based)
   label.textContent = type + ' ' + (parseInt(text) + 1);
   label.style.position = 'absolute';
   label.style.bottom = '0';
   label.style.left = '0';
-
-  // Make label width wider for word elements to properly display both the type and the number
-  if (type === 'word') {
-    label.style.width = '30%'; // Wider for word elements
-  } else {
-    label.style.width = '10%';
-  }
-
   label.style.height = '15px';
   label.style.fontSize = '10px';
+  label.style.width = (type === 'word') ? '30%' : '10%';
 
-  //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
+  // Style by type
   if (type == 'line') {
     button.style.backgroundColor = 'rgba(0, 255, 0, 0.2)';
     button.style.border = '1px solid green';
@@ -3313,40 +4310,27 @@ function drawButton(image, x, y, width, height, type, text, id) {
     button.style.border = '1px solid red';
     label.style.backgroundColor = 'red';
     label.style.color = 'white';
-    defaultClass = 'showReferences';
-  }
-
-  if (type == 'glyph') {
+    button.className = 'showReferences';
+  } else if (type == 'glyph') {
     button.style.backgroundColor = 'rgba(255, 255, 0, 0.2)';
     button.style.border = '1px solid yellow';
     label.style.backgroundColor = 'yellow';
     label.style.color = 'black';
-    defaultClass = 'showReferences';
-    
-    // Debug each glyph button as it's created
-    console.log(`Creating glyph button: ID=${id}, X=${x}, Width=${width}, Class=${defaultClass}`);
-  }
-
-  if (type == 'element') {
-    button.style.backgroundColor = 'rgba(128, 0, 128, 0.2)'; // Purple for elements
+    button.className = 'showReferences';
+  } else if (type == 'element') {
+    button.style.backgroundColor = 'rgba(128, 0, 128, 0.2)';
     button.style.border = '1px solid purple';
     label.style.backgroundColor = 'purple';
     label.style.color = 'white';
-    defaultClass = 'selectElement';
-    
-    // Debug each element button as it's created
-    console.log(`Creating element button: ID=${id}, X=${x}, Y=${y}, Width=${width}, Height=${height}, Class=${defaultClass}`);
+    button.className = 'selectElement';
+  } else {
+    button.className = 'selectElement';
   }
 
-  //set the button class to 'select-element'
-  button.className = defaultClass;
-  
   button.appendChild(label);
-
-  //append the button to the parent
   parent.appendChild(button);
-  
-  // Add a click event listener directly to the button for debugging
+
+  // Optional: Add debug click for glyphs
   if (type === 'glyph') {
     button.addEventListener('click', function(e) {
       console.log(`Direct glyph button click detected: ID=${id}`);
@@ -3354,7 +4338,6 @@ function drawButton(image, x, y, width, height, type, text, id) {
     });
   }
 }
-
 //function to draw a rectangle on the canvas at a particular location
 function drawRect(canvas, x, y, width, height, type, index, subIndex) {
   const ctx = canvas.getContext('2d');
@@ -3405,33 +4388,152 @@ function drawRect(canvas, x, y, width, height, type, index, subIndex) {
   ctx.strokeRect(x, y, width, height);
 }
 
-// Add this helper function near other utility functions
-function cleanupSelectionTool(instance) {
-  // Check if select tool is active
-  if (instance.currentTool.get() === 'select') {
-    console.log("Cleaning up selection tool before tab switch");
+// Add this function at the end of the file for additional debugging
+function debugCollapsibleElements() {
+  console.group('Collapsible Elements Debug');
+  
+  // Check for duplicate IDs
+  const idMap = {};
+  $('.file-tree [id]').each(function() {
+    const id = $(this).attr('id');
+    if (!idMap[id]) {
+      idMap[id] = [];
+    }
+    idMap[id].push(this);
+  });
+  
+  let duplicateCount = 0;
+  for (const id in idMap) {
+    if (idMap[id].length > 1) {
+      console.warn(`Duplicate ID found: ${id}`, idMap[id]);
+      duplicateCount++;
+    }
+  }
+  console.log(`Found ${duplicateCount} duplicate IDs`);
+  
+  // Check href and aria-controls consistency
+  $('.file-tree [data-bs-toggle="collapse"]').each(function() {
+    const href = $(this).attr('href');
+    const ariaControls = $(this).attr('aria-controls');
     
-    // Remove all selection elements
-    $('.selectElement').remove();
-    $('.showReferences').remove();
-    
-    // Destroy any active croppers
-    const cropper = instance.cropper.get();
-    if (cropper) {
-      cropper.destroy();
-      instance.cropper.set(false);
+    if (href && !href.startsWith('#')) {
+      console.warn('Invalid href attribute (missing #):', href, this);
     }
     
-    // Remove any canvas elements created for selection
-    $('canvas#pageImage, canvas#lineImage, canvas#wordImage, canvas#glyphImage, canvas#elementImage').each(function() {
-      // Only remove canvas duplicates, not original images
-      if ($(this).siblings('img#' + this.id).length) {
-        $(this).remove();
-      }
+    if (href && href.substring(1) !== ariaControls) {
+      console.warn('href and aria-controls mismatch:', {
+        href: href,
+        ariaControls: ariaControls,
+        element: this
+      });
+    }
+  });
+  
+  console.groupEnd();
+}
+
+/**
+ * Initialize sidebar resize functionality - basic version without saving preference
+ */
+function initSidebarResize() {
+  const $sidebar = $('#sidebar');
+  const $handle = $('#sidebar-resize-handle');
+  
+  let isResizing = false;
+  let startX, startWidth;
+  
+  $handle.on('mousedown', function(e) {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = $sidebar.width();
+    
+    // Add visual feedback during resizing
+    $handle.addClass('dragging');
+    
+    // Add body class to prevent text selection during resize
+    $('body').addClass('sidebar-resizing');
+    
+    e.preventDefault();
+  });
+  
+  $(document).on('mousemove.sidebarResize', function(e) {
+    if (!isResizing) return;
+    
+    // Calculate new width based on mouse movement
+    const newWidth = startWidth + (e.clientX - startX);
+    
+    // Apply min/max constraints
+    const minWidth = parseInt($sidebar.css('min-width')) || 180;
+    const maxWidth = parseInt($sidebar.css('max-width')) || 500;
+    const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+    
+    // Set the new width
+    $sidebar.width(constrainedWidth);
+    
+    // Update thumbnail sizes if we're in page selection tab
+    updatePageThumbnails();
+  });
+  
+  $(document).on('mouseup.sidebarResize', function() {
+    if (isResizing) {
+      isResizing = false;
+      $handle.removeClass('dragging');
+      
+      // Remove body class
+      $('body').removeClass('sidebar-resizing');
+      
+      // Final update to thumbnails
+      updatePageThumbnails();
+    }
+  });
+  
+  // Function to update page thumbnails
+  function updatePageThumbnails() {
+    const sidebarWidth = $sidebar.width();
+    
+    // Adjust thumbnail heights based on width to maintain aspect ratio
+    // This creates a more balanced view as the sidebar changes width
+    const thumbnailHeight = Math.max(100, Math.min(200, sidebarWidth * 0.6));
+    
+    $('.pagesel img').css({
+      'max-height': thumbnailHeight + 'px'
     });
     
-    // Reset to view mode
-    instance.currentTool.set('view');
-    resetToolbox();
+    // Also adjust page info text size for better readability
+    if (sidebarWidth < 220) {
+      $('.page-info .title-text').css('font-size', '0.7rem');
+    } else {
+      $('.page-info .title-text').css('font-size', '');
+    }
   }
+  
+  // Initialize thumbnail sizes
+  updatePageThumbnails();
+}
+
+/**
+ * Parse jsTree node ID to extract type and path
+ * @param {string} nodeId - The jsTree node ID (e.g., "page-0-line-0-word-0")
+ * @returns {object|null} - Parsed data with nodeType and path, or null if invalid
+ */
+function parseNodeId(nodeId) {
+  const parts = nodeId.split('-');
+  if (parts.length < 2 || parts.length % 2 !== 0) {
+    console.error('Invalid node ID format:', nodeId);
+    return null;
+  }
+  
+  const nodeType = parts[0];
+  const path = [];
+  
+  for (let i = 1; i < parts.length; i += 2) {
+    const index = parseInt(parts[i], 10);
+    if (isNaN(index)) {
+      console.error('Invalid path index in node ID:', nodeId);
+      return null;
+    }
+    path.push(index);
+  }
+  
+  return { nodeType, path };
 }

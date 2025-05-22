@@ -1,12 +1,6 @@
 body {
   padding: 10px;
   font-family: sans-serif;
-  padding-bottom: 0;
-  margin-bottom: 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  overflow-y: hidden;
 }
 
 .navbar{
@@ -36,7 +30,6 @@ body {
 .line-element{
   /*light green transparent box with a light green border*/
   background-color: rgba(0, 255, 0, 0.1);
-  z-index: 10015 !important; /* Match other selection elements */
 }
 
 .file-tree {
@@ -82,22 +75,27 @@ body {
 .pagesel {
   position: relative;
   border: 1px solid gray;
+  width: 100%; /* Ensure thumbnails fill the container width */
+  transition: all 0.2s ease-in-out;
 }
 
 .pagesel img {
   display: block;
   width: 100%;
   height: auto;
+  object-fit: cover;
+  max-height: 150px;
 }
 
 .page-controls {
   position: absolute;
-  bottom: 10px;
+  bottom: 35px; /* was 10px, moves buttons up */
   left: 10px;
   display: flex;
   gap: 10px;
   opacity: 0;
   transition: opacity 0.3s ease;
+  background-color: white;
 }
 
 .pagesel:hover .page-controls {
@@ -113,164 +111,218 @@ body {
   padding: 0;
 }
 
-/* Prevent horizontal scrolling */
-body, html {
-  overflow-x: hidden;
-  max-width: 100%;
-}
-
-/* Make images responsive */
-.img-fluid {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Ensure the sidebar doesn't cause overflow */
+/* Sidebar resize styles */
 #sidebar {
-  max-width: 100%;
+  transition: width 0.05s ease;
+  overflow-y: hidden; /* changed from auto */
+  position: relative;
   flex-shrink: 0;
-  overflow-y: hidden;
-  max-height: calc(100vh - 120px);
+  height: 100vh;
+  background-color: #f8f9fa;
+  border-right: 1px solid #dee2e6 !important;
+}
+
+/* Add responsive thumbnail styles */
+.page-thumbnails {
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
-/* Make toolbox containers responsive */
-.toolbox-container {
-  max-width: 95%;
-  z-index: 91000 !important; /* Higher than the cropper but lower than the HelpBox */
-  
+#sidebar-resize-handle {
+  width: 5px;
+  background-color: #c5c5c5;
+  cursor: col-resize;
+  height: 100vh;
+  z-index: 100;
+  flex-shrink: 0;
 }
 
-/* Adjust help containers to fit within viewport and ensure highest z-index */
-#HelpBox, #DiscussionBox, #ToolOptions {
-  max-width: calc(100% - 40px);
-  right: 0;
-  word-wrap: break-word;
-  z-index: 91000 !important; /* Higher than the cropper but lower than the HelpBox */
+#sidebar-resize-handle:hover, 
+#sidebar-resize-handle.dragging {
+  background-color: #888;
 }
 
-/* Fix fixed positioning on small screens */
-@media (max-width: 768px) {
-  .position-absolute {
-    position: relative !important;
-    margin-top: 10px !important;
-    margin-right: 0 !important;
-    width: 100%;
-  }
+/* Prevent text selection during resize */
+body.sidebar-resizing {
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  cursor: col-resize !important;
 }
 
-/* Better container structure to prevent double scrollbars */
-.main-container {
-  display: flex;
-  flex-direction: row;
-  min-height: calc(100vh - 120px);
+/* jsTree styles */
+#documentTree {
+  width: 100%;
+  height: calc(100vh - 100px);
+  min-height: 200px;
+  overflow: auto;
+  padding: 10px 5px;
+  background-color: #f8f9fa;
+  position: relative;
+  display: block !important; /* Force display */
+}
+
+.jstree-default .jstree-anchor {
+  color: #333;
+  padding: 4px 5px;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  height: auto !important;
+}
+
+.jstree-default .jstree-hovered {
+  background-color: #e7f4ff;
+  border-radius: 3px;
+}
+
+.jstree-default .jstree-clicked {
+  background-color: #beebff;
+  border-radius: 3px;
+}
+
+/* Fix for text overflow in jsTree nodes */
+.jstree-anchor {
+  white-space: normal !important;
+  height: auto !important;
+  width: 90% !important;
+}
+
+/* Visual indicator when tree is loading */
+.jstree-loading {
+  background: url('data:image/gif;base64,R0lGODlhEAAQAPQAAP///wAAAPDw8IqKiuDg4EZGRnp6egAAAFhYWCQkJKysrL6+vhQUFJycnAQEBDY2NmhoaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHdpdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAAFdyAgAgIJIeWoAkRCCMdBkKtIHIngyMKsErPBYbADpkSCwhDmQCBethRB6Vj4kFCkQPG4IlWDgrNRIwnO4UKBXDufzQvDMaoSDBgFb886MiQadgNABAokfCwzBA8LCg0Egl8jAggGAA1kBIA1BAYzlyILczULC2UhACH5BAkKAAAALAAAAAAQABAAAAV2ICACAmlAZTmOREEIyUEQjLKKxPHADhEvqxlgcGgkGI1DYSVAIAWMx+lwSKkICJ0QsHi9RgKBwnVTiRQQgwF4I4UFDQQEwi6/3YSGWRRmjhEETAJfIgMFCnAKM0KDV4EEEAQLiF18TAYNXDaSe3x6mjidN1s3IQAh+QQJCgAAACwAAAAAEAAQAAAFeCAgAgLZDGU5jgRECEUiCI+yioSDwDJyLKsXoHFQxBSHAoAAFBhqtMJg8DgQBgfrEsJAEAg4YhZIEiwgKtHiMBgtpg3wbUZXGO7kOb1MUKRFMysCChAoggJCIg0GC2aNe4gqQldfL4l/Ag1AXySJgn5LcoE3QXI3IQAh+QQJCgAAACwAAAAAEAAQAAAFdiAgAgLZNGU5joQhCEjxIssqEo8bC9BRjy9Ag7GILQ4QEoE0gBAEBcOpcBA0DoxSK/e8LRIHn+i1cK0IyKdg0VAoljYIg+GgnRrwVS/8IAkICyosBIQpBAMoKy9dImxPhS+GKkFrkX+TigtLlIyKXUF+NjagNiEAOw==') center center no-repeat !important;
+  height: 50px;
+}
+
+/* Style for debug button */
+#debugTree {
+  background-color: #ffeeba;
+  color: #856404;
+}
+
+#debugTree:hover {
+  background-color: #ffe8a1;
+}
+
+/* Sidebar tab styling */
+#sidebarTabs .nav-link {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+#sidebarTabs .nav-link i {
+  margin-right: 4px;
+}
+
+/* Tab content container styling */
+#sidebarTabsContent {
+  height: calc(100vh - 130px);
   overflow: hidden;
 }
 
-/* Main content area should be flexible */
-.main-content-area {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 120px);
-  height: calc(100vh - 120px); /* Set explicit height */
-  overflow-y: auto;
+#data-browser-content, #page-selection-content {
+  height: 100%;
+  overflow-y: hidden;
 }
 
-/* Improved scrollable container */
-.scrollable-container {
-  overflow-y: auto;
-  height: calc(100vh - 220px); /* Adjust based on other elements */
+/* Page selection styles */
+.pagesel {
+  position: relative;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
+.pagesel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.pagesel.active-page {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+.pagesel img {
   width: 100%;
-  padding-right: 5px;
-}
-
-/* Fix for data browser height */
-#databrowse {
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
-}
-
-/* Make status footer stay at bottom without creating extra space */
-.status-footer {
-  flex-shrink: 0;
-  margin-top: auto;
-  padding: 0.5rem 0;
-}
-
-/* Ensure images don't create excess height */
-.img {
-  max-height: 100%;
-  width: auto;
-  object-fit: contain;
-}
-
-/* Remove unnecessary padding that may cause extra space */
-.container-fluid {
-  padding-bottom: 0;
-}
-
-/* Adjust page selection area to prevent overflow */
-#pagesel {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Ensure proper spacing for the page content */
-.modal-body {
-  overflow-y: auto;
-  max-height: 70vh;
-}
-
-
-
-/* Updated image styling for proper scaling without centering */
-#pageImage, #lineImage, #wordImage, #glyphImage, #elementImage {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
   height: auto;
   object-fit: contain;
-  display: block;
-  margin: 0; /* Remove auto margins that center the image */
+  max-height: 150px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
 }
 
-/* Style for cropper elements to ensure proper visibility */
-.cropper-container {
-  z-index: 90020 !important; /* Higher than regular content but lower than HelpBox/toolbox */
-  height: 100vh; /* Full viewport height */
+.page-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  border-top: 1px solid #dee2e6;
+  min-height: 32px;
 }
 
-/* Ensure the cropper view box and drag handles are visible */
-.cropper-view-box, .cropper-face {
-  z-index: 90010 !important;
-  border: 1px solid #fff !important;
+.page-controls {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  display: flex;
+  gap: 3px;
 }
 
-.cropper-crop-box {
-  z-index: 90010 !important;
+.pagesel:hover .page-controls {
+  opacity: 1;
 }
 
-.cropper-line, .cropper-point {
-  z-index: 90020 !important;
+.page-controls .btn {
+  padding: 0.1rem 0.25rem;
+  font-size: 0.7rem;
 }
 
-/* Make sure the cropper modal box is properly visible */
-.cropper-modal {
-  background-color: rgba(0, 0, 0, 0.5) !important;
-  opacity: 1 !important;
-  z-index: 9990 !important;
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
+/* Ensure the document tree container remains properly sized */
+#documentTree {
+  height: calc(100% - 70px);
+  overflow-y: auto;
+  position: relative;
 }
 
-/* Ensure the proper z-index hierarchy for existing line/word outlines */
-.preserve-canvas, .selectElement, .showReferences {
-  z-index: 10015 !important; /* Between container and face/view-box */
+/* Document title styling */
+.document-title-container {
+  padding: 5px;
+  border-bottom: 1px solid #dee2e6;
 }
+
+.document-title {
+  cursor: pointer;
+  padding: 5px;
+  margin-bottom: 0;
+  border-radius: 3px;
+}
+
+.document-title:hover {
+  background-color: #f0f0f0;
+}
+
+/* Style for add page after button */
+.add-page-after {
+  color: #0d6efd;
+}
+
+.add-page-after:hover {
+  background-color: #0d6efd;
+  color: white;
+}
+
+/* Page counter styling */
+.page-counter {
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+}
+
 /* Bootstrap Overrides */
 .btn-primary {
   background-color: green !important;
@@ -353,3 +405,9 @@ a:focus-visible {
 .form-control {
   border: 1px solid green !important;
 }
+.image-spacer, .simple-view, .font-box{
+  background-color: #808080;
+}
+
+
+
