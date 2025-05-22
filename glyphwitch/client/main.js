@@ -436,6 +436,7 @@ Template.viewPage.onCreated(function() {
   Template.instance().yScaling = new ReactiveVar(1);
   Template.instance().xScaling = new ReactiveVar(1);
   Template.instance().cropper = new ReactiveVar(false);
+  Template.instance().warnings = new ReactiveVar(false);
   Template.instance().discussions = new ReactiveVar(
     {
       "document": false,
@@ -462,6 +463,46 @@ Template.viewPage.onCreated(function() {
       }, 300);
     }
   });
+
+  // Function to update warnings
+  const updateWarnings = () => {
+    const warnings = [];
+    const currentPageIndex = this.currentPage.get();
+    const documentId = this.currentDocument.get();
+    if (documentId == null || currentPageIndex == null) {
+      this.warnings.set([]);
+      return;
+    }
+    const doc = Documents.findOne({_id: documentId});
+    if (!doc || !doc.pages || !doc.pages[currentPageIndex]) {
+      this.warnings.set([]);
+      return;
+    }
+    const page = doc.pages[currentPageIndex];
+    if (!page.lines) {
+      this.warnings.set([]);
+      return;
+    }
+    // Check for missing coordinates
+    page.lines.forEach((line, lineIdx) => {
+      if (line.words) {
+        line.words.forEach((word, wordIdx) => {
+          if (word && (word.x == null || word.y == null || word.width == null || word.height == null)) {
+            warnings.push(`Missing coordinates for word ${wordIdx + 1} in line ${lineIdx + 1}`);
+          }
+          if (word && word.glyphs) {
+            word.glyphs.forEach((glyph, glyphIdx) => {
+              if (glyph && (glyph.x == null || glyph.y == null || glyph.width == null || glyph.height == null)) {
+                warnings.push(`Missing coordinates for glyph ${glyphIdx + 1} in word ${wordIdx + 1}, line ${lineIdx + 1}`);
+              }
+            });
+          }
+        });
+      }
+    });
+    // You can add more warning checks here in the future!
+    this.warnings.set(warnings);
+  };
   
   // Add autorun for reactive data refresh - watches for document data changes
   this.autorun(() => {
@@ -476,6 +517,7 @@ Template.viewPage.onCreated(function() {
         initDocumentTree(documentId);
       }
     }
+    updateWarnings();
   });
 });
 
@@ -812,38 +854,27 @@ Template.viewPage.events({
     });
   },
   //button to load existing glyphs
-  'click #loadGlyphsIntoFlow'( event, instance) {
-    event.preventDefault();
-    console.log("DEBUG: loadGlyphsIntoFlow");
-    //get the documentId
-    const documentId = instance.currentDocument.get();
-    //get the current page
-    const currentPage = instance.currentPage.get();
-    //get the document
-    const doc = Documents.findOne({_id: documentId});
-    //get the lines
-    const lines = doc.pages[currentPage].lines;
-    //for each line, get the words
-    lines.forEach(function(line) {
-      line.words.forEach(function(word) {
-        let lineContents = "";
-        word.glyphs.forEach(function(glyph) {
-          //get the glyph from the database
-          const glyphData = Glyphs.findOne({_id: glyph._id});
-          if (!glyphData) {
-            console.error("Glyph not found in database:", glyph._id);
-            return;
-          }
-          //get the keybind from the glyph
-          const keybind = glyphData.keybind;
-          //add the keybind to the line contents
-          lineContents += keybind;
-        });
-        //set the line contents to the transcription input that data-id matches the line number
-        $(`input[data-id="${line.lineNumber}"]`).val(lineContents);
-      });
-    });
-  },
+'click #loadGlyphsIntoFlow'(event, instance) {
+  event.preventDefault();
+  console.log("DEBUG: loadGlyphsIntoFlow");
+  // Get the documentId and current page
+  const documentId = instance.currentDocument.get();
+  const currentPage = instance.currentPage.get();
+  const doc = Documents.findOne({_id: documentId});
+  if (!doc || !doc.pages || !doc.pages[currentPage] || !doc.pages[currentPage].lines) return;
+
+  // For each line, reconstruct the transcription from the words/glyphs
+  doc.pages[currentPage].lines.forEach((line, lineIdx) => {
+    if (!line.words) return;
+    // For each word, join the keybinds of its glyphs
+    const lineText = line.words.map(word => {
+      if (!word.glyphs) return '';
+      return word.glyphs.map(glyph => glyph.keybind || '').join('');
+    }).join(' ');
+    // Set the value of the input box for this line
+    $(`input[data-id="${lineIdx}"]`).val(lineText);
+  });
+},
 
 
     
@@ -1512,7 +1543,7 @@ function resetToolbox() {
     }
     if(currentTool == 'select') {
       hideAllToolButtons();
-      $('selectItem').removeClass('btn-light').addClass('btn-dark');
+      $('#selectItem').removeClass('btn-light').addClass('btn-dark');
       $('#exitTool').show();
     }
    } else if (currentView == 'line') {
@@ -2031,6 +2062,16 @@ function debugGlyphButton(element, eventType) {
 }
 
 Template.viewPage.helpers({
+  warnings() {
+    const instance = Template.instance();
+    const warnings = instance.warnings.get();
+    console.log("DEBUG: viewPage - warnings", warnings);
+    if (warnings) {
+      return warnings;
+    } else {
+      return false;
+    }
+  },
   currentDocument() {
     const instance = Template.instance();
     documentId = instance.currentDocument.get();
@@ -2263,7 +2304,8 @@ Template.viewPage.helpers({
       }
     }
     return "Untitled Document";
-  }
+  },
+ 
 });
 
 Template.viewPage.events({
@@ -2691,6 +2733,10 @@ Template.viewPage.events({
       $('#simple').show();
     }
 
+    if (tabId !== 'flow') {
+      clearFlowLineButtons();
+    }
+
     // Handle tab-specific logic
     if (tabId === 'flow') {
       instance.currentView.set('flow');
@@ -2805,6 +2851,12 @@ Template.viewPage.events({
     } else if (type === 'element') {
       if (instance.currentElement) instance.currentElement.set(false);
       $('img#elementImage').remove();
+    }
+
+    if (type === 'flow') {
+      clearFlowLineButtons();
+      $('#flow').hide();
+      $('#simple').show();
     }
 
     // Remove the tab
@@ -3088,21 +3140,35 @@ Template.viewPage.events({
     // Reset the saved flag for next time
     Session.set('glyphSaved', false);
   },
-  'click #flowView'(event, instance) {
-    event.preventDefault();
-    handleElementSelection('flow', 0, instance);
-    // Set the current tool to view
-    instance.currentTool.set('view');
-    resetToolbox();
-    // Set the current tool to btn-dark
-    $('#flowView').removeClass('btn-light').addClass('btn-dark');
-    // Hide the #simple div
-    $('#simple').hide();
-    // Show the #flow div
-    $('#flow').show();
-    // Set the current help text
-    setCurrentHelp('Select a font and use the on-screen keyboard to input text.');
-  },
+'click #flowView'(event, instance) {
+  event.preventDefault();
+  handleElementSelection('flow', 0, instance);
+  instance.currentTool.set('view');
+  resetToolbox();
+  $('#flowView').removeClass('btn-light').addClass('btn-dark');
+  $('#simple').hide();
+  $('#flow').show();
+  setCurrentHelp('Select a font and use the on-screen keyboard to input text.');
+
+  setTimeout(() => drawFlowLineButtons(instance), 200);
+
+  // Wait for the DOM to update, then populate input boxes
+  Tracker.afterFlush(() => {
+    const documentId = instance.currentDocument.get();
+    const currentPage = instance.currentPage.get();
+    const doc = Documents.findOne({_id: documentId});
+    if (doc && doc.pages && doc.pages[currentPage] && doc.pages[currentPage].lines) {
+      doc.pages[currentPage].lines.forEach((line, lineIdx) => {
+        if (!line.words) return;
+        const lineText = line.words.map(word => {
+          if (!word.glyphs) return '';
+          return word.glyphs.map(glyph => glyph.keybind || '').join('');
+        }).join(' ');
+        $(`input[data-id="${lineIdx}"]`).val(lineText);
+      });
+    }
+  });
+},
 
 
   'click #createLine'(event, instance) {
@@ -4128,68 +4194,105 @@ function activateFlow() {
   resetToolbox();
 }
 
+// Remove all line overlays in flow view
+function clearFlowLineButtons() {
+  $('#flow .image-container .selectElement[data-type="line"]').remove();
+}
 
+// Draw line buttons on the flow view image
+function drawFlowLineButtons(instance) {
+  // Get current page data
+  const currentPageIndex = instance.currentPage.get();
+  const documentId = instance.currentDocument.get();
+  const doc = Documents.findOne({_id: documentId});
+  if (!doc || !doc.pages || !doc.pages[currentPageIndex]) return;
+  const page = doc.pages[currentPageIndex];
+  if (!page.lines || !page.image) return;
+
+  // Wait for the image to be loaded and visible
+  const $img = $('#flow .image-container #pageImage');
+  if (!$img.length) return;
+
+  // Remove any previous overlays
+  clearFlowLineButtons();
+
+  // Ensure image is loaded before drawing overlays
+  const image = $img[0];
+  if (!image.complete) {
+    image.onload = () => drawFlowLineButtons(instance);
+    return;
+  }
+
+  // Calculate scaling
+  const scaleX = image.clientWidth / image.naturalWidth;
+  const scaleY = image.clientHeight / image.naturalHeight;
+
+  // Draw a button for each line
+  page.lines.forEach((line, idx) => {
+    drawButton(
+      image,
+      (line.x1 || 0) * scaleX,
+      (line.y1 || 0) * scaleY,
+      (line.width || image.naturalWidth) * scaleX,
+      (line.height || 30) * scaleY,
+      'line',
+      idx,
+      idx
+    );
+  });
+}
 
 //function to draw a button at a particular location x,y,width,height on canvas with a data-type and data-index. 
 // We use relative positioning to draw the button over the canvas since the user can zoom in and out of the canvas
-function drawButton(image, x, y, width, height, type, text, id) {
-  //round the x, y, width, and height to the nearest integer
+function drawButton(imageOrCanvas, x, y, width, height, type, text, id) {
+  // Round coordinates for pixel alignment
   x = Math.round(x);
   y = Math.round(y);
   width = Math.round(width);
   height = Math.round(height);
 
-  //get the canvas' context
-  const context = image.getContext('2d');
+  let parent, xScaling = 1, yScaling = 1;
 
-  //create button element
+  // Detect if we're drawing over an <img> (Flow View) or <canvas>
+  if (imageOrCanvas instanceof HTMLImageElement) {
+    parent = imageOrCanvas.parentNode;
+    xScaling = 1; // Already scaled in Flow View logic
+    yScaling = 1;
+  } else if (imageOrCanvas instanceof HTMLCanvasElement) {
+    const context = imageOrCanvas.getContext('2d');
+    parent = context.canvas.parentNode;
+    // For canvas, scale to match display size
+    const canvasOffset = context.canvas.getBoundingClientRect();
+    xScaling = canvasOffset.width / context.canvas.width;
+    yScaling = canvasOffset.height / context.canvas.height;
+  } else {
+    console.error("drawButton: Unknown image/canvas type", imageOrCanvas);
+    return;
+  }
+
+  // Create the button element
   const button = document.createElement('button');
   button.setAttribute('data-id', id);
   button.setAttribute('data-type', type);
 
-  //get the canvas' container
-  const parent = context.canvas.parentNode;
-
-  //get the canvas' computed offset relative to the parent
-  const canvasOffset = context.canvas.getBoundingClientRect();
-
-  //get the canvas' data-url
-  const src = context.canvas.toDataURL('image/png');
-
-  //create a new image
-  const img = new Image();
-  img.src = src;
-
-  //calculate the scale factor
-  const xScaling = canvasOffset.width / context.canvas.width;
-
-  let defaultClass = 'selectElement';
-  //draw the button at the x, y, width, and height 
+  // Position and size the button
   button.style.position = 'absolute';
   button.style.left = (x * xScaling) + 'px';
-  button.style.top = (y * xScaling) + 'px';
+  button.style.top = (y * yScaling) + 'px';
   button.style.width = (width * xScaling) + 'px';
-  button.style.height = (height * xScaling) + 'px';
+  button.style.height = (height * yScaling) + 'px';
 
-  //add a label on the bottom left corner of the button that says the type and index
+  // Add a label in the bottom left
   const label = document.createElement('label');
-  // Increment the displayed index by 1 for user-friendly numbering (1-based instead of 0-based)
   label.textContent = type + ' ' + (parseInt(text) + 1);
   label.style.position = 'absolute';
   label.style.bottom = '0';
   label.style.left = '0';
-
-  // Make label width wider for word elements to properly display both the type and the number
-  if (type === 'word') {
-    label.style.width = '30%'; // Wider for word elements
-  } else {
-    label.style.width = '10%';
-  }
-
   label.style.height = '15px';
   label.style.fontSize = '10px';
+  label.style.width = (type === 'word') ? '30%' : '10%';
 
-  //if type is line, set transparent light green background and child label to be light green non-transparent and a green border
+  // Style by type
   if (type == 'line') {
     button.style.backgroundColor = 'rgba(0, 255, 0, 0.2)';
     button.style.border = '1px solid green';
@@ -4207,40 +4310,27 @@ function drawButton(image, x, y, width, height, type, text, id) {
     button.style.border = '1px solid red';
     label.style.backgroundColor = 'red';
     label.style.color = 'white';
-    defaultClass = 'showReferences';
-  }
-
-  if (type == 'glyph') {
+    button.className = 'showReferences';
+  } else if (type == 'glyph') {
     button.style.backgroundColor = 'rgba(255, 255, 0, 0.2)';
     button.style.border = '1px solid yellow';
     label.style.backgroundColor = 'yellow';
     label.style.color = 'black';
-    defaultClass = 'showReferences';
-    
-    // Debug each glyph button as it's created
-    console.log(`Creating glyph button: ID=${id}, X=${x}, Width=${width}, Class=${defaultClass}`);
-  }
-
-  if (type == 'element') {
-    button.style.backgroundColor = 'rgba(128, 0, 128, 0.2)'; // Purple for elements
+    button.className = 'showReferences';
+  } else if (type == 'element') {
+    button.style.backgroundColor = 'rgba(128, 0, 128, 0.2)';
     button.style.border = '1px solid purple';
     label.style.backgroundColor = 'purple';
     label.style.color = 'white';
-    defaultClass = 'selectElement';
-    
-    // Debug each element button as it's created
-    console.log(`Creating element button: ID=${id}, X=${x}, Y=${y}, Width=${width}, Height=${height}, Class=${defaultClass}`);
+    button.className = 'selectElement';
+  } else {
+    button.className = 'selectElement';
   }
 
-  //set the button class to 'select-element'
-  button.className = defaultClass;
-  
   button.appendChild(label);
-
-  //append the button to the parent
   parent.appendChild(button);
-  
-  // Add a click event listener directly to the button for debugging
+
+  // Optional: Add debug click for glyphs
   if (type === 'glyph') {
     button.addEventListener('click', function(e) {
       console.log(`Direct glyph button click detected: ID=${id}`);
@@ -4248,7 +4338,6 @@ function drawButton(image, x, y, width, height, type, text, id) {
     });
   }
 }
-
 //function to draw a rectangle on the canvas at a particular location
 function drawRect(canvas, x, y, width, height, type, index, subIndex) {
   const ctx = canvas.getContext('2d');

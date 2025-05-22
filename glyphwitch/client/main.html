@@ -28,12 +28,9 @@
 
 <!-- header with topnav bar bootstrap 5.2. Needs Home and right side login/signup/logout -->
 <template name="header">
+  {{#if currentUser}}
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
-      <!-- logo -->
-      <a class="navbar-brand" href="/">
-        <img src="/glyphwitch/logo.png" alt="GW" class="img-fluid" style="max-width: 50px;">
-      </a>
       <!-- document title -->
               <span class="document-name-container" >
             <span class="document-name" id="documentName" contenteditable="true" style="border: 1px solid #ccc; padding: 5px; border-radius: 4px; display: inline-block; min-width: 150px;">{{state.currentDocument.title}}</span>
@@ -44,31 +41,24 @@
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
-        {{#if currentUser}}
           <div class="ribbon">
             <button type="button" class="btn btn-light border rounded" data-bs-toggle="modal" data-bs-target="#openModal">
               <i class="bi bi-folder2-open"></i>
             </button>
           </div>
-        {{/if}}
       </div>
       <div class ="row">
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
           <ul class="navbar-nav">
-            {{#if currentUser}}
               <li class="nav-item">
                 <a href="/logout" class="nav-link">Logout {{currentUser.username}}</a>
               </li>
-            {{else}}
-              <li class="nav-item">
-                <a class="nav-link" href="/login">Login/Signup</a>
-              </li>
-            {{/if}}
           </ul>
         </div>
       </div>  
     </div>
   </nav>
+  {{/if}}
 </template>
 
 <!--home -->
@@ -89,9 +79,7 @@
 
   <div class="container" style="margin-top: 10vh; max-width: 500px;">
     <div class="mb-4 text-center">
-      <div class="text-center">
-        <img src="/logo.png" alt="GlyphWitch Logo" class="img-fluid" style="max-width: 200px;">
-     </div> 
+
      <!-- version number -->
       <div class="text-center">
         <small class="text-muted">Version {{version}}</small>
@@ -481,57 +469,77 @@
                   </div>
                 {{/if}}
               </div>
+                {{#if missingCoordinates.length}}
+                  <div class="alert alert-warning mt-3" style="max-width: 600px;">
+                    <ul class="mb-0">
+                      {{#each missingCoordinates}}
+                        <li>{{label}}</li>
+                      {{/each}}
+                    </ul>
+                  </div>
+                {{/if}}
             </div>
           </div>
           <div class="col">
-            <div class="flow-container">
-              <div class="row">
-                <div class="col-md-12 mx-5 my-2 fontbox">
-                  <!-- Font selector -->
-                  <div class="form-group">
-                    <label for="fontSelector">Font</label>
-                    <select class="form-control" id="fontSelector">
-                      {{#if fonts}}
-                        <option value="">Default Font</option>
-                      {{/if}}
-                      {{#each fonts}}
-                        <option value="{{this.url}}">{{this.name}}</option>
-                      {{/each}}
-                    </select>
+            <div class="col">
+              {{#if isEqual currentView "flow"}}
+              <div class="flow-container d-flex flex-column" style="height: 80vh; min-height: 400px;">
+                <div class="row">
+                  <div class="col-md-12 mx-5 my-2 fontbox">
+                    <!-- Font selector -->
+                    <div class="form-group">
+                      <label for="fontSelector">Font</label>
+                      <select class="form-control" id="fontSelector">
+                        {{#if fonts}}
+                          <option value="">Default Font</option>
+                        {{/if}}
+                        {{#each fonts}}
+                          <option value="{{this.url}}">{{this.name}}</option>
+                        {{/each}}
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="row mx-5 my-5 bg-white col-md-12" style="height: 80vh; border: 1px solid #ccc; overflow-y: scroll;">
-                <!-- Microsoft Word style page -->
-                <div class="col-md-12 mx-auto my-5 bg-white" style="border: 1px solid #ccc; overflow-y: scroll; max-width: 80%; height: 100%;">
-                  <div class="text-view" style="max-height: 80%;">
-                    <div class="text-view-content" id="textViewContent" style="height: calc(100% - 150px);">
-                      <div style="display: flex; align-items: center;">
-                        <div class="line-numbered-container">
-                            <div class="d-flex align-items-center">
-                            {{#each currentPage.lines}}
-                              <div class="line-number me-2" id="line-{{this.id}}">
-                                {{add @index 1}}
-                              </div>
-                              <input class="input-without-styling custom-font flex-grow-1" id="transcriptionInput" data-id="{{@index}}" type="text" value="{{this.transcription}}" style="width: 100%; border: none; background-color: transparent; outline: none; font-family: {{font}}; font-size: 16px;">
-                            {{/each}}
+                <!-- Main scrollable area for lines -->
+                <div class="flex-grow-1 overflow-auto mx-5 my-2 bg-white" style="border: 1px solid #ccc; border-radius: 6px;">
+                  <div class="text-view-content p-4" id="textViewContent">
+                    <div style="display: flex; align-items: flex-start;">
+                      <div class="line-numbered-container w-100">
+                        {{#each currentPage.lines}}
+                          <div class="d-flex align-items-center mb-2" style="width: 100%;">
+                            <div class="line-number me-2" id="line-{{this.id}}" style="min-width: 32px; text-align: right;">
+                              {{add @index 1}}
                             </div>
-                          
-               
-                        </div>
+                            <input
+                              class="input-without-styling custom-font flex-grow-1"
+                              id="transcriptionInput"
+                              data-id="{{@index}}"
+                              type="text"
+                              value="{{this.transcription}}"
+                              style="width: 100%; border: none; background-color: transparent; outline: none; font-family: {{font}}; font-size: 16px;"
+                            >
+                          </div>
+                        {{/each}}
                       </div>
                     </div>
-                    <!-- load current document into flow loadGlyphsIntoFlow -->
-                    <button class="btn btn-primary" id="loadGlyphsIntoFlow">Load Current Document Into Flow</button>
-                    <!-- save document changes button -->
-                    <button class="btn btn-primary" id="saveFlowChanges" >Save Changes</button>
-                    <!-- On-screen keyboard -->
-                    <div class="keyboard" id="keyboard" style="width: 100%; background-color: rgb(194, 194, 194); overflow-y: scroll; max-height: 300px;">
+                  </div>
+                </div>
+                <!-- Action buttons and keyboard always at the bottom -->
+                <div class="row mx-5 my-2">
+                  <div class="col d-flex gap-2">
+                    <button class="btn btn-primary" id="loadGlyphsIntoFlow">Revert</button>
+                    <button class="btn btn-primary" id="saveFlowChanges">Save</button>
+                  </div>
+                </div>
+                <div class="row mx-5 mb-2">
+                  <div class="col">
+                    <div class="keyboard" id="keyboard" style="width: 100%; background-color: rgb(194, 194, 194); overflow-x: auto; max-height: 200px;">
                     </div>
                   </div>
                 </div>
+
               </div>
-              <div class="row"></div>
+              {{/if}}
             </div>
           </div>
         </div>
@@ -617,8 +625,29 @@
       </div>
       {{/if}}
     </div>
+
+
     <div class="fixed-bottom bg-light border-top">
+          {{#if warnings.length}}
+      <div class="alert alert-danger w-100 mb-0 px-0"
+          style="
+            z-index: 1050;
+            border-radius: 0;
+            max-height: 100px;
+            overflow-y: auto;
+            text-align: left;
+            padding-left: 2rem;
+            padding-right: 2rem;
+          ">
+        <ul class="mb-0 ps-3" style="max-width: 900px;">
+          {{#each warnings}}
+            <li>{{this}}</li>
+          {{/each}}
+        </ul>
+      </div>
+    {{/if}}
       <div class="container">
+       
         <div class="row">
           <div class="col text-center w-100">
             <!-- Updated this line to ensure the page number is only displayed by the helper -->
