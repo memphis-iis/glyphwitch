@@ -1,9 +1,9 @@
 Session.set('versionInfo', {
-  "commitID": "314f147f51f1f7cea614ccccd5868d039a122929",
-  "buildTimestamp": "Wednesday 2025-04-30",
+  "commitID": "0dff51396c3ca3919869d237133ad7cb66873862",
+  "buildTimestamp": "Wednesday 2025-06-04",
   "buildersUsername": "",
   "branch": "main",
   "repoURL": "https://github.com/memphis-iis/glyphwitch.git",
-  "last5commitMessages": "changes Merge branch 'main' into sidebar-feature docker edits and textflow start Fixed new document title error Fixed page number duplication bug",
-  "releaseName": "v2025-04-30-12-06-42-main-autobuild"
+  "last5commitMessages": "Merge pull request #36 from memphis-iis/demo-transcriber transcriber changes transcriber changes Merge branch 'main' into sidebar-feature",
+  "releaseName": "v2025-06-04-09-24-59-main-autobuild"
 });

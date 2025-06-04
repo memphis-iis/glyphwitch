@@ -223,7 +223,54 @@ Meteor.methods({
     //modify entire Document. Must include the document id, the file collection location, the title, and the author.
     modifyDocument: function(documentId, docObject) {
         console.log("Modifying document (document: " + JSON.stringify(docObject) + ")");
-        Documents.upsert(documentId, docObject);
+
+        // Blanket sort: lines, words, glyphs
+        if (docObject.pages && Array.isArray(docObject.pages)) {
+            docObject.pages.forEach(page => {
+                // Sort lines by y1 if available, else keep array order
+                if (page.lines && Array.isArray(page.lines)) {
+                    page.lines.sort((a, b) => {
+                        if (typeof a.y1 === 'number' && typeof b.y1 === 'number') return a.y1 - b.y1;
+                        if (typeof a.y1 === 'number') return -1;
+                        if (typeof b.y1 === 'number') return 1;
+                        return 0; // fallback to current order
+                    });
+
+                    page.lines.forEach(line => {
+                        // Sort words by x if available, else keep array order
+                        if (line.words && Array.isArray(line.words)) {
+                            line.words.sort((a, b) => {
+                                if (typeof a.x === 'number' && typeof b.x === 'number') return a.x - b.x;
+                                if (typeof a.x === 'number') return -1;
+                                if (typeof b.x === 'number') return 1;
+                                return 0;
+                            });
+
+                            line.words.forEach(word => {
+                                // Sort glyphs by x if available, else keep array order
+                                let glyphsArr = word.glyphs || word.glyph || [];
+                                if (Array.isArray(glyphsArr)) {
+                                    glyphsArr.sort((a, b) => {
+                                        if (typeof a.x === 'number' && typeof b.x === 'number') return a.x - b.x;
+                                        if (typeof a.x === 'number') return -1;
+                                        if (typeof b.x === 'number') return 1;
+                                        return 0;
+                                    });
+                                    // Write back to the correct property
+                                    if (word.glyphs) word.glyphs = glyphsArr;
+                                    if (word.glyph) word.glyph = glyphsArr;
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // FIX: Use $set modifier
+        Documents.upsert(documentId, { $set: docObject });
+        console.log("Document modified: " + documentId);
+        return documentId;
     },
     //modify page in a document. Must include the document id, the page number, and the user who added it.
     modifyPageInDocument: function(document, page) {
@@ -252,6 +299,30 @@ Meteor.methods({
         doc.pages[page].lines.splice(line, 1);
         //update the document
         Documents.update(document, doc);
+    },
+    reorderLines(documentId, pageIndex, newOrder) {
+        check(documentId, String);
+        check(pageIndex, Number);
+        check(newOrder, [Number]);
+        const doc = Documents.findOne(documentId);
+        if (!doc || !doc.pages || !doc.pages[pageIndex]) throw new Meteor.Error('not-found');
+        const lines = doc.pages[pageIndex].lines;
+        if (!lines || lines.length !== newOrder.length) throw new Meteor.Error('invalid-order');
+
+        // Build new lines array, keeping coordinates at their original index
+        const newLines = lines.map((line, idx) => {
+            const sourceLine = lines[newOrder[idx]];
+            // Copy all properties except coordinates from the sourceLine
+            return {
+                ...line, // keep coordinates and any other fixed properties
+                transcription: sourceLine.transcription,
+                words: sourceLine.words,
+                // add any other properties you want to swap
+            };
+        });
+
+        doc.pages[pageIndex].lines = newLines;
+        Documents.update(documentId, { $set: { pages: doc.pages } });
     },
     //add word to a line. Must include the document id, the page number, the line number, the x coordinate, the width, the word order number, the word, and the user who added it.
     addWordToLine: function(document, page, line, x, width, wordOrder=false, word=false) {
@@ -481,6 +552,42 @@ Meteor.methods({
         console.log("Adding glyph (phoneme: " + phoneme + ", glyph: " + glyph + ")");
         Phonemes.update(phoneme, { $push: { glyphs: glyph, addedBy: Meteor.userId() } });
     },
+  setIPAForGlyphs(documentId, transcription, keybind, ipa) {
+    check(documentId, String);
+    check(transcription, String);
+    check(keybind, String);
+    check(ipa, String);
+
+    const doc = Documents.findOne({_id: documentId});
+    if (!doc) throw new Meteor.Error('not-found', 'Document not found');
+
+    let updated = false;
+
+    doc.pages.forEach((page, pageIdx) => {
+      if (!page.lines) return;
+      page.lines.forEach((line, lineIdx) => {
+        if (!line.words) return;
+        line.words.forEach((word, wordIdx) => {
+          if (!word.glyphs) return;
+          word.glyphs.forEach((glyph, glyphIdx) => {
+            // Match by keybind and transcription
+            if (
+              glyph.keybind === keybind &&
+              word.transcription === transcription
+            ) {
+              glyph.ipa = ipa;
+              updated = true;
+            }
+          });
+        });
+      });
+    });
+
+    if (updated) {
+      Documents.update({_id: documentId}, {$set: {pages: doc.pages}});
+    }
+    return updated;
+  },
     addGlyphToWord: function(document, page, line, word, x, width, documentImageData, drawnImageData) {
         console.log("Adding glyph to word (document: " + document + ", page: " + page + ", line: " + line + ", word: " + word + ", x: " + x + ", width: " + width + ", documentImageData: " + documentImageData + ", drawnImageData: " + drawnImageData + ")");
         //create the glyph in the Glyphs collection

@@ -5,6 +5,7 @@ import { Session } from 'meteor/session';
 import Cropper from 'cropperjs';
 import go from 'gojs';
 import './views/versionInfo.js';
+import Sortable from 'sortablejs';
 import { initDocumentTree, addTreeButtonHandlers, ScriptLoader } from './jstree-sidebar.js';
 
 import './main.html';
@@ -437,6 +438,7 @@ Template.viewPage.onCreated(function() {
   Template.instance().xScaling = new ReactiveVar(1);
   Template.instance().cropper = new ReactiveVar(false);
   Template.instance().warnings = new ReactiveVar(false);
+  Template.instance().warningBoxExpanded = new ReactiveVar(false);
   Template.instance().discussions = new ReactiveVar(
     {
       "document": false,
@@ -487,12 +489,12 @@ Template.viewPage.onCreated(function() {
     page.lines.forEach((line, lineIdx) => {
       if (line.words) {
         line.words.forEach((word, wordIdx) => {
-          if (word && (word.x == null || word.y == null || word.width == null || word.height == null)) {
+          if (word && (word.x == null ||  word.width == null)) {
             warnings.push(`Missing coordinates for word ${wordIdx + 1} in line ${lineIdx + 1}`);
           }
           if (word && word.glyphs) {
             word.glyphs.forEach((glyph, glyphIdx) => {
-              if (glyph && (glyph.x == null || glyph.y == null || glyph.width == null || glyph.height == null)) {
+              if (glyph && (glyph.x == null ||  glyph.width == null)) {
                 warnings.push(`Missing coordinates for glyph ${glyphIdx + 1} in word ${wordIdx + 1}, line ${lineIdx + 1}`);
               }
             });
@@ -505,15 +507,15 @@ Template.viewPage.onCreated(function() {
   };
   
   // Add autorun for reactive data refresh - watches for document data changes
+  let lastDocumentId = null;
   this.autorun(() => {
     const documentId = instance.currentDocument.get();
-    if (documentId) {
-      // Reactive data fetch that will re-run when document data changes
-      const docData = Documents.findOne({_id: documentId});
-      
-      // Only refresh if we have an initialized tree and actual document data
-      if (docData && $.jstree && $.jstree.reference('#documentTree')) {
-        console.log("Document data changed, refreshing tree");
+    if (documentId && lastDocumentId !== documentId) {
+      // Only refresh tree and reset page when document changes
+      instance.currentPage.set(0);
+      lastDocumentId = documentId;
+      console.log("Document changed, resetting currentPage to 0 and refreshing tree");
+      if ($.jstree && $.jstree.reference('#documentTree')) {
         initDocumentTree(documentId);
       }
     }
@@ -684,172 +686,321 @@ Template.viewPage.onRendered(function() {
     console.groupEnd();
   });
 
+  
+
   // Add a delay to ensure the DOM is fully rendered
   setTimeout(debugCollapsibleElements, 1000);
+
+    this.autorun(() => {
+    if (instance.currentView && instance.currentView.get() === 'flow') {
+      Tracker.afterFlush(() => {
+        const linesList = document.getElementById('linesList');
+        if (linesList && !linesList._sortableInitialized) {
+          Sortable.create(linesList, {
+            animation: 150,
+            handle: '.line-number',
+            draggable: '.line-draggable',
+            onEnd: function (evt) {
+              console.log('DEBUG: Line reorder ended', evt);
+              // Get new order of line indexes
+              const newOrder = [];
+              $('#linesList .line-draggable').each(function() {
+                newOrder.push(Number($(this).attr('data-line-index')));
+              });
+              // Call Meteor method to update order
+              Meteor.call('reorderLines',
+                instance.currentDocument.get(),
+                instance.currentPage.get(),
+                newOrder,
+                function(err) {
+                  if (err) alert('Error reordering lines: ' + err.reason);
+                  else {
+                    console.log('DEBUG: Lines reordered successfully');
+                    // Force Blaze to re-fetch the document and update the UI
+                    const doc = Documents.findOne({_id: instance.currentDocument.get()});
+                    instance.flowDocument && instance.flowDocument.set(doc);
+                  }
+                }
+              );
+            }
+          });
+          linesList._sortableInitialized = true;
+        }
+      });
+    }
+  });
 });
 
 // Add this to the viewPage events to ensure cleanup
 Template.viewPage.events({
+
+    'click .speak-ipa-btn': function(event, instance) {
+    const lineIdx = $(event.currentTarget).data('id');
+    const ipaHtml = $(`div.transcriptionInputDisplay[data-id="${lineIdx}"]`).html();
+    // Remove HTML tags to get plain IPA text
+    const ipaText = $('<div>').html(ipaHtml).text();
+    if ('speechSynthesis' in window) {
+      const utter = new window.SpeechSynthesisUtterance(ipaText);
+      utter.lang = 'en-US'; // You can adjust this if needed
+      window.speechSynthesis.speak(utter);
+    } else {
+      alert('Text-to-Speech is not supported in this browser.');
+    }
+  },
   
-  
+  'click #WarningBox'(event, instance) {
+    instance.warningBoxExpanded.set(!instance.warningBoxExpanded.get());
+  },
   // Cleanup sidebar resize event handlers when the template is destroyed
   'template.viewPage.destroyed'() {
     $(document).off('mousemove.sidebarResize');
     $(document).off('mouseup.sidebarResize');
   },
-  'change #fontSelector': function (event) {
-    const fontUrl = event.target.value;
-    console.log('DEBUG: Font URL for flow:', fontUrl);
+    // ...inside Template.viewPage.events...
+'change #fontSelector': function (event, instance) {
+  const fontUrl = event.target.value;
+  console.log('DEBUG: Font URL for flow:', fontUrl);
 
-    if (fontUrl) {
-      // Create a new style element to load the font
-      const fontName = `customFont-${Date.now()}`; // Unique font name
-      const style = document.createElement('style');
-      style.innerHTML = `
-        @font-face {
-          font-family: '${fontName}';
-          src: url('${fontUrl}');
-        }
-        .custom-font {
-          font-family: '${fontName}', sans-serif;
-        }
-      `;
+  // Only load a font if a real URL is selected (not ipa, transcription, or empty)
+  if (fontUrl && fontUrl !== 'ipa' && fontUrl !== 'transcription') {
+    let fontName = `customFont-${Date.now()}`;
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @font-face {
+        font-family: '${fontName}';
+        src: url('${fontUrl}');
+      }
+      .custom-font {
+        font-family: '${fontName}', sans-serif;
+      }
+    `;
+    document.head.appendChild(style);
 
-      // Append the style to the document head
-      document.head.appendChild(style);
-      
-    } else {
-      //set the font to the default font
-      const style = document.createElement('style');
-      style.innerHTML = `
-        @font-face {
-          font-family: 'defaultFont';
-          src: url('https://example.com/default-font.ttf');
-        }
-        .custom-font {
-          font-family: 'defaultFont', sans-serif;
-        }
-      `;
-      // Append the style to the document head
-      document.head.appendChild(style);
-    }
-    //we need to load the font and determine how many glyphs are in the font and their keyboard mappings using opentype.js
-    //load the font using opentype.js
+    // Load the font and build the virtual keyboard
     const opentype = require('opentype.js');
     opentype.load(fontUrl, function(err, font) {
       if (err) {
         console.error('Font loading error:', err);
         return;
       }
-      console.log('Font loaded:', font);
-      // Get the glyphs and their mappings
       const glyphs = font.glyphs.glyphs;
-      console.log('Glyphs:', glyphs);
-      //for each glyph, create a new button inside .keyboard
       const keyboard = $('.keyboard');
       keyboard.empty();
+
       for (const key in glyphs) {
         const glyph = glyphs[key];
-        //convert that unicode to a string
         const unicode = String.fromCharCode(glyph.unicode);
-        if (!unicode) {
-          console.log('No unicode for glyph:', glyph);
-          continue;
-        }
-        const button = $('<button>')
-          .addClass('btn btn-outline-secondary m-1 position-relative')
-          .attr('data-glyph', glyph.unicode)
-          .attr('data-glyph-id', glyph.id);
+        const keybind = glyph;
+        if (!unicode || !keybind) continue;
 
-        // Add the main key text with the custom font
+         // Prefer document glyph data if available
+          let docGlyph = findDocGlyph(doc, unicode, glyphs[key].id);
+          let ipa = docGlyph && docGlyph.ipa ? docGlyph.ipa : (glyph.ipa || '');
+          let transcription = docGlyph && docGlyph.transcription ? docGlyph.transcription : (glyph.transcription || '');
+
+          // Fallback to global Glyphs collection if needed
+          let dbGlyph = Glyphs.findOne({ unicode: unicode }) || Glyphs.findOne({ id: glyph.id });
+          if (!ipa && dbGlyph && dbGlyph.ipa) ipa = dbGlyph.ipa;
+          if (!transcription && dbGlyph && dbGlyph.transcription) transcription = dbGlyph.transcription;
+
+          // ...rest of your button creation code...
+          let isMissing = !ipa || !transcription;
+          const button = $('<button>')
+            .addClass('btn btn-outline-secondary m-1 position-relative')
+            .attr('data-glyph', unicode)
+            .attr('data-glyph-id', glyph.id);
+
+          if (!isMissing) {
+            button.css('background-color', 'green').css('color', 'white');
+          }
+
         const mainText = $('<span>')
           .addClass('custom-font d-block')
-          .text(String.fromCharCode(glyph.unicode));
+          .text(unicode);
         button.append(mainText);
 
-        // Add the modifier text without the custom font
         const modifierText = $('<span>')
           .addClass('position-absolute top-0 start-0 small')
-          .text(String.fromCharCode(glyph.unicode));
+          .text(unicode);
         button.append(modifierText);
 
         keyboard.append(button);
+        button.on('contextmenu', function(e) {
+  e.preventDefault();
+  const transcription = prompt('Enter the transcription value for this glyph:', unicode);
+  if (transcription === null) return;
+  const ipa = prompt('Enter the IPA phonetic value for this glyph:', '');
+  if (ipa === null) return;
 
-        // Add click event to each button to append the glyph to the text area
-        button.on('click', function() {
-          const glyphUnicode = $(this).data('glyph');
-          const textArea = $('#transcriptionInput');
-          const currentText = textArea.val();
-          textArea.val(currentText + glyphUnicode);
-        });
-      }
-    });
-  },
-  //when #transcriptionInput is changed, we propegate the changes in the document
-  'input #transcriptionInput': function(event, instance) {
-    console.log("DEBUG: transcriptionInput changed");
-    const documentId = instance.currentDocument.get();
-    const currentPage = instance.currentPage.get();
-    const doc = Documents.findOne({_id: documentId});
-    const transcription = event.target.value;
-    //get the line number from the data-id
-    const lineNumber = $(event.target).data('id');
-    //get the ammount of words in the transcription
-    const words = transcription.split(' ');
-    const wordsCount = words.length;
-    const font = $('#fontSelector').val();
-    //iterate through the word count
-    doc.pages[currentPage].lines[lineNumber].words = [];
-    for (let i = 0; i < wordsCount; i++) {
-      //make sure a word at that index exists, otherwise create it
-      if (!doc.pages[currentPage].lines[lineNumber].words[i]) {
-        //create a new word
-        const word = {
-          glyphs: [],
-        }
-        //add the word to the line
-        doc.pages[currentPage].lines[lineNumber].words.push(word);
-      }
-      doc.pages[currentPage].lines[lineNumber].words[i].glyphs = [];
-      const glyphsCount = words[i].length;
-      //iterate through the glyph count
-      for (let j = 0; j < glyphsCount; j++) {
-        //get the value of the character
-        const char = words[i].charAt(j);
-        //upsert the glyph in the database
-        let glyph = {
-          keybind: char,
-          font: font,
-          elements: [],
-        }
-        //add glyph to the database
-        Meteor.call('upsertGlyph', glyph, function(error, result) {
-          if (error) {
-            console.error("Error upserting glyph:", error);
-          } else {
-            console.log("Glyph upserted successfully:", result);
+  // Update button color immediately for feedback
+  if (transcription.trim() !== '' && ipa.trim() !== '') {
+    button.css('background-color', 'green').css('color', 'white');
+    button.removeAttr('style');
+  } else {
+    button.css('background-color', '').css('color', 'white');
+  }
+
+  // Update every glyph in the document with this unicode or keybind
+  const documentId = instance.currentDocument.get();
+  const flowDoc = instance.flowDocument.get() || Documents.findOne({_id: documentId});
+  if (!flowDoc || !flowDoc.pages) return;
+
+  for (const page of flowDoc.pages) {
+    if (!page.lines) continue;
+    for (const line of page.lines) {
+      if (!line.words) continue;
+      for (const word of line.words) {
+        if (!word.glyphs) continue;
+        for (const glyph of word.glyphs) {
+          if ((glyph.unicode === unicode) || (glyph.keybind === glyphs[key].id)) {
+            glyph.ipa = ipa;
+            glyph.transcription = transcription;
+            glyph.keybind = glyphs[key].id || unicode;
           }
-        });
-
-        doc.pages[currentPage].lines[lineNumber].words[i].glyphs.push(glyph);
+        }
       }
-      //set the word to the transcription
-      doc.pages[currentPage].lines[lineNumber].words[i].transcription = words[i];
-      //update the flowDocument reactive variable
-      instance.flowDocument.set(doc);
     }
-  },
-  'click #saveFlowChanges'(event, instance) {
+  }
+
+  instance.flowDocument.set(flowDoc);
+  updateFlowInputs(instance, $('#fontSelector').val());
+});
+button.on('click', function() {
+  // Find the focused input
+  const textArea = $('input.flow-input[data-select="true"], input.flow-input[data-select="active"]');
+  const documentId = instance.currentDocument.get();
+  const flowDoc = instance.flowDocument.get() || Documents.findOne({_id: documentId});
+  const currentPage = instance.currentPage.get();
+
+  if (!flowDoc || !flowDoc.pages || !flowDoc.pages[currentPage] || !flowDoc.pages[currentPage].lines) return;
+
+  let lineIdx, caretPos;
+  if (textArea.length > 0) {
+    lineIdx = textArea.data('id');
+    caretPos = textArea[0].selectionStart;
+  } else {
+    // Default to last line if none focused
+    lineIdx = 0;
+    caretPos = null;
+  }
+  const line = flowDoc.pages[currentPage].lines[lineIdx];
+  if (!line || !line.words) return;
+
+  // Figure out which word and glyph index the caret is in
+  let charCount = 0, wordIdx = 0, glyphIdx = 0;
+  for (let i = 0; i < line.words.length; i++) {
+    const word = line.words[i];
+    const wordLen = word.transcription ? word.transcription.length : 0;
+    // If caretPos is null, always insert at the end of the last word
+    if (caretPos === null || caretPos > charCount + wordLen - 1) {
+      wordIdx = i;
+      glyphIdx = wordLen;
+    }
+    if (caretPos !== null && caretPos <= charCount + wordLen) {
+      wordIdx = i;
+      glyphIdx = caretPos - charCount;
+      break;
+    }
+    charCount += wordLen + 1; // +1 for space
+  }
+  const word = line.words[wordIdx];
+  if (!word) return;
+  if (!word.glyphs) word.glyphs = [];
+
+  // Insert the glyph at the calculated position (end if not focused)
+  word.glyphs.splice(glyphIdx, 0, {
+    unicode: unicode,
+    keybind: glyphs[key].id || unicode,
+    ipa: ipa,
+    transcription: transcription,
+  });
+
+  // Also insert the transcription character at the correct position
+  word.transcription = (word.transcription || '');
+  word.transcription = word.transcription.slice(0, glyphIdx) + transcription + word.transcription.slice(glyphIdx);
+
+  instance.flowDocument.set(flowDoc);
+
+  // Move caret forward by one character for user convenience
+  if (textArea.length > 0) {
+    setTimeout(() => {
+      textArea[0].selectionStart = textArea[0].selectionEnd = glyphIdx + transcription.length;
+      textArea.focus();
+    }, 0);
+  }
+
+  updateFlowInputs(instance, $('#fontSelector').val());
+});
+      }
+
+      // After building the keyboard, update the input boxes as if a font is selected
+      updateFlowInputs(instance, fontUrl);
+    });
+  } else {
+    // For ipa, transcription, or default, just update the input boxes
+    updateFlowInputs(instance, fontUrl);
+  }
+},
+
+  //when #transcriptionInput is changed, we propegate the changes in the document
+'input .flow-input': function(event, instance) {
+  const documentId = instance.currentDocument.get();
+  const currentPage = instance.currentPage.get();
+  const flowDoc = instance.flowDocument.get() || Documents.findOne({_id: documentId});
+  const lineNumber = $(event.target).data('id');
+  const newText = event.target.value;
+
+  if (!flowDoc || !flowDoc.pages || !flowDoc.pages[currentPage] || !flowDoc.pages[currentPage].lines) return;
+
+  const line = flowDoc.pages[currentPage].lines[lineNumber];
+  if (!line || !line.words) return;
+
+  // Split the input into words (by space)
+  const words = newText.split(' ');
+
+  // Update or add words as needed
+  for (let i = 0; i < words.length; i++) {
+    const wordText = words[i] || '';
+    if (!line.words[i]) line.words[i] = { glyphs: [], transcription: '' };
+    line.words[i].transcription = wordText;
+
+    // Remove extra glyphs if the word got shorter
+    if (line.words[i].glyphs.length > wordText.length) {
+      line.words[i].glyphs.length = wordText.length;
+    }
+
+    // Update or add glyphs for each character in the word
+    for (let j = 0; j < wordText.length; j++) {
+      if (!line.words[i].glyphs[j]) line.words[i].glyphs[j] = {};
+      line.words[i].glyphs[j].transcription = wordText[j];
+      // Optionally, clear IPA or other glyph properties if needed
+    }
+  }
+  // Remove extra words if the line got shorter
+  line.words.length = words.length;
+
+  instance.flowDocument.set(flowDoc);
+},
+  'click #saveFlowChanges'(event) {
     event.preventDefault();
     console.log("DEBUG: saveFlowChanges");
+    const instance = Template.instance();
     const flowDoc = instance.flowDocument.get();
+    console.log("DEBUG: Flow document to save:", flowDoc);
+    if (!flowDoc || typeof flowDoc !== 'object') {
+      alert('Error: Document data is missing or invalid.');
+      return;
+    }
     Meteor.call('modifyDocument', instance.currentDocument.get(), flowDoc, function(error, result) {
       if (error) {
         console.error("Error saving flow changes:", error);
         alert('Error saving flow changes: ' + error.reason);
       } else {
-        console.log("Flow changes saved successfully:", result);
-        alert('Flow changes saved successfully');
+            Meteor.setTimeout(() => {
+            const updatedDoc = Documents.findOne({_id: instance.currentDocument.get()});
+            instance.flowDocument.set(updatedDoc);
+            updateFlowInputs(instance, $('#fontSelector').val());
+          }, 200); // Give the server a moment to update
       }
     });
   },
@@ -1477,32 +1628,41 @@ Template.viewPage.events({
   
   // Fix page selection click handler too
   'click .pagesel'(event, instance) {
-    // Don't trigger page change if clicking on the control buttons
-    if ($(event.target).closest('.page-controls').length) {
-      return;
-    }
-    
-    // Get the 0-indexed page number from data attribute
-    const pageIndex = Number($(event.currentTarget).data('id'));
-    console.log("Page selected:", pageIndex, "Display page:", pageIndex + 1);
-    
-    if (!isNaN(pageIndex)) {
-      // Set current page (0-indexed internally)
-      instance.currentPage.set(pageIndex);
-      
-      // Update the page image
-      const documentId = instance.currentDocument.get();
-      if (documentId) {
-        const doc = Documents.findOne({_id: documentId});
-        if (doc && doc.pages && doc.pages[pageIndex] && doc.pages[pageIndex].pageId) {
-          const file = Files.findOne({_id: doc.pages[pageIndex].pageId});
-          if (file) {
-            $('#pageImage').attr('src', file.link());
-          }
+  // Don't trigger page change if clicking on the control buttons
+  if ($(event.target).closest('.page-controls').length) {
+    return;
+  }
+
+  // Get the 0-indexed page number from data attribute
+  const pageIndex = Number($(event.currentTarget).data('id'));
+  console.log("Page selected:", pageIndex, "Display page:", pageIndex + 1);
+
+  if (!isNaN(pageIndex)) {
+    // Set current page (0-indexed internally)
+    instance.currentPage.set(pageIndex);
+
+    // Always close flow view and activate Simple tab
+    $('#flow').hide();
+    $('#simple').show();
+    instance.currentView.set('simple');
+    $('#simple-tab').addClass('active').attr('aria-selected', 'true');
+    // Remove active from other nav tabs if needed
+    $('.open-tab').removeClass('active').attr('aria-selected', 'false');
+    $('#simple-tab').addClass('active').attr('aria-selected', 'true');
+
+    // Update the page image
+    const documentId = instance.currentDocument.get();
+    if (documentId) {
+      const doc = Documents.findOne({_id: documentId});
+      if (doc && doc.pages && doc.pages[pageIndex] && doc.pages[pageIndex].pageId) {
+        const file = Files.findOne({_id: doc.pages[pageIndex].pageId});
+        if (file) {
+          $('#pageImage').attr('src', file.link());
         }
       }
     }
-  },
+  }
+},
   
   // ...existing code...
 });
@@ -1984,6 +2144,9 @@ function replaceWithOriginalImage() {
     $('#pageImage').show();
     // Hide all other view-specific images
     $('img#lineImage, img#wordImage, img#glyphImage, img#elementImage').hide();
+  } else if (currentView === 'flow') {
+    $('#pageImageFlow').show();
+    $('#pageImage').hide();
   } else if(currentView == 'line') {
     $('#lineImage').show();
     // Hide other view-specific images
@@ -2062,6 +2225,9 @@ function debugGlyphButton(element, eventType) {
 }
 
 Template.viewPage.helpers({
+  warningBoxExpanded() {
+    return Template.instance().warningBoxExpanded.get();
+  },
   warnings() {
     const instance = Template.instance();
     const warnings = instance.warnings.get();
@@ -2309,6 +2475,12 @@ Template.viewPage.helpers({
 });
 
 Template.viewPage.events({
+  'click .flow-input'(event, instance) {
+    //remove all data-select from all .flow-input elements
+    $('.flow-input').removeAttr('data-select');
+    //set the data-select attribute to the clicked element
+    $(event.currentTarget).attr('data-select', 'true');
+  },
   'mouseover #ToolBox'(event, instance) {
     console.log("mouseover");
     //make sure the opacity is 1
@@ -2382,6 +2554,7 @@ Template.viewPage.events({
           const file = Files.findOne({_id: doc.pages[newPage].pageId});
           if (file) {
             $('#pageImage').attr('src', file.link());
+            $('#pageImageFlow').attr('src', file.link());
             console.log("Image updated to:", file.link());
           } else {
             console.error("File not found for pageId:", doc.pages[newPage].pageId);
@@ -2480,12 +2653,10 @@ Template.viewPage.events({
     }
     //sort the lines by y1
     lines.sort(function(a, b) {
-      return a.y1 - b.y1;
+      return (a.y1 || 0) - (b.y1 || 0);
     });
-    //split the canvas into multiple canvases by line
-    lines.forEach(function(line) {
-      index = lines.indexOf(line);
-      drawButton(image, 0, line.y1, image.width, line.height, 'line', index, index);
+    lines.forEach(function(line, idx) {
+      drawButton(image, 0, line.y1, image.width, line.height, 'line', idx, idx);
     });
     //hide the original image with display none
     setCurrentHelp('To select a line, click on the line.  To cancel, click the close tool button.');
@@ -2516,13 +2687,19 @@ Template.viewPage.events({
       return;
     }
     //sort the words by x1
-    words.sort(function(a, b) {
-      return a.x - b.x;
-    });
-    //split the canvas into multiple canvases by word
-    words.forEach(function(word) {
-      index = words.indexOf(word);
-      drawButton(image, word.x, 0, word.width, image.height, 'word', index, index);
+    const positionedWords = (line.words || [])
+
+  .map((word, idx) => ({ word, idx }))
+  .filter(({ word }) =>
+    word &&
+    Number.isFinite(word.x) &&
+    Number.isFinite(word.width) &&
+    word.width > 0
+  )
+  .sort((a, b) => a.word.x - b.word.x);
+
+    positionedWords.forEach(({ word }, displayIdx) => {
+      drawButton(image, word.x, 0, word.width, image.height, 'word', displayIdx, displayIdx);
     });
     //hide the original image with display none
     setCurrentHelp('To select a word, click on the word.  To cancel, click the close tool button.');
@@ -2857,6 +3034,8 @@ Template.viewPage.events({
       clearFlowLineButtons();
       $('#flow').hide();
       $('#simple').show();
+      //simulate a click on profile-tab
+      $('#simple-tab').addClass('active').attr('aria-selected', 'true');
     }
 
     // Remove the tab
@@ -2911,139 +3090,189 @@ Template.viewPage.events({
     $('#createReference').removeClass('btn-light').addClass('btn-dark');
     instance.currentTool.set('createReference');
   },
-  'click #confirmTool'(event, instance) {
-    currentTool = instance.currentTool.get();
-    if(currentTool == 'createLine') {
-      ret = Meteor.callAsync('addLineToPage', instance.currentDocument.get(), instance.currentPage.get(), instance.selectx1.get(), instance.selecty1.get(), instance.selectwidth.get(), instance.selectheight.get());
-      alert("line added");
-      //find the cropper and destroy it
-      $('.cropper-container').remove();
-      $('#pageImage').removeClass('cropper-hidden');
-      
-      // Automatically exit the createLine tool and reset to view mode
-      instance.currentTool.set('view');
-      resetToolbox();
-      replaceWithOriginalImage();
-      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
-    } else if(currentTool == 'createWord') {
-      //document, page, line, x, width, wordOrder=false, word=false
-      ret = Meteor.callAsync('addWordToLine', instance.currentDocument.get(), instance.currentPage.get(), instance.currentLine.get(), instance.selectx1.get(), instance.selectwidth.get());
-      alert("word added");
-      //find the cropper and destroy it
-      $('.cropper-container').remove();
-      $('#pageImage').removeClass('cropper-hidden');
-      
-      // Automatically exit the createWord tool and reset to view mode
-      instance.currentTool.set('view');
-      resetToolbox();
-      replaceWithOriginalImage();
-      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
-      // Ensure we're in line view and the lineImage is visible
-      if (instance.currentView.get() === 'line') {
-        $('#lineImage').show();
-      }
-    } else if(currentTool == 'createPhoneme') {
-      //open the modal
-      instance.currentTool.set('view');
-      resetToolbox();
-      $('.cropper-container').remove();
-      $('#pageImage').removeClass('cropper-hidden');
-      //delete all buttons from the pageImage's parent
-      $('#pageImage').parent().children('button').remove();
-      setCurrentHelp(false);
-      replaceWithOriginalImage();
-      $('#createPhonemeModal').modal('show');
-    } else if(currentTool == 'createGlyph') {
-      //open the modal
-      instance.currentTool.set('view');
-      resetToolbox();
-      $('.cropper-container').remove();
-      $('#pageImage').removeClass('cropper-hidden');
-      //delete all buttons from the pageImage's parent
-      $('#pageImage').parent().children('button').remove();
-      setCurrentHelp(false);
-      replaceWithOriginalImage();
-      
-      $('#createGlyphModal').modal('show');
-      //set glyphcanvas to have the cropped image as its background with 
-      glyphCanvas = document.getElementById('glyphCanvas');
-      glyphCanvas.width = instance.selectwidth.get();
-      glyphCanvas.height = instance.selectheight.get();
-      glyphContext = glyphCanvas.getContext('2d');
-      glyphImage = new Image();
-      glyphImage.src = $('#wordImage').attr('src');
-      glyphImage.onload = function() {
-        glyphContext.drawImage(glyphImage, instance.selectx1.get(), instance.selecty1.get(), instance.selectwidth.get(), instance.selectheight.get(), 0, 0, glyphCanvas.width, glyphCanvas.height);
-      }
-      //renanme the glyphimage Id to glyphImageActual
-      $('#glyphImage').attr('id', 'glyphImageActual');
-      //create a new canvas with the id glyphImageDraw
-      glyphImageDraw = document.createElement('canvas');
-      glyphImageDraw.width = instance.selectwidth.get();
-      glyphImageDraw.height = instance.selectheight.get();
-      glyphImageDraw.id = 'glyphImageDraw';
-      //add a border to the glyphImageDraw
-      glyphImageDraw.style.border = '1px solid black';
-      //append the glyphImageDraw to the parent of the glyphCanvas
-      glyphCanvas.parentNode.appendChild(glyphImageDraw);
-      //set the src of the glyphImage to the dataURL of the glyphCanvas
-      $('#glyphImage').attr('src', glyphCanvas.toDataURL('image/png'));
+'click #confirmTool'(event, instance) {
+  const currentTool = instance.currentTool.get();
 
-    } else if(currentTool == 'createElement') {
-      // Similar approach to the other tools - call the server method to add the element
-      const glyphImage = document.getElementById('glyphImage');
-      const canvas = document.createElement('canvas');
-      canvas.width = instance.selectwidth.get();
-      canvas.height = instance.selectheight.get();
-      const context = canvas.getContext('2d');
-      
-      // Extract the element image from the glyph 
-      context.drawImage(
-        glyphImage, 
-        instance.selectx1.get(),
-        instance.selecty1.get(),
-        instance.selectwidth.get(), 
-        instance.selectheight.get(),
-        0, 0, 
-        canvas.width, canvas.height
+  if (currentTool === 'createLine') {
+    Meteor.callAsync(
+      'addLineToPage',
+      instance.currentDocument.get(),
+      instance.currentPage.get(),
+      instance.selectx1.get(),
+      instance.selecty1.get(),
+      instance.selectwidth.get(),
+      instance.selectheight.get()
+    );
+    alert("line added");
+    $('.cropper-container').remove();
+    $('#pageImage').removeClass('cropper-hidden');
+    instance.currentTool.set('view');
+    resetToolbox();
+    replaceWithOriginalImage();
+    setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
+    return;
+  }
+
+  if (currentTool === 'createWord') {
+    const docId = instance.currentDocument.get();
+    const pageIdx = instance.currentPage.get();
+    const lineIdx = instance.currentLine.get();
+    const x = instance.selectx1.get();
+    const width = instance.selectwidth.get();
+
+    // If a specific word index was selected, update that word's coordinates
+    if (typeof instance.selectedWordIdx === 'number') {
+      const wordIdx = instance.selectedWordIdx;
+      const doc = Documents.findOne({ _id: docId });
+      if (
+        doc &&
+        doc.pages &&
+        doc.pages[pageIdx] &&
+        doc.pages[pageIdx].lines &&
+        doc.pages[pageIdx].lines[lineIdx] &&
+        doc.pages[pageIdx].lines[lineIdx].words &&
+        doc.pages[pageIdx].lines[lineIdx].words[wordIdx]
+      ) {
+        // Update the word's coordinates
+        doc.pages[pageIdx].lines[lineIdx].words[wordIdx].x = x;
+        doc.pages[pageIdx].lines[lineIdx].words[wordIdx].width = width;
+        // Optionally set y/height if needed
+        // doc.pages[pageIdx].lines[lineIdx].words[wordIdx].y = ...;
+        // doc.pages[pageIdx].lines[lineIdx].words[wordIdx].height = ...;
+
+        Meteor.call('modifyDocument', docId, doc, function(error) {
+          if (error) {
+            alert("Error updating word coordinates: " + error.reason);
+          } else {
+            alert("Word coordinates updated");
+          }
+        });
+      } else {
+        alert("Could not find the selected word to update.");
+      }
+      delete instance.selectedWordIdx;
+    } else {
+      // No specific word selected, fallback to old behavior
+      Meteor.callAsync(
+        'addWordToLine',
+        docId,
+        pageIdx,
+        lineIdx,
+        x,
+        width
       );
-      
-      // Get image data
-      const elementImageData = canvas.toDataURL('image/png');
-      
-      // Call modified server method with image data
-      ret = Meteor.callAsync('addElementToGlyph', 
-        instance.currentDocument.get(), 
-        instance.currentPage.get(), 
-        instance.currentLine.get(),
-        instance.currentWord.get(),
-        instance.currentGlyph.get(),
+      alert("word added");
+    }
+
+    $('.cropper-container').remove();
+    $('#pageImage').removeClass('cropper-hidden');
+    instance.currentTool.set('view');
+    resetToolbox();
+    replaceWithOriginalImage();
+    setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the page image.");
+    if (instance.currentView.get() === 'line') {
+      $('#lineImage').show();
+    }
+    return;
+  }
+
+  if (currentTool === 'createPhoneme') {
+    instance.currentTool.set('view');
+    resetToolbox();
+    $('.cropper-container').remove();
+    $('#pageImage').removeClass('cropper-hidden');
+    $('#pageImage').parent().children('button').remove();
+    setCurrentHelp(false);
+    replaceWithOriginalImage();
+    $('#createPhonemeModal').modal('show');
+    return;
+  }
+
+  if (currentTool === 'createGlyph') {
+    instance.currentTool.set('view');
+    resetToolbox();
+    $('.cropper-container').remove();
+    $('#pageImage').removeClass('cropper-hidden');
+    $('#pageImage').parent().children('button').remove();
+    setCurrentHelp(false);
+    replaceWithOriginalImage();
+
+    $('#createGlyphModal').modal('show');
+    // Set up glyph canvas for drawing, etc.
+    const glyphCanvas = document.getElementById('glyphCanvas');
+    glyphCanvas.width = instance.selectwidth.get();
+    glyphCanvas.height = instance.selectheight.get();
+    const glyphContext = glyphCanvas.getContext('2d');
+    const glyphImage = new Image();
+    glyphImage.src = $('#wordImage').attr('src');
+    glyphImage.onload = function() {
+      glyphContext.drawImage(
+        glyphImage,
         instance.selectx1.get(),
         instance.selecty1.get(),
         instance.selectwidth.get(),
         instance.selectheight.get(),
-        elementImageData  // Pass image data
+        0,
+        0,
+        glyphCanvas.width,
+        glyphCanvas.height
       );
-      alert("element added");
-      
-      // Clean up the cropper
-      $('.cropper-container').remove();
-      $('#pageImage').removeClass('cropper-hidden');
-      
-      // Reset to view mode at glyph level
-      instance.currentTool.set('view');
-      resetToolbox();
-      replaceWithOriginalImage();
-      // Make sure we stay in glyph view and the glyphImage is visible
-      if (instance.currentView.get() === 'glyph') {
-        $('#glyphImage').show();
-      }
-      
-      // Reset help text
-      setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the image.");
-    }
+    };
+    $('#glyphImage').attr('id', 'glyphImageActual');
+    const glyphImageDraw = document.createElement('canvas');
+    glyphImageDraw.width = instance.selectwidth.get();
+    glyphImageDraw.height = instance.selectheight.get();
+    glyphImageDraw.id = 'glyphImageDraw';
+    glyphImageDraw.style.border = '1px solid black';
+    glyphCanvas.parentNode.appendChild(glyphImageDraw);
+    $('#glyphImage').attr('src', glyphCanvas.toDataURL('image/png'));
+    return;
+  }
 
-  }, 
+  if (currentTool === 'createElement') {
+    const glyphImage = document.getElementById('glyphImage');
+    const canvas = document.createElement('canvas');
+    canvas.width = instance.selectwidth.get();
+    canvas.height = instance.selectheight.get();
+    const context = canvas.getContext('2d');
+    context.drawImage(
+      glyphImage,
+      instance.selectx1.get(),
+      instance.selecty1.get(),
+      instance.selectwidth.get(),
+      instance.selectheight.get(),
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+    const elementImageData = canvas.toDataURL('image/png');
+    Meteor.callAsync(
+      'addElementToGlyph',
+      instance.currentDocument.get(),
+      instance.currentPage.get(),
+      instance.currentLine.get(),
+      instance.currentWord.get(),
+      instance.currentGlyph.get(),
+      instance.selectx1.get(),
+      instance.selecty1.get(),
+      instance.selectwidth.get(),
+      instance.selectheight.get(),
+      elementImageData
+    );
+    alert("element added");
+    $('.cropper-container').remove();
+    $('#pageImage').removeClass('cropper-hidden');
+    instance.currentTool.set('view');
+    resetToolbox();
+    replaceWithOriginalImage();
+    if (instance.currentView.get() === 'glyph') {
+      $('#glyphImage').show();
+    }
+    setCurrentHelp("You can use [Shift] + Scroll to zoom in and out of the image.");
+    return;
+  }
+},
   //event listners to draw on the glyphImageDraw canvas
   'mousedown #glyphImageDraw'(event, instance) {
     event.preventDefault();
@@ -3100,25 +3329,77 @@ Template.viewPage.events({
     alert("phoneme added");
   },
   'click #confirmGlyph'(event, instance) {
-    event.preventDefault();
-    //get the glyphCanvas
-    glyphCanvas = document.getElementById('glyphCanvas');
-    //get the glyphImageDraw
-    glyphImageDraw = document.getElementById('glyphImageDraw');
-    //get the glyphImageActual
-    //get the image data from the glyphImageDraw and glyphCanvas
-    glyphImageData = glyphImageDraw.toDataURL('image/png');
-    glyphImageDataActual = glyphCanvas.toDataURL('image/png');
-    //submit the glyph addGlyphToWord: function(document, page, line, word, x, width, documentImageData, drawnImageData) {
-    ret = Meteor.callAsync('addGlyphToWord', instance.currentDocument.get(), instance.currentPage.get(), instance.currentLine.get(), instance.currentWord.get(), instance.selectx1.get(), instance.selectwidth.get(), glyphImageDataActual, glyphImageData);
+  event.preventDefault();
+  // Get the glyphCanvas and glyphImageDraw
+  const glyphCanvas = document.getElementById('glyphCanvas');
+  const glyphImageDraw = document.getElementById('glyphImageDraw');
+  const glyphImageData = glyphImageDraw.toDataURL('image/png');
+  const glyphImageDataActual = glyphCanvas.toDataURL('image/png');
+
+  const docId = instance.currentDocument.get();
+  const pageIdx = instance.currentPage.get();
+  const lineIdx = instance.currentLine.get();
+  const wordIdx = instance.currentWord.get();
+  const x = instance.selectx1.get();
+  const width = instance.selectwidth.get();
+
+  // Use the selectedGlyphIdx if set, otherwise fallback to append
+  if (typeof instance.selectedGlyphIdx === 'number') {
+    const glyphIdx = instance.selectedGlyphIdx;
+    const doc = Documents.findOne({ _id: docId });
+    if (
+      doc &&
+      doc.pages &&
+      doc.pages[pageIdx] &&
+      doc.pages[pageIdx].lines &&
+      doc.pages[pageIdx].lines[lineIdx] &&
+      doc.pages[pageIdx].lines[lineIdx].words &&
+      doc.pages[pageIdx].lines[lineIdx].words[wordIdx] &&
+      doc.pages[pageIdx].lines[lineIdx].words[wordIdx].glyphs &&
+      doc.pages[pageIdx].lines[lineIdx].words[wordIdx].glyphs[glyphIdx]
+    ) {
+      // Update the glyph's coordinates and images
+      const glyph = doc.pages[pageIdx].lines[lineIdx].words[wordIdx].glyphs[glyphIdx];
+      glyph.x = x;
+      glyph.width = width;
+      glyph.documentImageData = glyphImageDataActual;
+      glyph.drawnImageData = glyphImageData;
+
+      Meteor.call('modifyDocument', docId, doc, function(error) {
+        if (error) {
+          alert("Error updating glyph coordinates: " + error.reason);
+        } else {
+          alert("Glyph coordinates updated");
+        }
+      });
+    } else {
+      alert("Could not find the selected glyph to update.");
+    }
+    delete instance.selectedGlyphIdx;
+  } else {
+    // No specific glyph selected, fallback to old behavior (append)
+    Meteor.callAsync(
+      'addGlyphToWord',
+      docId,
+      pageIdx,
+      lineIdx,
+      wordIdx,
+      x,
+      width,
+      glyphImageDataActual,
+      glyphImageData
+    );
     alert("glyph added");
-    // Set a flag to indicate successful save before hiding the modal
-    Session.set('glyphSaved', true);
-    //close the modal and destroy the glyphImageDraw
-    $('#createGlyphModal').modal('hide');
-    // Remove ALL instances of glyphImageDraw
-    $('[id="glyphImageDraw"]').remove();
-  },
+  }
+
+  // Set a flag to indicate successful save before hiding the modal
+  Session.set('glyphSaved', true);
+  // Close the modal and destroy the glyphImageDraw
+  $('#createGlyphModal').modal('hide');
+  // Remove ALL instances of glyphImageDraw
+  $('[id="glyphImageDraw"]').remove();
+},
+
   // Event handler for when the Create Glyph modal is hidden (after cancel or close button clicked)
   'hidden.bs.modal #createGlyphModal'(event, instance) {
     console.log("Create Glyph modal was closed");
@@ -3170,102 +3451,141 @@ Template.viewPage.events({
   });
 },
 
+'click #createLine'(event, instance) {
+  event.preventDefault();
+  console.log("createLine, drawing is " + instance.drawing.get());
+  $('#createLine').removeClass('btn-light').addClass('btn-dark');
+  instance.currentTool.set('createLine');
+  resetToolbox();
 
-  'click #createLine'(event, instance) {
-    event.preventDefault();
-    console.log("createLine, drawing is " + instance.drawing.get());
-    //disable all buttons in the toolbox-container
-    //set the currentTool to btn-dark
-    $('#createLine').removeClass('btn-light').addClass('btn-dark');
-    instance.currentTool.set('createLine');
-    resetToolbox();
-    image = initCropper('page');
-    //draw all bounding boxes from the page
-    const context = image.getContext('2d');
-    const page = instance.currentPage.get();
-    const documentId = instance.currentDocument.get();
-    const lines = Documents.findOne({_id: documentId}).pages[page].lines;
-    //sort the lines by y1
-    lines.sort(function(a, b) {
-      return a.y1 - b.y1;
+  const page = instance.currentPage.get();
+  const documentId = instance.currentDocument.get();
+  const doc = Documents.findOne({_id: documentId});
+  const lines = doc.pages[page].lines || [];
+
+  setCurrentHelp('To create a bounding box to represent a line in the document, use the cropping bounds to select the area of the page that contains the line. Hit Enter to confirm the selection. To cancel, click the close tool button.');
+
+  // Draw all bounding boxes from the page
+  const image = initCropper('page');
+  const context = image.getContext('2d');
+  // Sort lines by y1 for display
+  lines.sort(function(a, b) {
+    return (a.y1 || 0) - (b.y1 || 0);
+  });
+  lines.forEach(function(line) {
+    const index = lines.indexOf(line);
+    drawRect(image, 0, line.y1 || 0, image.width, line.height || 20, 'line', index, index);
+  });
+
+  // Set up the cropper for the user to draw a new line
+  image.style.display = 'block';
+  image.style.maxWidth = '100%';
+  let cropDetails = {};
+  const cropper = new Cropper(image, {
+    dragMode: 'crop',
+    aspectRatio: 0,
+    crop(event) {
+      cropDetails = event.detail;
+      instance.selectx1.set(cropDetails.x);
+      instance.selecty1.set(cropDetails.y);
+      instance.selectwidth.set(cropDetails.width);
+      instance.selectheight.set(cropDetails.height);
+    }
+  });
+  // Optionally, set an initial crop box position
+  if (lines.length > 0) {
+    cropper.setCropBoxData({
+      left: 0,
+      top: lines[lines.length - 1].y2 || 0,
+      width: image.width,
+      height: 20
     });
-    lines.forEach(function(line) {
-      console.log("drawing line");
-      index = lines.indexOf(line);
-      drawRect(image, 0, line.y1, image.width, line.height, 'line', index, index);
+  }
+  // Store the cropper instance for cleanup
+  instance.cropper.set(cropper);
+},
+
+'click #createWord'(event, instance) {
+  event.preventDefault();
+  console.log("createWord, drawing is " + instance.drawing.get());
+  $('#createWord').removeClass('btn-light').addClass('btn-dark');
+  instance.currentTool.set('createWord');
+  resetToolbox();
+
+  // NEW: Check for words without x coordinate
+  const page = instance.currentPage.get();
+  const documentId = instance.currentDocument.get();
+  const doc = Documents.findOne({_id: documentId});
+  const lineId = instance.currentLine.get();
+  const line = doc.pages[page].lines[lineId];
+  const words = line.words;
+
+  // Gather all words in this line that are missing x coordinate
+  let unpositionedWords = [];
+  words.forEach((word, wordIdx) => {
+    if (word && (word.x === undefined || word.x === null)) {
+      unpositionedWords.push({
+        wordIdx,
+        transcription: word.transcription || '',
+      });
+    }
+  });
+
+  if (unpositionedWords.length > 0) {
+    // Prompt user to select which word index to create the bounding box for
+    let promptMsg = "There are words without a position. Select the word index to create the bounding box for:\n";
+    unpositionedWords.forEach((w, i) => {
+      promptMsg += `[${i + 1}] Word ${w.wordIdx + 1}: "${w.transcription}"\n`;
     });
-    setCurrentHelp('To create a bounding box to represent a line in the document, use the cropping bounds to select the area of the page that contains the line. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
-    //se the image css to display block and max-width 100%
-    image.style.display = 'block';
-    image.style.maxWidth = '100%';   
-    //create a cropper object for the pageImage
-    cropDetails = {};
-    //add a event listener for hitting the enter key, which will confirm the selection
-    const cropper = new Cropper(image, {
-      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
-      dragMode: 'crop',
-      aspectRatio: 0,
-      crop(event) {
-        cropDetails = event.detail;
-        instance.selectx1.set(cropDetails.x);
-        instance.selecty1.set(cropDetails.y);
-        instance.selectwidth.set(cropDetails.width);
-        instance.selectheight.set(cropDetails.height);
-      }
-    });
-    cropper.setCropBoxData({left: 0, top: lines[lines.length - 1].y2, width: image.width, height: 20});
-  },
-  'click #createWord'(event, instance) {
-    event.preventDefault();
-    console.log("createWord, drawing is " + instance.drawing.get());
-    //disable all buttons in the toolbox-container
-    //set the currentTool to btn-dark
-    $('#createWord').removeClass('btn-light').addClass('btn-dark');
-    instance.currentTool.set('createWord');
-    resetToolbox();
-    image = initCropper('line');
-    //draw all bounding boxes from the line
-    const context = image.getContext('2d');
-    const page = instance.currentPage.get();
-    const documentId = instance.currentDocument.get();
-    const doc = Documents.findOne({_id: documentId});
-    const lineId = instance.currentLine.get();
-    const line = doc.pages[page].lines[lineId];
-    const words = line.words;
-    //sort the words by x1
-    words.sort(function(a, b) {
-      return a.x - b.x;
-    });
-    words.forEach(function(word) {
-      console.log("drawing word");
-      index = words.indexOf(word);
-      drawRect(image, word.x, 0, word.width, image.height, 'word', index, index);
-    });
+    const userInput = prompt(promptMsg + "Enter the number for the word (1-based):");
+    const selected = parseInt(userInput, 10) - 1;
+    if (isNaN(selected) || selected < 0 || selected >= unpositionedWords.length) {
+      alert("Invalid selection. Please try again.");
+      return;
+    }
+    // Store the selected word index for later use (e.g., in confirm handler)
+    instance.selectedWordIdx = unpositionedWords[selected].wordIdx;
+    setCurrentHelp('Now create a bounding box for the selected word. Hit Enter to confirm.');
+  } else {
     setCurrentHelp('To create a bounding box to represent a word in the document, use the cropping bounds to select the area of the page that contains the word. Hit Enter to confirm the selection.  To cancel, click the close tool button.');
-    //se the image css to display block and max-width 100%
-    image.style.display = 'block';
-    image.style.maxWidth = '100%';
-    //create a cropper object for the pageImage
-    cropDetails = {};
-    //add a event listener for hitting the enter key, which will confirm the selection
-    const cropper = new Cropper(image, {
-      //initial x position is 0, y is the last line's y2, width is the image's width, height is 20px
-      dragMode: 'crop',
-      aspectRatio: 0,
-      // Set a higher zIndex to ensure the cropper appears above other elements
-      zIndex: 9999,
-      crop(event) {
-        cropDetails = event.detail;
-        instance.selectx1.set(cropDetails.x);
-        instance.selecty1.set(cropDetails.y);
-        instance.selectwidth.set(cropDetails.width);
-        instance.selectheight.set(cropDetails.height);
-      }
-    });
-    // Store the cropper instance to properly clean it up later
-    instance.cropper.set(cropper);
-    cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
-  },
+  }
+
+  image = initCropper('line');
+  const context = image.getContext('2d');
+  //sort the words by x1
+
+const positionedWords = words
+  .map((word, idx) => ({ word, idx }))
+  .filter(({ word }) =>
+    word &&
+    Number.isFinite(word.x) &&
+    Number.isFinite(word.width) &&
+    word.width > 0
+  )
+  .sort((a, b) => a.word.x - b.word.x);
+
+positionedWords.forEach(({ word }, displayIdx) => {
+  drawButton(image, word.x, 0, word.width, image.height, 'word', displayIdx, displayIdx);
+});
+  image.style.display = 'block';
+  image.style.maxWidth = '100%';
+  cropDetails = {};
+  const cropper = new Cropper(image, {
+    dragMode: 'crop',
+    aspectRatio: 0,
+    zIndex: 9999,
+    crop(event) {
+      cropDetails = event.detail;
+      instance.selectx1.set(cropDetails.x);
+      instance.selecty1.set(cropDetails.y);
+      instance.selectwidth.set(cropDetails.width);
+      instance.selectheight.set(cropDetails.height);
+    }
+  });
+  instance.cropper.set(cropper);
+  cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
+},
+// ...existing code...
   'click #createPhoneme'(event, instance) {
     event.preventDefault();
     console.log("createPhoneme, drawing is " + instance.drawing.get());
@@ -3318,45 +3638,85 @@ Template.viewPage.events({
     });
     cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
   },
-  'click #createGlyph'(event, instance) {
-    event.preventDefault();
-    console.log("createGlyph, drawing is " + instance.drawing.get());
-    $('#createGlyph').removeClass('btn-light').addClass('btn-dark');
-    instance.currentTool.set('createGlyph');
-    resetToolbox();
+'click #createGlyph'(event, instance) {
+  event.preventDefault();
+  console.log("createGlyph, drawing is " + instance.drawing.get());
+  $('#createGlyph').removeClass('btn-light').addClass('btn-dark');
+  instance.currentTool.set('createGlyph');
+  resetToolbox();
 
-    const image = initCropper('word');
-    const context = image.getContext('2d');
-    const page = instance.currentPage.get();
-    const documentId = instance.currentDocument.get();
-    const doc = Documents.findOne({_id: documentId});
-    const lineId = instance.currentLine.get();
-    const wordId = instance.currentWord.get();
-    const word = doc.pages[page].lines[lineId].words[wordId];
+  const page = instance.currentPage.get();
+  const documentId = instance.currentDocument.get();
+  const doc = Documents.findOne({ _id: documentId });
+  const lineId = instance.currentLine.get();
+  const wordId = instance.currentWord.get();
+  const word = doc.pages[page].lines[lineId].words[wordId];
+  const glyphs = word.glyphs || word.glyph || [];
 
-    const glyphs = word.glyphs || word.glyph || [];
-    glyphs.sort((a, b) => a.x - b.x);
-    glyphs.forEach(function(g, index) {
-      console.log("drawing glyph");
-      drawRect(image, g.x, 0, g.width, image.height, 'glyph', index, index);
+  // Gather all glyphs in this word that are missing x or width
+  let unpositionedGlyphs = [];
+  glyphs.forEach((glyph, glyphIdx) => {
+    if (glyph && (glyph.x === undefined || glyph.x === null || glyph.width === undefined || glyph.width === null)) {
+      unpositionedGlyphs.push({
+        glyphIdx,
+        keybind: glyph.keybind || '',
+      });
+    }
+  });
+
+  if (unpositionedGlyphs.length > 0) {
+    let promptMsg = "There are glyphs without a position. Select the glyph index to create the bounding box for:\n";
+    unpositionedGlyphs.forEach((g, i) => {
+      promptMsg += `[${i + 1}] Glyph ${g.glyphIdx + 1}: "${g.keybind}"\n`;
     });
+    const userInput = prompt(promptMsg + "Enter the number for the glyph (1-based):");
+    const selected = parseInt(userInput, 10) - 1;
+    if (isNaN(selected) || selected < 0 || selected >= unpositionedGlyphs.length) {
+      alert("Invalid selection. Please try again.");
+      return;
+    }
+    // Store the selected glyph index for later use (e.g., in confirm handler)
+    instance.selectedGlyphIdx = unpositionedGlyphs[selected].glyphIdx;
+    setCurrentHelp('Now create a bounding box for the selected glyph. Hit Enter to confirm.');
+  } else {
+    setCurrentHelp('To create a bounding box for a glyph, use the cropping bounds to select the area. Hit Enter to confirm. To cancel, click the close tool button.');
+  }
 
-    setCurrentHelp('To create a bounding box for a new glyph, use the selection. Hit Enter to confirm or close to cancel.');
-    image.style.display = 'block';
-    image.style.maxWidth = '100%';
+  const image = initCropper('word');
+  const context = image.getContext('2d');
 
-    const cropper = new Cropper(image, {
-      dragMode: 'crop',
-      aspectRatio: 0,
-      crop(event) {
-        const cropDetails = event.detail;
-        instance.selectx1.set(cropDetails.x);
-        instance.selecty1.set(cropDetails.y);
-        instance.selectwidth.set(cropDetails.width);
-        instance.selectheight.set(cropDetails.height);
-      }
-    });
-  },
+  // Only draw overlays for glyphs with valid positions
+  const positionedGlyphs = glyphs
+    .map((glyph, idx) => ({ glyph, idx }))
+    .filter(({ glyph }) =>
+      glyph &&
+      Number.isFinite(glyph.x) &&
+      Number.isFinite(glyph.width) &&
+      glyph.width > 0
+    )
+    .sort((a, b) => a.glyph.x - b.glyph.x);
+
+  positionedGlyphs.forEach(({ glyph }, displayIdx) => {
+    drawRect(image, glyph.x, 0, glyph.width, image.height, 'glyph', displayIdx, displayIdx);
+  });
+
+  image.style.display = 'block';
+  image.style.maxWidth = '100%';
+
+  const cropper = new Cropper(image, {
+    dragMode: 'crop',
+    aspectRatio: 0,
+    crop(event) {
+      const cropDetails = event.detail;
+      instance.selectx1.set(cropDetails.x);
+      instance.selecty1.set(cropDetails.y);
+      instance.selectwidth.set(cropDetails.width);
+      instance.selectheight.set(cropDetails.height);
+    }
+  });
+  instance.cropper.set(cropper);
+  cropper.setCropBoxData({left: 0, top: 0, width: image.width, height: image.height});
+},
   'click #createElement'(event, instance) {
     event.preventDefault();
     console.log("DEBUG: createElement click handler - start");
@@ -3667,6 +4027,16 @@ Template.viewPage.events({
     if (!isNaN(pageIndex)) {
       // Set current page (0-indexed internally)
       instance.currentPage.set(pageIndex);
+
+      // Always close flow view and activate Simple tab
+      $('#flow').hide();
+      $('#simple').show();
+      instance.currentView.set('simple');
+      $('#simple-tab').addClass('active').attr('aria-selected', 'true');
+      // Remove active from other nav tabs if needed
+      $('.open-tab').removeClass('active').attr('aria-selected', 'false');
+      $('#simple-tab').addClass('active').attr('aria-selected', 'true');
+
       
       // Update the page image
       const documentId = instance.currentDocument.get();
@@ -4210,7 +4580,7 @@ function drawFlowLineButtons(instance) {
   if (!page.lines || !page.image) return;
 
   // Wait for the image to be loaded and visible
-  const $img = $('#flow .image-container #pageImage');
+  const $img = $('#flow .image-container #pageImageFlow');
   if (!$img.length) return;
 
   // Remove any previous overlays
@@ -4275,10 +4645,20 @@ function drawButton(imageOrCanvas, x, y, width, height, type, text, id) {
   button.setAttribute('data-id', id);
   button.setAttribute('data-type', type);
 
+  // Get the offset of the canvas/image within its parent
+  let offsetLeft = 0, offsetTop = 0, marginTop = 0;
+  if (imageOrCanvas instanceof HTMLCanvasElement || imageOrCanvas instanceof HTMLImageElement) {
+    const rect = imageOrCanvas.getBoundingClientRect();
+    const parentRect = imageOrCanvas.parentNode.getBoundingClientRect();
+    offsetLeft = rect.left - parentRect.left;
+    offsetTop = rect.top - parentRect.top;
+    marginTop = parseInt(imageOrCanvas.style.marginTop || 0, 10) || 0;
+  }
+
   // Position and size the button
   button.style.position = 'absolute';
   button.style.left = (x * xScaling) + 'px';
-  button.style.top = (y * yScaling) + 'px';
+  button.style.top = ((y * yScaling) + marginTop) + 'px'; // <-- FIXED LINE
   button.style.width = (width * xScaling) + 'px';
   button.style.height = (height * yScaling) + 'px';
 
@@ -4536,4 +4916,137 @@ function parseNodeId(nodeId) {
   }
   
   return { nodeType, path };
+}
+function updateFlowInputs(instance, fontUrl) {
+  const documentId = instance.currentDocument.get && instance.currentDocument.get();
+  const currentPage = instance.currentPage.get && instance.currentPage.get();
+  const doc = instance.flowDocument && instance.flowDocument.get() || Documents.findOne({_id: documentId});
+  const fontSelector = $('#fontSelector').val();
+
+  // Detect if a custom font is selected
+  const isCustomFont = fontSelector && fontSelector !== 'ipa' && fontSelector !== 'transcription';
+
+  if (doc && doc.pages && doc.pages[currentPage] && doc.pages[currentPage].lines) {
+    doc.pages[currentPage].lines.forEach((line, lineIdx) => {
+      if (!line.words) return;
+      let lineText = '';
+      if (fontSelector && fontSelector.trim().toLowerCase() === 'ipa') {
+        // IPA mode: show IPA, fallback to keybind in red
+        lineText = line.words.map(word => {
+          if (!word.glyphs) return '';
+          return word.glyphs.map(glyph => {
+            if (glyph.ipa && glyph.ipa.trim() !== '') {
+              return glyph.ipa;
+            } else if (glyph.keybind) {
+              return `<span style="color:red">${glyph.keybind}</span>`;
+            } else {
+              return '';
+            }
+          }).join('');
+        }).join(' ');
+        $(`div.transcriptionInputDisplay[data-id="${lineIdx}"]`).html(lineText);
+        $(`input[data-id="${lineIdx}"]`).hide();
+        $(`div.transcriptionInputDisplay[data-id="${lineIdx}"]`).show();
+        $(`button.speak-ipa-btn[data-id="${lineIdx}"]`).show();
+      } else if (fontSelector === 'transcription') {
+        // Transcription mode: show transcription, fallback to keybind in red
+          lineText = line.words.map(word => {
+          if (word.glyphs && word.glyphs.length) {
+            return word.glyphs.map(glyph =>
+              glyph.transcription && glyph.transcription.trim() !== ''
+                ? glyph.transcription
+                : `<span style="color:red">${glyph.keybind || ''}</span>`
+            ).join('');
+          } else {
+            return '';
+          }
+        }).join(' ');
+        $(`div.transcriptionInputDisplay[data-id="${lineIdx}"]`).html(lineText);
+        $(`input[data-id="${lineIdx}"]`).hide();
+        $(`div.transcriptionInputDisplay[data-id="${lineIdx}"]`).show();
+        $(`button.speak-ipa-btn[data-id="${lineIdx}"]`).hide();
+      } else if (isCustomFont) {
+        // Custom font: show transcription in input, apply custom font
+        lineText = line.words.map(word => {
+          if (word.glyphs && word.glyphs.length) {
+            return word.glyphs.map(glyph =>
+              glyph.transcription && glyph.transcription.trim() !== ''
+                ? glyph.transcription
+                : glyph.keybind || ''
+            ).join('');
+          } else {
+            return '';
+          }
+        }).join(' ');
+        const $input = $(`input[data-id="${lineIdx}"]`);
+        $input.val(lineText).show();
+        $input.addClass('custom-font');
+        $input.css('font-family', ''); // Let .custom-font CSS apply the font
+        $(`div.transcriptionInputDisplay[data-id="${lineIdx}"]`).hide();
+        $(`button.speak-ipa-btn[data-id="${lineIdx}"]`).hide();
+        // Custom font: show transcription if present, else keybind
+        lineText = line.words.map(word => {
+          if (word.glyphs && word.glyphs.length) {
+            return word.glyphs.map(glyph =>
+              glyph.transcription && glyph.transcription.trim() !== ''
+                ? glyph.transcription
+                : glyph.keybind || ''
+            ).join('');
+          } else {
+            return '';
+          }
+        }).join(' ');
+      } else {
+        // Default font (blank): show transcription in input, remove custom font
+        lineText = line.words.map(word => {
+          if (word.glyphs && word.glyphs.length) {
+            return word.glyphs.map(glyph =>
+              glyph.transcription && glyph.transcription.trim() !== ''
+                ? glyph.transcription
+                : glyph.keybind || ''
+            ).join('');
+          } else {
+            return '';
+          }
+        }).join(' ');
+        const $input = $(`input[data-id="${lineIdx}"]`);
+        $input.val(lineText).show();
+        $input.removeClass('custom-font');
+        $input.css('font-family', ''); // Reset to system default
+        $(`div.transcriptionInputDisplay[data-id="${lineIdx}"]`).hide();
+        $(`button.speak-ipa-btn[data-id="${lineIdx}"]`).hide();
+      }
+    });
+  }
+
+  // Remove any dynamically added custom font <style> tags if selector is blank
+  if (!fontSelector) {
+    $("style").filter(function() {
+      return $(this).text().includes("@font-face") && $(this).text().includes("customFont-");
+    }).remove();
+  }
+
+  // Destroy the on-screen keyboard if no custom font is selected
+  if (!isCustomFont) {
+    $('.keyboard').empty();
+  }
+}
+function findDocGlyph(doc, unicode, keybind) {
+  if (!doc || !doc.pages) return null;
+  for (const page of doc.pages) {
+    if (!page.lines) continue;
+    for (const line of page.lines) {
+      if (!line.words) continue;
+      for (const word of line.words) {
+        if (!word.glyphs) continue;
+        for (const glyph of word.glyphs) {
+          if ((unicode && glyph.unicode === unicode) ||
+              (keybind && glyph.keybind === keybind)) {
+            return glyph;
+          }
+        }
+      }
+    }
+  }
+  return null;
 }
